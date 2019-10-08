@@ -1,0 +1,13 @@
+config MALI400_UMPLOCK
+	tristate "UMP lock support"
+	depends on MALI400
+	---help---
+	  This enables support for the umplock which enable cross-process UMP or
+	  dma_buf memory synchronization by holding a system-wide lock for each
+	  unique UMP handle or dma_buf name.
+
+	  umplock can be useful if you have a system where there is no buffer
+	  manager between your compositor and your applications, or for sharing
+	  native pixmap data between processes.
+
+	  Say Y here if your SoC contains a Mali 450 MP GPU;

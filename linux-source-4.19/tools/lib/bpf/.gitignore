@@ -1,0 +1,3 @@
+libbpf_version.h
+libbpf.pc
+FEATURE-DUMP.libbpf

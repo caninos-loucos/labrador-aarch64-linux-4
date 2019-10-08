@@ -1,0 +1,5 @@
+atc260x-objs := atc260x-core.o atc260x-i2c.o atc260x-ex-api.o
+atc260x-objs += atc260x-auxadc.o atc260x-pstore.o atc260x-cmu.o
+obj-$(CONFIG_MFD_ATC260X)	+= atc260x.o
+
+

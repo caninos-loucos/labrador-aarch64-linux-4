@@ -1,0 +1,29 @@
+###
+#
+#Name: install
+#Description: Tools needed for compile this kernel
+#Author: Igor Ruschi Andrade E Lima
+#Date: 10/08/2019
+#
+###
+
+Install make;
+
+$ apt-get install build-essential
+
+Install Bison;
+
+$ apt-get install bison
+
+Install Flex;
+
+$ apt-get install flex
+
+Install ARM64 cross-compile;
+
+$ apt-get install gcc-aarch64-linux-gnu 
+
+Install package dependencies;
+
+$ apt-get install build-essential autoconf libtool cmake pkg-config git python-dev swig3.0 libpcre3-dev nodejs-dev
+

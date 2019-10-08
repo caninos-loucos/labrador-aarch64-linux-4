@@ -1,0 +1,6 @@
+config CLK_CANINOS
+	bool "Clock driver for Caninos Labrador SoCs"
+	depends on ARCH_CANINOS || COMPILE_TEST
+	select REGMAP_MMIO
+	select RESET_CONTROLLER
+	default ARCH_CANINOS

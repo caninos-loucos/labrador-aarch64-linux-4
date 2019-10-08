@@ -1,0 +1,21 @@
+#
+# Actions usb2.0 controllers configuration
+#
+
+config USB_CANINOS
+	tristate "Actions usb2.0 otg support"
+	#default y
+	---help---
+	  The Actions chips have USB2.0 otg controllers. Enable
+	  this option if your board uses this chip. If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called aotg.
+
+config USB_CANINOS_HCD
+	tristate "Actions usb2.0 HCD support"
+	depends on USB_CANINOS
+	#default y
+	---help---
+	  The Actions USB2.0 otg controllers have USB2.0 host controllers. Enable
+	  this option if your board uses this chip. If unsure, say N.

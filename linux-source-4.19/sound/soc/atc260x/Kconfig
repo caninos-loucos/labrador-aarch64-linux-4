@@ -1,0 +1,22 @@
+config SND_SOC_ACT_CANINOS
+	tristate
+	depends on SND_SOC
+
+config SND_SOC_ACT_2603C
+	tristate
+	depends on SND_SOC_ACT_CANINOS
+
+config SND_SOC_ACT_2603C_I2C
+	tristate
+	depends on SND_SOC_ACT_CANINOS
+
+config SND_SOC_ACT_ALL_PMU_CANINOS
+	tristate "SoC Audio support for all Caninos Labrador boards"
+	select SND_SOC_ACT_CANINOS
+	select SND_SOC_ACT_2603C_I2C
+	select SND_SOC_ACT_2603C
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+	help
+	  Say Y if you want to add support for SoC audio on 
+	  Caninos Labrador board.
+
