@@ -25,5 +25,5 @@ $ apt-get install gcc-aarch64-linux-gnu
 
 Install package dependencies;
 
-$ apt-get install build-essential autoconf libtool cmake pkg-config git python-dev swig3.0 libpcre3-dev nodejs-dev
+$ apt-get install build-essential autoconf libtool cmake pkg-config git python-dev swig3.0 libpcre3-dev nodejs-dev libssl-dev
 
