@@ -1,65 +1,64 @@
 # labrador-linux-64
 Linux 4 for Caninos Labrador V3
 
-@What is about?
->This repository has 64bits linux kernel for Labrador, actually working with kernel 4.19.37.
+@What is all about?
+>This repository contains the source code of Labrador's 64bits linux kernel (version 4.19.37).
 
->Boards newlest than LABRADOR CORE v3.0 should work fine with the kernel.
+>Boards newer than LABRADOR CORE v3.0 should work fine with this kernel!
 
 @What is needed?
->To be properly compiled, could be necessary some tools, please read the 'install' file in this repository.
+>Some tools are necessary for compilation, please read the 'install' file in this repository.
 
 @How to compile?
->To compile this Kernel, once that you are in this path, just run make from terminal.
+>Clone the git repository, go to the main path and run make from your favourite terminal.
 
 $ make
 
-@How to do an incremental compilation?
->To incremental compilation just run from terminal;
+@How can I execute an "incremental" build?
+>Just execute the command below;
 
 $ make kernel
 
-@How to transfer the compiled kernel to the board?
+@How to choose what modules are compiled in?
+>Just execute the command below;
 
->If the compilation is complete with success, the compiled kernel should be avaliable at path /build/
+$ make menuconfig
 
->Update the modules in Labrador;
+@How to transfer the compiled kernel to my board?
+
+>After a successful build, the kernel should be avaliable at output folder.
+
+>The modules are located at output/lib/modules. Copy them to the folder /lib/modules at your Linux system's root.
 
 $ sudo rm -r /lib/modules
-$ sudo cp -r /src/build/lib/modules /lib/
+$ sudo cp -r output/lib/modules /lib/modules
 
->Update the Image file in Labrador
+>Copy the Image file to /boot/ folder.
 
-$ sudo rm /media/caninos/FA82-D061/Image
-$ cp /src/build/Image /media/caninos/FA82-D061/
+$ sudo rm /boot/Image
+$ cp output/Image /boot/Image
 
->Update device tree files in Labrador
+>Copy device tree files to /boot/ folder.
 
-$ rm /media/caninos/FA82-D061/v3emmc.dtb
-$ rm /media/caninos/FA82-D061/v3sdc.dtb
-$ cp /src/build/v3emmc.dtb /media/caninos/FA82-D061/
-$ cp /src/build/v3sdc.dtb /media/caninos/FA82-D061/
+$ rm /boot/v3emmc.dtb
+$ rm /boot/v3sdc.dtb
+$ cp output/v3emmc.dtb /boot/v3emmc.dtb
+$ cp output/v3sdc.dtb /boot/v3sdc.dtb
 
-*/src/ is always the path where the folder or files are.
+@How update the Bootloader?
 
-@How change/update the Bootloader?
+>To update in SD card or a mounted image use;
 
->To change in SD card use;
+$ sudo dd if=bootloader.bin of=/dev/*DEVNAME* conv=notrunc seek=1 bs=512
+>*DEVNAME* is where your sd card or disk image is mounted on system. You can use lsblk, for example, to know yours.
 
-$ sudo dd if=/src/bootloader.bin of=/dev/*SDCARD* conv=notrunc seek=1 bs=512
->*SDCARD* is where your sd card is mounted on system, use lsblk for example to know yours.
+>To update in a live linux system use;
 
->To change in Labrador use;
+$ sudo dd if=bootloader.bin of=/dev/mmcblk2 conv=notrunc seek=1 bs=512
 
-$ sudo dd if=/src/bootloader.bin of=/dev/mmcblk2 conv=notrunc seek=1 bs=512
-
-
->*/src/ is always the path where the folder or files are.
-
-@where find more about Caninos Loucos and Labrador?
+@where to find out more about Caninos Loucos and Labrador?
 
 >Access the forum https://forum.caninosloucos.org.br/
+
 >Access our site https://caninosloucos.org/pt/
-
-
 
