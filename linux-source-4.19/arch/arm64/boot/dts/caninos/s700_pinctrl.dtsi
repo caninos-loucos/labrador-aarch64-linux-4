@@ -1,19 +1,20 @@
 
 / {
-
+	soc {
+	
 	pinctrl@e01b0000 {
-		compatible = "actions,s700-pinctrl";
-		reg = <0 0xe01b0000 0 0x1000>;
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&state_default>;
-		
-		clocks = <&cmu CLK_GPIO>;
-		clock-names = "mfp";
-		
-		state_default: pinctrl_default {
-		};
-		
+			compatible = "actions,s700-pinctrl";
+			reg = <0 0xe01b0000 0 0x1000>;
+			
+			pinctrl-names = "default";
+			pinctrl-0 = <&state_default>;
+	
+			clocks = <&cmu CLK_GPIO>;
+			clock-names = "mfp";
+	
+			state_default: pinctrl_default {
+			};
+			
 		serial0_state_default: serial0_default{
 			serial_0{
 				actions,groups = "mfp2_2_0","mfp3_21_19";
@@ -179,4 +180,6 @@
 			};
 		};
 	};
+	};
 };
+

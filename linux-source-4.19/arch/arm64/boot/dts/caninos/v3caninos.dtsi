@@ -1,0 +1,626 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/caninos-clk.h>
+#include <dt-bindings/reset/caninos-rst.h>
+#include <dt-bindings/dma/caninos-dma.h>
+
+/ {
+	compatible = "caninos,k7";
+	model = "Caninos Labrador 7";
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+	
+	aliases {
+		serial3 = &uart3;
+		
+		gpio0 = &gpioa;
+		gpio1 = &gpiob;
+		gpio2 = &gpioc;
+		gpio3 = &gpiod;
+		gpio4 = &gpioe;
+		
+		mmc0 = &mmc0;
+		mmc1 = &mmc1;
+		mmc2 = &mmc2;
+		
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+	};
+	
+	chosen {
+		stdout-path = "serial3:115200n8";
+	};
+	
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x0 0x0 0x80000000>;
+	};
+	
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		
+		/* reserve 16MB for secure monitor */
+		secmon@1f000000 {
+			reg = <0x0 0x1f000000 0x0 0x1000000>;
+			no-map;
+		};
+		
+		/* reserve 48MB for framebuffer */
+		fb_reserved: framebuffer@19000000 {
+			reg = <0x0 0x19000000 0x0 0x3000000>;
+			no-map;
+		};
+	};
+	
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x0>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0x1f000020>;
+			next-level-cache = <&L2>;
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x1>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0x1f000020>;
+			next-level-cache = <&L2>;
+		};
+
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x2>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0x1f000020>;
+			next-level-cache = <&L2>;
+		};
+
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x3>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0x1f000020>;
+			next-level-cache = <&L2>;
+		};
+	};
+	
+	L2: l2-cache {
+		compatible = "cache";
+		cache-level = <2>;
+	};
+	
+	pmu {
+		compatible = "arm,cortex-a53-pmu";
+		interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
+		             <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>,
+		             <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>,
+		             <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-affinity = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
+	};
+	
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+		             <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+		             <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+		             <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>;
+		clock-frequency = <24000000>;
+	};
+	
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		
+		cmu: clock-controller@e0168000 {
+			compatible = "caninos,k7-cmu";
+			reg = <0x0 0xe0168000 0x0 0xa8>,
+			      <0x0 0xe01680b0 0x0 0x14>;
+			#clock-cells = <1>;
+			status = "okay";
+		};
+		
+		gic: interrupt-controller@e00f1000 {
+			compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
+			#interrupt-cells = <3>;
+			#address-cells = <0>;
+			interrupt-controller;
+			reg = <0x0 0xe00f1000 0x0 0x1000>,
+				  <0x0 0xe00f2000 0x0 0x2000>,
+				  <0x0 0xe00f4000 0x0 0x2000>,
+				  <0x0 0xe00f6000 0x0 0x2000>;
+			interrupts = <GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_HIGH)>;
+		};
+		
+		sirq: interrupt-controller@e01b0000 {
+			compatible = "caninos,k7-sirq";
+			reg = <0 0xe01b0000 0 0x1000>;
+			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>,
+				         <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>,
+				         <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			status = "okay";
+		};
+		
+		rst: reset-controller@e01680a8 {
+			compatible = "caninos,k7-reset";
+			reg = <0x0 0xe01680a8 0x0 0x08>;
+			#reset-cells = <1>;
+			status = "okay";
+		};
+		
+		dma: dma-controller@e0230000 {
+			compatible = "caninos,k7-dma";
+			reg = <0 0xe0230000 0 0x1000>;
+			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			dma-channels = <10>; /* physical dma channels */
+			dma-requests = <46>; /* virtual dma channels */			
+			clocks = <&cmu CLK_DMAC>;
+			clock-names = "dmac";
+			status = "okay";
+		};
+		
+		gpioa: gpioa@e01b0000 {
+			compatible = "actions,s700-gpio";
+			reg = <0 0xe01b0000 0 0x1000>;
+			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
+		
+		gpiob: gpiob@e01b0000 {
+			compatible = "actions,s700-gpio";
+			reg = <0 0xe01b0000 0 0x1000>;
+			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
+		
+		gpioc: gpioc@e01b0000 {
+			compatible = "actions,s700-gpio";
+			reg = <0 0xe01b0000 0 0x1000>;
+			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
+		
+		gpiod: gpiod@e01b0000 {
+			compatible = "actions,s700-gpio";
+			reg = <0 0xe01b0000 0 0x1000>;
+			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
+		
+		gpioe: gpioe@e01b0000 {
+			compatible = "actions,s700-gpio";
+			reg = <0 0xe01b0000 0 0x1000>;
+			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
+		
+		usb2h0: usb@e01d0000 {
+			compatible = "caninos,k7-usb2.0-0";
+			reg = <0 0xe01d0000 0 0x1000>;
+			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+			//power-domains = <&powergate POWER_DOMAIN_USB2H0>;
+			clocks = <&cmu CLK_USB2H0_PLLEN>,
+				     <&cmu CLK_USB2H0_PHY>,
+				     <&cmu CLK_USB2H0_CCE>;
+			clock-names = "usbh0_pllen", "usbh0_phy", "usbh0_cce";
+			resets = <&rst RST_USBH0>;
+			reset-names = "usb2h0";
+			status = "okay";
+		};
+		
+		usb2h1: usb@e01d8000 {
+			compatible = "caninos,k7-usb2.0-1";
+			reg = <0 0xe01d8000 0 0x1000>;
+			interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
+			//power-domains = <&powergate POWER_DOMAIN_USB2H1>;
+			clocks = <&cmu CLK_USB2H1_PLLEN>,
+				     <&cmu CLK_USB2H1_PHY>,
+				     <&cmu CLK_USB2H1_CCE>;
+			clock-names = "usbh1_pllen", "usbh1_phy", "usbh1_cce";
+			resets = <&rst RST_USBH1>;
+			reset-names = "usb2h1";
+			status = "okay";
+		};
+		
+		fb0: video {
+			compatible = "caninos,k7-fb";
+			memory-region = <&fb_reserved>;
+			status = "okay";
+		};
+		
+		timer: timer@e024c000 {
+			compatible = "caninos,k7-timer";
+			reg = <0x0 0xe024c000 0x0 0x4000>;
+			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "timer1";
+			status = "okay";
+		};
+		
+		uart0: serial@e0120000 {
+			compatible = "caninos,k7-uart", "caninos,early-uart";
+			reg = <0x0 0xe0120000 0x0 0x2000>;
+			clocks = <&cmu CLK_UART0>;
+			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+		
+		uart1: serial@e0122000 {
+			compatible = "caninos,k7-uart", "caninos,early-uart";
+			reg = <0x0 0xe0122000 0x0 0x2000>;
+			clocks = <&cmu CLK_UART1>;
+			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+		
+		uart2: serial@e0124000 {
+			compatible = "caninos,k7-uart", "caninos,early-uart";
+			reg = <0x0 0xe0124000 0x0 0x2000>;
+			clocks = <&cmu CLK_UART2>;
+			interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+		
+		uart3: serial@e0126000 {
+			compatible = "caninos,k7-uart", "caninos,early-uart";
+			reg = <0x0 0xe0126000 0x0 0x2000>;
+			clocks = <&cmu CLK_UART3>;
+			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+			status = "okay";
+		};
+		
+		uart4: serial@e0128000 {
+			compatible = "caninos,k7-uart", "caninos,early-uart";
+			reg = <0x0 0xe0128000 0x0 0x2000>;
+			clocks = <&cmu CLK_UART4>;
+			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+		
+		uart5: serial@e012a000 {
+			compatible = "caninos,k7-uart", "caninos,early-uart";
+			reg = <0x0 0xe012a000 0x0 0x2000>;
+			clocks = <&cmu CLK_UART5>;
+			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+		
+		uart6: serial@e012c000 {
+			compatible = "caninos,k7-uart", "caninos,early-uart";
+			reg = <0x0 0xe012c000 0x0 0x2000>;
+			clocks = <&cmu CLK_UART6>;
+			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+		
+		mmc0: mmc@e0210000 {
+			compatible = "caninos,k7-mmc";
+			reg = <0x0 0xe0210000 0x0 0x40>;
+			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_SD0>;
+			clock-names = "mmc";
+			resets = <&rst RST_SDC0>;
+			reset-names = "mmc";
+			dmas = <&dma DMA_DRQ_SD0>;
+			dma-names = "mmc";
+			pinctrl-names = "default";
+			pinctrl-0 = <&mm0_pinctrl_state>;
+			status = "okay";
+		};
+		
+		mmc1: mmc@e0214000 {
+			compatible = "caninos,k7-mmc";
+			reg = <0x0 0xe0214000 0x0 0x40>;
+			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_SD1>;
+			clock-names = "mmc";
+			resets = <&rst RST_SDC1>;
+			reset-names = "mmc";
+			dmas = <&dma DMA_DRQ_SD1>;
+			dma-names = "mmc";
+			pinctrl-names = "default";
+			pinctrl-0 = <&mm1_pinctrl_state>;
+			power-gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>;
+			enable-gpios = <&gpiob 30 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+		};
+		
+		mmc2: mmc@e0218000 {
+			compatible = "caninos,k7-mmc";
+			reg = <0x0 0xe0218000 0x0 0x40>;
+			interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_SD2>;
+			clock-names = "mmc";
+			resets = <&rst RST_SDC2>;
+			reset-names = "mmc";
+			dmas = <&dma DMA_DRQ_SD2>;
+			dma-names = "mmc";
+			pinctrl-names = "default";
+			pinctrl-0 = <&mm2_pinctrl_state>;
+			status = "okay";
+		};
+		
+		i2c0: i2c@e0170000 {
+			compatible = "caninos,k7-i2c";
+			reg = <0 0xe0170000 0 0x1000>;
+			interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&cmu CLK_I2C0>;
+			clock-names = "i2c0";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_i2c0_default>;
+			clock-frequency = <400000>;
+			i2c_num = <0>;
+			status = "okay";
+			
+			/* atc2603c */
+			atc260x: atc2603c@65 {
+				compatible = "actions,atc2603c";
+				reg = <0x65>;
+				interrupt-parent = <&sirq>;
+				interrupts = <2 0x4>;
+				interrupt-controller;
+				#interrupt-cells = <1>;
+				
+				/* enable/disable output 32.768K clock via I2S_MCLK1 pin */
+				losc_32k_output_enable = <1>;
+				
+				/* select voltage of the 32.768K clock output, 18:1.8v, 31:3.1v */
+				losc_32k_output_voltage = <18>;
+				
+				pm {
+					compatible = "actions,atc2603c-pm";
+				};
+
+				onoff {
+					compatible = "actions,atc2603c-onoff";
+				};
+				
+				atc260x_gpio: atc260x_gpio {
+					compatible = "actions,atc2603c-gpio";
+					gpio-controller;
+					#gpio-cells = <2>;
+				};
+				
+				atc260x_sgpio: atc260x_sgpio {
+					compatible = "actions,atc2603c-sgpio";
+					gpio-controller;
+					#gpio-cells = <2>;
+					interrupt-controller;
+					#interrupt-cells = <2>;
+				};
+				
+				atc260x_audio: atc260x-audio {
+					compatible = "actions,atc2603c-audio";
+					status = "okay";
+				};
+				
+				dcdc1: dcdc1 {
+					compatible = "actions,atc2603c-dcdc1","actions,atc2603c-dcdc";
+					regulator-name = "dcdc1";
+					regulator-min-microvolt = <700000>;
+					regulator-max-microvolt = <1400000>;
+					regulator-always-on;
+				};
+				
+				dcdc2: dcdc2 {
+					compatible = "actions,atc2603c-dcdc2","actions,atc2603c-dcdc";
+					regulator-name = "dcdc2";
+					regulator-min-microvolt = <1300000>;
+					regulator-max-microvolt = <2200000>;
+					regulator-always-on;
+				};
+				
+				dcdc3: dcdc3 {
+					compatible = "actions,atc2603c-dcdc3","actions,atc2603c-dcdc";
+					regulator-name = "dcdc3";
+					regulator-min-microvolt = <2600000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-always-on;
+				};
+				
+				dcdc4: dcdc4 {
+					status = "disabled";
+				};
+
+				dcdc5: dcdc5 {
+					status = "disabled";
+				};
+				
+				ldo1: ldo1 {
+					compatible = "actions,atc2603c-ldo1","actions,atc2603c-ldo";
+					regulator-name = "ldo1";
+					regulator-min-microvolt  = <2800000>;
+					regulator-max-microvolt = <2800000>;
+					regulator-always-on;
+				};
+				
+				ldo2: ldo2 {
+					compatible = "actions,atc2603c-ldo2","actions,atc2603c-ldo";
+					regulator-name = "ldo2";
+					regulator-min-microvolt  = <2600000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-always-on;
+				};
+				
+				ldo3: ldo3 {
+					compatible = "actions,atc2603c-ldo3","actions,atc2603c-ldo";
+					regulator-name = "ldo3";
+					regulator-min-microvolt  = <1500000>;
+					regulator-max-microvolt = <2000000>;
+					regulator-always-on;
+				};
+				
+				ldo4: ldo4 {
+					status = "disabled";
+				};
+				
+				ldo5: ldo5 {
+					compatible = "actions,atc2603c-ldo5","actions,atc2603c-ldo";
+					regulator-name = "ldo5";
+					regulator-min-microvolt  = <3100000>;
+					regulator-max-microvolt = <3100000>;
+					regulator-always-on;
+				};
+				
+				ldo6: ldo6 {
+					compatible = "actions,atc2603c-ldo6","actions,atc2603c-ldo";
+					regulator-name = "ldo6";
+					regulator-min-microvolt  = <700000>;
+					regulator-max-microvolt = <1400000>;
+					regulator-always-on;
+				};
+				
+				ldo7: ldo7 {
+					compatible = "actions,atc2603c-ldo7","actions,atc2603c-ldo";
+					regulator-name = "ldo7";
+					regulator-min-microvolt  = <1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
+					//regulator-suspend-off;
+				};
+				
+				ldo8: ldo8 {
+					compatible = "actions,atc2603c-ldo8","actions,atc2603c-ldo";
+					regulator-name = "ldo8";
+					regulator-min-microvolt  = <2300000>;
+					regulator-max-microvolt = <3300000>;
+				};
+				
+				ldo9: ldo9 {
+					status = "disabled";
+				};
+				
+				ldo10: ldo10 {
+					status = "disabled";
+				};
+				
+				ldo11: ldo11 {
+					compatible = "actions,atc2603c-ldo11","actions,atc2603c-ldo";
+					regulator-name = "ldo11";
+					regulator-min-microvolt  = <2600000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-always-on;
+				};
+				
+				switch1:switch1 {
+					compatible = "actions,atc2603c-switch1","actions,atc2603c-switch";
+					regulator-name = "switch1";
+					regulator-min-microvolt  = <3000000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-always-on;
+				};
+				
+				switch2:switch2 {
+					status = "disabled";
+				};
+			};
+		};
+		
+		i2c1: i2c@e0174000 {
+			compatible = "caninos,k7-i2c";
+			reg = <0 0xe0174000 0 0x1000>;
+			interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&cmu CLK_I2C1>;
+			clock-names = "i2c1";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_i2c1_default>;
+			clock-frequency = <400000>;
+			i2c_num = <1>;
+			status = "okay";
+		};
+		
+		i2c2: i2c@e0178000 {
+			compatible = "caninos,k7-i2c";
+			reg = <0 0xe0178000 0 0x1000>;
+			interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&cmu CLK_I2C2>;
+			clock-names = "i2c2";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_i2c2_default>;
+			clock-frequency = <400000>;
+			i2c_num = <2>;
+			status = "okay";
+		};
+		
+		i2c3: i2c@e017c000 {
+			compatible = "caninos,k7-i2c";
+			reg = <0 0xe017c000 0 0x1000>;
+			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&cmu CLK_I2C3>;
+			clock-names = "i2c3";
+			status = "disabled";
+		};
+		
+		sound@e0166000 {
+			compatible = "caninos,sndcard";
+			
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2s0_state_default>;
+			
+			reg = <0x0 0xe0166000 0x0 0x34>;
+			
+			clocks = <&cmu CLK_I2SRX>,
+				     <&cmu CLK_I2STX>,
+				     <&cmu CLK_AUDIO_PLL>;
+			
+			clock-names = "i2srx", "i2stx", "audio_pll";
+			
+			resets = <&rst RST_AUDIO>;
+			
+			reset-names = "audio_rst";
+			
+			codec = <&atc260x_audio>;
+			
+			dmas = <&dma DMA_DRQ_I2S_TX>, <&dma DMA_DRQ_I2S_RX>;
+			dma-names = "tx","rx";
+			
+			status = "okay";
+		};
+	};
+};
+
