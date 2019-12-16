@@ -14,7 +14,10 @@
 #define RST_HDCP2 10
 #define RST_USBH0 11
 #define RST_USBH1 12
-#define NR_RESETS 13
+#define RST_PCM0  13
+#define RST_PCM1  14
+#define RST_AUDIO 15
+#define NR_RESETS 16
 
 #endif
 

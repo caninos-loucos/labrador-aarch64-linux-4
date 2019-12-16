@@ -129,6 +129,30 @@ static struct caninos_rcu_reset_reg_data k7_reg_data[] = {
 		.deassert_clear_mask = BIT(27),
 		.deassert_set_mask   = BIT(27),
 	},
+	[RST_PCM1] = {
+		.assert_offset       = S700_DEVRST1,
+		.assert_clear_mask   = BIT(31),
+		.assert_set_mask     = 0,
+		.deassert_offset     = S700_DEVRST1,
+		.deassert_clear_mask = BIT(31),
+		.deassert_set_mask   = BIT(31),
+	},
+	[RST_PCM0] = {
+		.assert_offset       = S700_DEVRST1,
+		.assert_clear_mask   = BIT(30),
+		.assert_set_mask     = 0,
+		.deassert_offset     = S700_DEVRST1,
+		.deassert_clear_mask = BIT(30),
+		.deassert_set_mask   = BIT(30),
+	},
+	[RST_AUDIO] = {
+		.assert_offset       = S700_DEVRST1,
+		.assert_clear_mask   = BIT(29),
+		.assert_set_mask     = 0,
+		.deassert_offset     = S700_DEVRST1,
+		.deassert_clear_mask = BIT(29),
+		.deassert_set_mask   = BIT(29),
+	},
 };
 
 struct caninos_rcu_reset_priv

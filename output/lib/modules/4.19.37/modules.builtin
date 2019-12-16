@@ -180,6 +180,7 @@ kernel/block/kyber-iosched.ko
 kernel/block/bfq.ko
 kernel/drivers/base/firmware_loader/firmware_class.ko
 kernel/drivers/base/regmap/regmap-i2c.ko
+kernel/drivers/base/regmap/regmap-spi.ko
 kernel/drivers/base/regmap/regmap-mmio.ko
 kernel/drivers/block/brd.ko
 kernel/drivers/block/loop.ko
@@ -302,9 +303,13 @@ kernel/sound/soundcore.ko
 kernel/sound/core/snd.ko
 kernel/sound/core/snd-hwdep.ko
 kernel/sound/core/snd-timer.ko
+kernel/sound/core/snd-hrtimer.ko
 kernel/sound/core/snd-pcm.ko
+kernel/sound/core/snd-pcm-dmaengine.ko
 kernel/sound/core/snd-rawmidi.ko
-kernel/sound/drivers/snd-dummy.ko
+kernel/sound/core/oss/snd-mixer-oss.ko
+kernel/sound/core/oss/snd-pcm-oss.ko
+kernel/sound/soc/snd-soc-core.ko
 kernel/sound/usb/snd-usb-audio.ko
 kernel/sound/usb/snd-usbmidi-lib.ko
 kernel/net/ceph/libceph.ko

@@ -41,7 +41,7 @@ config SND_SOC_ACPI
 
 # All the supported SoCs
 source "sound/soc/adi/Kconfig"
-source "sound/soc/atc260x/Kconfig"
+source "sound/soc/caninos/Kconfig"
 source "sound/soc/amd/Kconfig"
 source "sound/soc/atmel/Kconfig"
 source "sound/soc/au1x/Kconfig"

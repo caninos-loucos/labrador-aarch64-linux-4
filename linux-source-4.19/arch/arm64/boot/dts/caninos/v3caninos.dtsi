@@ -598,27 +598,18 @@
 		
 		sound@e0166000 {
 			compatible = "caninos,sndcard";
-			
 			pinctrl-names = "default";
 			pinctrl-0 = <&i2s0_state_default>;
-			
 			reg = <0x0 0xe0166000 0x0 0x34>;
-			
 			clocks = <&cmu CLK_I2SRX>,
 				     <&cmu CLK_I2STX>,
 				     <&cmu CLK_AUDIO_PLL>;
-			
 			clock-names = "i2srx", "i2stx", "audio_pll";
-			
 			resets = <&rst RST_AUDIO>;
-			
 			reset-names = "audio_rst";
-			
 			codec = <&atc260x_audio>;
-			
 			dmas = <&dma DMA_DRQ_I2S_TX>, <&dma DMA_DRQ_I2S_RX>;
 			dma-names = "tx","rx";
-			
 			status = "okay";
 		};
 	};
