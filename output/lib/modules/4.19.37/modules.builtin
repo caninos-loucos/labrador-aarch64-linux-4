@@ -277,6 +277,7 @@ kernel/drivers/usb/core/usbcore.ko
 kernel/drivers/usb/gadget/udc/udc-core.ko
 kernel/drivers/usb/host/xhci-hcd.ko
 kernel/drivers/usb/host/xhci-plat-hcd.ko
+kernel/drivers/usb/mon/usbmon.ko
 kernel/drivers/usb/phy/phy-generic.ko
 kernel/drivers/usb/roles/roles.ko
 kernel/drivers/usb/storage/uas.ko

@@ -13,6 +13,7 @@ kernel/drivers/misc/cardreader/rtsx_usb.ko:
 kernel/drivers/net/phy/libphy.ko:
 kernel/drivers/net/phy/fixed_phy.ko: kernel/drivers/net/phy/libphy.ko
 kernel/drivers/net/phy/microchip.ko: kernel/drivers/net/phy/libphy.ko
+kernel/drivers/net/phy/realtek.ko: kernel/drivers/net/phy/libphy.ko
 kernel/drivers/net/ethernet/stmicro/stmmac/stmmac.ko: kernel/drivers/of/of_mdio.ko kernel/drivers/net/phy/fixed_phy.ko kernel/drivers/net/phy/libphy.ko
 kernel/drivers/net/ethernet/stmicro/stmmac/stmmac-platform.ko: kernel/drivers/net/ethernet/stmicro/stmmac/stmmac.ko kernel/drivers/of/of_mdio.ko kernel/drivers/net/phy/fixed_phy.ko kernel/drivers/net/phy/libphy.ko
 kernel/drivers/net/ethernet/stmicro/stmmac/dwmac-caninos.ko: kernel/drivers/net/ethernet/stmicro/stmmac/stmmac-platform.ko kernel/drivers/net/ethernet/stmicro/stmmac/stmmac.ko kernel/drivers/of/of_mdio.ko kernel/drivers/net/phy/fixed_phy.ko kernel/drivers/net/phy/libphy.ko

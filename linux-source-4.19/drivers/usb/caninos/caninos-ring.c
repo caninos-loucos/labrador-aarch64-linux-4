@@ -1,66 +1,176 @@
+/*
+ * Actions OWL SoCs usb2.0 controller driver
+ *
+ * Copyright (c) 2015 Actions Semiconductor Co., ltd.
+ * dengtaiping <dengtaiping@actions-semi.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License v2 as published by
+ * the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <linux/scatterlist.h>
+#include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/dma-mapping.h>
 
-#include "core.h"
-#include "hcd.h"
-#include "ep.h"
+#include "aotg_hcd.h"
+#include "aotg_hcd_debug.h"
+#include "aotg.h"
 
 void aotg_set_ring_linkaddr(struct aotg_ring *ring, u32 addr);
-
 int aotg_set_trb_as_ring_linkaddr(struct aotg_ring *ring, struct aotg_trb *trb);
+u32 ring_trb_virt_to_dma(struct aotg_ring *ring,
+							struct aotg_trb *trb_vaddr);
+void clear_ring_irq(struct aotg_hcd *acthcd, unsigned int irq_mask);
 
-u32 ring_trb_virt_to_dma(struct aotg_ring *ring, struct aotg_trb *trb_vaddr);
+void aotg_dump_linklist_reg_2(struct aotg_hcd *acthcd, int dmanr)
+{
+	int is_out, index, index_multi;
 
-void clear_ring_irq(struct caninos_hcd *myhcd, unsigned int irq_mask);
+	is_out = (dmanr & AOTG_DMA_OUT_PREFIX) ? 1 : 0;
+	index = dmanr & 0xf;
+	if (index >= 1) {
+		index_multi = index - 1;
+	} else {
+		ACT_HCD_ERR
+		return;
+	}
+
+	pr_info("--------- dma reg, ep%d-%s-------\n", index,
+			is_out ? "out" : "in");
+
+	pr_info("HCDMABCKDOOR(0x%p) : 0x%x\n",
+		acthcd->base + HCDMABCKDOOR, readl(acthcd->base + HCDMABCKDOOR));
+	pr_info("HCDMAxOVERFLOWIRQ(0x%p) : 0x%x\n",
+		acthcd->base + HCDMAxOVERFLOWIRQ, readl(acthcd->base + HCDMAxOVERFLOWIRQ));
+	pr_info("HCDMAxOVERFLOWIEN(0x%p) : 0x%x\n",
+		acthcd->base + HCDMAxOVERFLOWIEN, readl(acthcd->base + HCDMAxOVERFLOWIEN));
+
+	if (is_out) {
+		pr_info("HCOUT%dDMALINKADDR(0x%p) : 0x%x\n", index,
+			acthcd->base + HCOUT1DMALINKADDR + index_multi * 0x10,
+			readl(acthcd->base + HCOUT1DMALINKADDR + index_multi * 0x10));
+		pr_info("HCOUT%dDMACURADDR(0x%p) : 0x%x\n", index,
+			acthcd->base + HCOUT1DMACURADDR + index_multi * 0x10,
+			readl(acthcd->base + HCOUT1DMACURADDR + index_multi * 0x10));
+		pr_info("HCOUT%dDMACTRL(0x%p) : 0x%x\n", index,
+			acthcd->base + HCOUT1DMACTRL + index_multi * 0x10,
+			readl(acthcd->base + HCOUT1DMACTRL + index_multi * 0x10));
+		pr_info("HCOUT%dDMACOMPLETECNT(0x%p) : 0x%x\n", index,
+			acthcd->base + HCOUT1DMACOMPLETECNT + index_multi * 0x10,
+			readl(acthcd->base + HCOUT1DMACOMPLETECNT + index_multi * 0x10));
+	} else {
+		pr_info("HCIN%dDMALINKADDR(0x%p) : 0x%x\n", index,
+			acthcd->base + HCIN1DMALINKADDR + index_multi * 0x10,
+			readl(acthcd->base + HCIN1DMALINKADDR + index_multi * 0x10));
+		pr_info("HCIN%dDMACURADDR(0x%p) : 0x%x\n", index,
+			acthcd->base + HCIN1DMACURADDR + index_multi * 0x10,
+			readl(acthcd->base + HCIN1DMACURADDR + index_multi * 0x10));
+		pr_info("HCIN%dDMACTRL(0x%p) : 0x%x\n", index,
+			acthcd->base + HCIN1DMACTRL + index_multi * 0x10,
+			readl(acthcd->base + HCIN1DMACTRL + index_multi * 0x10));
+		pr_info("HCIN%dDMACOMPLETECNT(0x%p) : 0x%x\n", index,
+			acthcd->base + HCIN1DMACOMPLETECNT + index_multi * 0x10,
+			readl(acthcd->base + HCIN1DMACOMPLETECNT + index_multi * 0x10));
+	}
+}
+
+static void aotg_hcd_dump_trb(struct aotg_ring *ring, struct aotg_trb *trb)
+{
+	pr_info("trb:0x%p, dma:0x%x\n", trb, (u32)ring_trb_virt_to_dma(ring, trb));
+	pr_info("hw_buf_ptr : 0x%x\n", trb->hw_buf_ptr);
+	pr_info("hw_buf_len : %d\n", trb->hw_buf_len);
+	pr_info("hw_buf_remain : %d\n", trb->hw_buf_remain);
+	pr_info("hw_token : 0x%x\n", trb->hw_token);
+}
+
+void aotg_hcd_dump_td(struct aotg_ring *ring, struct aotg_td *td)
+{
+	int i, j;
+	int num_trbs;
+	struct aotg_trb *trb;
+
+	if (td == NULL) {
+		ACT_HCD_ERR
+		return;
+	}
+
+	num_trbs = td->num_trbs;
+	trb = td->trb_vaddr;
+
+	pr_info("==== dump td: %d trbs ====\n", td->num_trbs);
+
+	if (trb + num_trbs > ring->last_trb) {
+		for (i = 0; trb + i < ring->last_trb + 1; i++) {
+			pr_warn("trb_%d:\n", i);
+			aotg_hcd_dump_trb(ring, trb + i);
+		}
+		trb = ring->first_trb;
+		j = 0;
+		for (; i < num_trbs; i++) {
+			pr_info("trb_%d:\n", i);
+			aotg_hcd_dump_trb(ring, trb + j);
+			j++;
+		}
+	} else {
+		for (i = 0; i < num_trbs; i++) {
+			pr_info("trb_%d:\n", i);
+			aotg_hcd_dump_trb(ring, trb + i);
+		}
+	}
+	pr_info("\n");
+	return;
+}
 
 void inc_dequeue_safe(struct aotg_ring *ring)
 {
 	atomic_inc(&ring->num_trbs_free);
-	
-	if (ring->dequeue_trb == ring->ring_trb) {
+	if (ring->dequeue_trb == ring->ring_trb)
 		ring->dequeue_trb = ring->first_trb;
-	}
-	else {
+	else
 		ring->dequeue_trb++;
-	}
+
+	return;
 }
 
-struct aotg_ring *aotg_alloc_ring
-	(struct caninos_hcd *myhcd, struct aotg_hcep *ep,
-	 unsigned int num_trbs, gfp_t mem_flags)
+struct aotg_ring *aotg_alloc_ring(struct aotg_hcd *acthcd,
+	struct aotg_hcep *ep, unsigned int num_trbs, gfp_t mem_flags)
 {
 	dma_addr_t	dma;
-	struct device *dev = caninos_to_hcd(myhcd)->self.controller;
+	struct device *dev = aotg_to_hcd(acthcd)->self.controller;
 	struct aotg_ring *ring;
-	
+
 	ring = kmalloc(sizeof(struct aotg_ring), mem_flags);
-	
-	if (!ring) {
+	if (!ring)
 		return NULL;
-	}
-	
+
 	ring->num_trbs = num_trbs;
-	
 	if (num_trbs == 0) {
+		ACT_HCD_DBG
 		return ring;
 	}
-	
+
 	ring->first_trb = (struct aotg_trb *)
-		dma_alloc_coherent(dev,	num_trbs * sizeof(struct aotg_trb),
-		                   &dma, mem_flags);
-	
+		dma_alloc_coherent(dev,	num_trbs * sizeof(struct aotg_trb), &dma, mem_flags);
+
+	HUB_DEBUG("frist_trb:%x,dma:%x\n", ring->first_trb, dma);
 	memset(ring->first_trb, 0, num_trbs * sizeof(struct aotg_trb));
-	
 	ring->trb_dma = (u32)dma;
 	ring->last_trb = ring->first_trb + num_trbs - 1;
 	ring->ring_trb = ring->last_trb;
-	
 	atomic_set(&ring->num_trbs_free, num_trbs);
-	
 	ring->enqueue_trb = ring->first_trb;
 	ring->dequeue_trb = ring->first_trb;
-	
+
 	ring->is_running = 0;
 	ring->is_out = ep->is_out ? 1 : 0;
 	ring->intr_inited = 0;
@@ -71,123 +181,147 @@ struct aotg_ring *aotg_alloc_ring
 	ring->enring_cnt = 0;
 	ring->dering_cnt = 0;
 	ring->ring_stopped = 0;
-	
-	ring->reg_dmalinkaddr =
-		GET_DMALINKADDR_REG(ring->is_out, myhcd->ctrl->base + HCOUT1DMALINKADDR,
-		myhcd->ctrl->base + HCIN1DMALINKADDR, ep->index);
-		
-	ring->reg_curaddr =
-		GET_CURADDR_REG(ring->is_out, myhcd->ctrl->base + HCOUT1DMACURADDR,
-		myhcd->ctrl->base + HCIN1DMACURADDR, ep->index);
-		
-	ring->reg_dmactrl =
-		GET_DMACTRL_REG(ring->is_out, myhcd->ctrl->base + HCOUT1DMACTRL,
-		myhcd->ctrl->base + HCIN1DMACTRL, ep->index);
-		
-	ring->reg_dmacomplete_cnt =
-		GET_DMACOMPLETE_CNT_REG(ring->is_out,
-		myhcd->ctrl->base + HCOUT1DMACOMPLETECNT,
-		myhcd->ctrl->base + HCIN1DMACOMPLETECNT, ep->index);
-	
+
+	ring->reg_dmalinkaddr = GET_DMALINKADDR_REG(ring->is_out, acthcd->base + HCOUT1DMALINKADDR,
+		acthcd->base + HCIN1DMALINKADDR, ep->index);
+	ring->reg_curaddr = GET_CURADDR_REG(ring->is_out, acthcd->base + HCOUT1DMACURADDR,
+		acthcd->base + HCIN1DMACURADDR, ep->index);
+	ring->reg_dmactrl = GET_DMACTRL_REG(ring->is_out, acthcd->base + HCOUT1DMACTRL,
+		acthcd->base + HCIN1DMACTRL, ep->index);
+	ring->reg_dmacomplete_cnt = GET_DMACOMPLETE_CNT_REG(ring->is_out,
+		acthcd->base + HCOUT1DMACOMPLETECNT,
+		acthcd->base + HCIN1DMACOMPLETECNT, ep->index);
+
+	/*pr_warn("=====================================\n");
+	pr_warn("first_trb:0x%x,last_trb:0x%x, ring_trb:0x%x\n",
+			(u32)(ring->first_trb), (u32)(ring->last_trb), (u32)(ring->ring_trb));
+	pr_warn("enq_trb:0x%x, deq_trb:0x%x\n",
+			(u32)(ring->enqueue_trb), (u32)(ring->dequeue_trb));
+	pr_warn("=====================================\n");*/
 	return ring;
 }
 
-void aotg_free_ring(struct caninos_hcd *myhcd, struct aotg_ring *ring)
+void aotg_free_ring(struct aotg_hcd *acthcd, struct aotg_ring *ring)
 {
-	struct device *dev = caninos_to_hcd(myhcd)->self.controller;
-	
-	if (!ring) {
+	struct device *dev = aotg_to_hcd(acthcd)->self.controller;
+	if (!ring)
 		return;
-	}
-	
+
 	dma_free_coherent(dev, ring->num_trbs * sizeof(struct aotg_trb),
 		ring->first_trb, ring->trb_dma);
-	
 	kfree(ring);
+	return;
 }
 
 struct aotg_td *aotg_alloc_td(gfp_t mem_flags)
 {
 	struct aotg_td *td;
-	
+
+	/*td = kmalloc(sizeof(struct aotg_td), mem_flags);*/
 	td = kmem_cache_alloc(td_cache, GFP_ATOMIC);
-	
-	if (!td) {
+	if (!td)
 		return NULL;
-	}
-	
 	memset(td, 0, sizeof(struct aotg_td));
-	
+
 	td->cross_ring = 0;
 	td->err_count = 0;
 	td->urb = NULL;
 	INIT_LIST_HEAD(&td->queue_list);
 	INIT_LIST_HEAD(&td->enring_list);
 	INIT_LIST_HEAD(&td->dering_list);
-	
+
 	return td;
 }
 
 void aotg_release_td(struct aotg_td *td)
 {
-	if (!td) {
+	if (!td)
 		return;
-	}
 	kmem_cache_free(td_cache, td);
 }
 
-void enable_overflow_irq(struct caninos_hcd *myhcd, struct aotg_hcep *ep)
-{
-	u8 mask = ep->mask;
-	u8 is_out = mask & USB_HCD_OUT_MASK;
-	u8 ep_num = mask & 0x0f;
-	
-	if (is_out) {
-		usb_setbitsl(1 << (ep_num + 16), myhcd->ctrl->base + HCDMAxOVERFLOWIEN);
-	}
-	else {
-		usb_setbitsl(1 << ep_num, myhcd->ctrl->base + HCDMAxOVERFLOWIEN);
-	}
-}
-
-void disable_overflow_irq(struct caninos_hcd *myhcd, struct aotg_hcep *ep)
-{
-	u8 mask = ep->mask;
-	u8 is_out = mask & USB_HCD_OUT_MASK;
-	u8 ep_num = mask & 0x0f;
-	
-	if (is_out) {
-		usb_clearbitsl(1<<(ep_num + 16), myhcd->ctrl->base + HCDMAxOVERFLOWIEN);
-	}
-	else {
-		usb_clearbitsl(1 << ep_num, myhcd->ctrl->base + HCDMAxOVERFLOWIEN);
-	}
-}
-
-void clear_overflow_irq(struct caninos_hcd *myhcd, struct aotg_hcep *ep)
+void enable_overflow_irq(struct aotg_hcd *acthcd, struct aotg_hcep *ep)
 {
 	u8 mask = ep->mask;
 	u8 is_out = mask & USB_HCD_OUT_MASK;
 	u8 ep_num = mask & 0x0f;
 
-	if (is_out) {
-		usb_clearbitsl(1<<(ep_num + 16), myhcd->ctrl->base + HCDMAxOVERFLOWIRQ);
-	}
-	else {
-		usb_clearbitsl(1 << ep_num, myhcd->ctrl->base + HCDMAxOVERFLOWIRQ);
-	}
+	if (is_out)
+		usb_setbitsl(1 << (ep_num + 16), acthcd->base + HCDMAxOVERFLOWIEN);
+	else
+		usb_setbitsl(1 << ep_num, acthcd->base + HCDMAxOVERFLOWIEN);
+
+	return;
 }
 
-void overflow_irq_handler(struct caninos_hcd *myhcd, struct aotg_hcep *ep)
+void disable_overflow_irq(struct aotg_hcd *acthcd, struct aotg_hcep *ep)
+{
+	u8 mask = ep->mask;
+	u8 is_out = mask & USB_HCD_OUT_MASK;
+	u8 ep_num = mask & 0x0f;
+
+	if (is_out)
+		usb_clearbitsl(1 << (ep_num + 16), acthcd->base + HCDMAxOVERFLOWIEN);
+	else
+		usb_clearbitsl(1 << ep_num, acthcd->base + HCDMAxOVERFLOWIEN);
+
+	return;
+}
+
+void clear_overflow_irq(struct aotg_hcd *acthcd, struct aotg_hcep *ep)
+{
+	u8 mask = ep->mask;
+	u8 is_out = mask & USB_HCD_OUT_MASK;
+	u8 ep_num = mask & 0x0f;
+
+	if (is_out)
+		usb_clearbitsl(1 << (ep_num + 16), acthcd->base + HCDMAxOVERFLOWIRQ);
+	else
+		usb_clearbitsl(1 << ep_num, acthcd->base + HCDMAxOVERFLOWIRQ);
+}
+
+
+void overflow_irq_handler(struct aotg_hcd *acthcd, struct aotg_hcep *ep)
 {
 	struct aotg_ring *ring;
-	
+
 	if (!ep) {
+		pr_warn("%s, ep%d is NULL!\n", __func__, ep->index);
 		return;
 	}
 	ring = ep->ring;
-}
 
+	return;
+}
+/*
+void aotg_handle_overflow_irq(struct aotg_hcd *acthcd)
+{
+	int i;
+	unsigned int irq_pend = 0;
+	struct aotg_hcep *ep;
+
+	irq_pend = readl(acthcd->base + HCDMAxOVERFLOWIRQ);
+
+	if (irq_pend & RING_IN_OF) {
+		for (i = 1; i < 16; i++) {
+			if (irq_pend & (0x1 << i)) {
+				ep = acthcd->inep[i];
+				overflow_irq_handler(acthcd, ep);
+			}
+		}
+	}
+
+	if (irq_pend & RING_OUT_OF) {
+		for (i = 1; i < 16; i++) {
+			if (irq_pend & (0x1 << (i + 16))) {
+				ep = acthcd->outep[i];
+				overflow_irq_handler(acthcd, ep);
+			}
+	}
+
+	writel(irq_pend, acthcd->base + HCDMAxOVERFLOWIRQ);
+}
+*/
 int is_ring_running(struct aotg_ring *ring)
 {
 	return (readl(ring->reg_dmactrl) & 0x1) ? 1 : 0;
@@ -197,24 +331,19 @@ void aotg_start_ring(struct aotg_ring *ring, u32 addr)
 {
 	struct aotg_trb *temp_trb = ring->dequeue_trb;
 	int i;
-	
-	if ((ring->type == PIPE_BULK) && ((temp_trb->hw_token & TRB_OF) == 0))
-	{
-		for (i = 0; i < NUM_TRBS; i++)
-		{
+	if ((ring->type == PIPE_BULK) && ((temp_trb->hw_token & TRB_OF) == 0)) {
+		for (i = 0; i < NUM_TRBS; i++) {
 			if (temp_trb->hw_token == 0xaa) { /*deal dequeue urb*/
 				inc_dequeue_safe(ring);
 				memset(temp_trb, 0, sizeof(struct aotg_trb));
-			}
-			else if (temp_trb->hw_token & TRB_OF) {
+			} else if (temp_trb->hw_token & TRB_OF) {
 				break;
 			}
-			if (temp_trb == ring->last_trb) {
+
+			if (temp_trb == ring->last_trb)
 				temp_trb = ring->first_trb;
-			}
-			else {
+			else
 				temp_trb++;
-			}
 		}
 		addr = ring_trb_virt_to_dma(ring, temp_trb);
 	}
@@ -230,8 +359,20 @@ void aotg_stop_ring(struct aotg_ring *ring)
 
 void aotg_pause_ring(struct aotg_ring *ring)
 {
-	usb_setbitsl(DMACTRL_DMACC, (void __iomem *)ring->reg_dmactrl);
+	usb_setbitsl(DMACTRL_DMACC, ring->reg_dmactrl);
 }
+
+#if (0)
+void aotg_stop_ring(struct aotg_hcd *acthcd, struct aotg_hcep *ep)
+{
+	writel(DMACTRL_DMACC, ep->ring->reg_dmactrl);
+	usb_clearbitsb(0x80, ep->reg_hcepcon);
+	usb_settoggle(ep->udev, ep->epnum, ep->is_out, 0);
+	aotg_hcep_reset(acthcd, ep->mask, ENDPRST_FIFORST);
+	writeb(ep->epnum, ep->reg_hcepctrl);
+	usb_setbitsb(0x80, ep->reg_hcepcon);
+}
+#endif
 
 u32 ring_trb_virt_to_dma(struct aotg_ring *ring,
 	struct aotg_trb *trb_vaddr)
@@ -253,7 +394,7 @@ u32 ring_trb_virt_to_dma(struct aotg_ring *ring,
 void aotg_set_ring_linkaddr(struct aotg_ring *ring, u32 addr)
 {
 	if (!ring) {
-		
+		ACT_HCD_ERR
 		return;
 	}
 	writel(addr, ring->reg_dmalinkaddr);
@@ -265,7 +406,7 @@ int aotg_set_trb_as_ring_linkaddr(struct aotg_ring *ring, struct aotg_trb *trb)
 
 	addr = (u32)ring_trb_virt_to_dma(ring, trb);
 	if (!addr) {
-		
+		ACT_HCD_ERR
 		return -1;
 	}
 
@@ -336,6 +477,9 @@ void aotg_fill_trb(struct aotg_trb *trb, u32 dma_addr, u32 len, u32 token)
 	trb->hw_buf_ptr = dma_addr;
 	trb->hw_buf_len = len;
 	trb->hw_token = token;
+
+	ACT_LINKLIST_DMA_DEBUG("hw_ptr(0x%x), hw_len(%d),hw_token(0x%x)\n",
+		trb->hw_buf_ptr, trb->hw_buf_len, trb->hw_token);
 	return;
 }
 
@@ -350,9 +494,33 @@ int aotg_sg_map_trb(struct aotg_trb *trb,
 	}
 	this_trb_len = min_t(int, sg_dma_len(sg), len);
 	aotg_fill_trb(trb, (u32)sg_dma_address(sg), this_trb_len, token);
+
 	return this_trb_len;
 }
-
+#if (0)
+/*
+ * ring->enqueue_trb should be overflow
+ */
+void inc_enqueue_safe(struct aotg_ring *ring)
+{
+	atomic_dec(&ring->num_trbs_free);
+	if (ring->enqueue_trb == ring->ring_trb) {
+		if (ring->type == PIPE_BULK) {
+			ring->enqueue_trb->hw_token &= ~TRB_CHN;
+			if (ring->is_out)
+				ring->enqueue_trb->hw_token |= TRB_ITE | TRB_LT;
+			else
+				ring->enqueue_trb->hw_token |= TRB_ICE | TRB_LT;
+			ring->enqueue_trb = ring->first_trb;
+		} else {
+			ring->enqueue_trb->hw_token |= TRB_COF;
+			ring->enqueue_trb = ring->first_trb;
+		}
+	} else {
+		ring->enqueue_trb += 1;
+	}
+}
+#endif
 void enqueue_trb(struct aotg_ring *ring, u32 buf_ptr, u32 buf_len,
 	u32 token)
 {
@@ -387,7 +555,7 @@ void enqueue_trb(struct aotg_ring *ring, u32 buf_ptr, u32 buf_len,
  * ensure ring has enough room for this td
  * before call this function.
  */
-int ring_enqueue_sg_td(struct caninos_hcd *myhcd,
+int ring_enqueue_sg_td(struct aotg_hcd *acthcd,
 	struct aotg_ring *ring, struct aotg_td *td)
 {
 	u8 is_out;
@@ -450,7 +618,7 @@ int ring_enqueue_sg_td(struct caninos_hcd *myhcd,
 	return 0;
 }
 
-int aotg_ring_enqueue_td(struct caninos_hcd *myhcd,
+int aotg_ring_enqueue_td(struct aotg_hcd *acthcd,
 	struct aotg_ring *ring, struct aotg_td *td)
 {
 	u8 is_out;
@@ -458,13 +626,13 @@ int aotg_ring_enqueue_td(struct caninos_hcd *myhcd,
 	int num_trbs;
 	struct urb *urb = td->urb;
 
-	if (!myhcd || !td || !ring || !urb) {
-		
+	if (!acthcd || !td || !ring || !urb) {
+		ACT_HCD_ERR
 		return -1;
 	}
 
 	if (urb->num_sgs)
-		return ring_enqueue_sg_td(myhcd, ring, td);
+		return ring_enqueue_sg_td(acthcd, ring, td);
 
 	num_trbs = count_urb_need_trbs(urb);
 	if (!is_room_on_ring(ring, num_trbs))
@@ -497,7 +665,6 @@ int aotg_ring_enqueue_td(struct caninos_hcd *myhcd,
 	token &= ~TRB_CHN;
 
 		token |= TRB_LT; /*8723bu,release cpu for interrupt transfer*/
-		
 	if (is_out)
 		token |= TRB_ITE;
 	else
@@ -540,13 +707,13 @@ void aotg_reorder_intr_td(struct aotg_hcep *ep)
 	}
 }
 
-void aotg_reorder_iso_td(struct caninos_hcd *myhcd, struct aotg_ring *ring)
+void aotg_reorder_iso_td(struct aotg_hcd *acthcd, struct aotg_ring *ring)
 {
 	struct aotg_td *td, *next;
 	struct aotg_trb *new_trb_q, *prev_trb_q, *trb;
 	int i;
 	dma_addr_t dma, prev_dma;
-	struct device *dev = caninos_to_hcd(myhcd)->self.controller;
+	struct device *dev = aotg_to_hcd(acthcd)->self.controller;
 	struct aotg_hcep *ep = (struct aotg_hcep *)ring->priv;
 
 	new_trb_q = (struct aotg_trb *)
@@ -580,7 +747,7 @@ void aotg_reorder_iso_td(struct caninos_hcd *myhcd, struct aotg_ring *ring)
 	dma_free_coherent(dev, NUM_TRBS * sizeof(struct aotg_trb), prev_trb_q, prev_dma);
 }
 
-int aotg_ring_enqueue_intr_td(struct caninos_hcd *myhcd, struct aotg_ring *ring,
+int aotg_ring_enqueue_intr_td(struct aotg_hcd *acthcd, struct aotg_ring *ring,
 	struct aotg_hcep *ep, struct urb *urb, gfp_t mem_flags)
 {
 	u8 is_out;
@@ -589,7 +756,7 @@ int aotg_ring_enqueue_intr_td(struct caninos_hcd *myhcd, struct aotg_ring *ring,
 	int mem_size;
 	dma_addr_t	dma;
 	struct aotg_td *td, *next;
-	struct device *dev = caninos_to_hcd(myhcd)->self.controller;
+	struct device *dev = aotg_to_hcd(acthcd)->self.controller;
 
 	if (!is_room_on_ring(ring, INTR_TRBS)) {
 		pr_warn("%s err, check it!\n", __func__);
@@ -598,9 +765,12 @@ int aotg_ring_enqueue_intr_td(struct caninos_hcd *myhcd, struct aotg_ring *ring,
 
 	is_out = usb_pipeout(urb->pipe);
 	mem_size = urb->transfer_buffer_length;
+	
 	ring->intr_mem_size = mem_size;
-	ring->intr_dma_buf_vaddr = (u8 *)dma_alloc_coherent(dev, mem_size * INTR_TRBS,
-		&dma, mem_flags);
+	ring->intr_dma_buf_vaddr = (u8 *)dma_alloc_coherent(dev, mem_size * INTR_TRBS,&dma, mem_flags);
+	
+	
+	
 	if (!ring->intr_dma_buf_vaddr) {
 		pr_err("%s err, alloc dma buf for intr fail!\n", __func__);
 		return -1;
@@ -662,21 +832,19 @@ int aotg_intr_get_finish_trb(struct aotg_ring *ring)
 	return count;
 }
 
-int aotg_intr_chg_buf_len(struct caninos_hcd *myhcd, struct aotg_ring *ring, int len)
+int aotg_intr_chg_buf_len(struct aotg_hcd *acthcd, struct aotg_ring *ring, int len)
 {
 	struct aotg_td *td;
 	dma_addr_t	dma;
 	int i = 0;
 	u32 token;
 	struct aotg_hcep *ep = (struct aotg_hcep *)ring->priv;
-	struct device *dev = caninos_to_hcd(myhcd)->self.controller;
+	struct device *dev = aotg_to_hcd(acthcd)->self.controller;
 
 	writel(DMACTRL_DMACC, ring->reg_dmactrl);
 	usb_clearbitsb(0x80, ep->reg_hcepcon);
 	usb_settoggle(ep->udev, ep->epnum, ep->is_out, 0);
-	
-	caninos_hcep_reset(caninos_to_hcd(myhcd), ep->mask, ENDPRST_FIFORST);
-	
+	aotg_hcep_reset(acthcd, ep->mask, ENDPRST_FIFORST);
 	writeb(ep->epnum, ep->reg_hcepctrl);
 	usb_setbitsb(0x80, ep->reg_hcepcon);
 
@@ -712,21 +880,21 @@ int aotg_intr_chg_buf_len(struct caninos_hcd *myhcd, struct aotg_ring *ring, int
 	return 0;
 }
 
-void aotg_intr_dma_buf_free(struct caninos_hcd *myhcd, struct aotg_ring *ring)
+void aotg_intr_dma_buf_free(struct aotg_hcd *acthcd, struct aotg_ring *ring)
 {
 	struct aotg_td *td, *next;
 	struct aotg_hcep *ep = (struct aotg_hcep *)ring->priv;
-	struct device *dev = caninos_to_hcd(myhcd)->self.controller;
-
+	struct device *dev = aotg_to_hcd(acthcd)->self.controller;
+	
 	list_for_each_entry_safe(td, next, &ep->enring_td_list, enring_list) {
 		aotg_release_td(td);
 	}
-
+	
 	dma_free_coherent(dev, ring->intr_mem_size * INTR_TRBS,
 		ring->intr_dma_buf_vaddr, ring->intr_dma_buf_phyaddr);
 }
 
-int aotg_ring_enqueue_isoc_td(struct caninos_hcd *myhcd,
+int aotg_ring_enqueue_isoc_td(struct aotg_hcd *acthcd,
 	struct aotg_ring *ring, struct aotg_td *td)
 {
 	u8 is_out;
@@ -737,18 +905,19 @@ int aotg_ring_enqueue_isoc_td(struct caninos_hcd *myhcd,
 	int num_trbs;
 	struct urb *urb = td->urb;
 
-	if (!myhcd || !td || !ring || !urb) {
-		
+	if (!acthcd || !td || !ring || !urb) {
+		ACT_HCD_ERR
 		return -1;
 	}
 
 	num_trbs = urb->number_of_packets;
 	if (unlikely(num_trbs == 0)) {
-		
+		ACT_HCD_ERR
 		return -1;
 	}
 
 	if (unlikely(!is_room_on_ring(ring, num_trbs))) {
+		ACT_HCD_DBG
 		return -1;
 	}
 
@@ -758,7 +927,7 @@ int aotg_ring_enqueue_isoc_td(struct caninos_hcd *myhcd,
 	td->trb_vaddr = ring->enqueue_trb;
 	td->trb_dma = ring_trb_virt_to_dma(ring, ring->enqueue_trb);
 
-	start_frame = readw(myhcd->ctrl->base + HCFRMNRL);
+	start_frame = readw(acthcd->base + HCFRMNRL);
 	start_frame &= 0x3fff;
 	urb->start_frame = start_frame;
 
@@ -796,7 +965,7 @@ void dequeue_td(struct aotg_ring *ring, struct aotg_td *td, int dequeue_flag)
 	struct aotg_trb *trb;
 
 	if (!ring || !td || ((struct list_head *)(&td->enring_list)->next == LIST_POISON1)) {
-		
+		ACT_HCD_ERR
 		return;
 	}
 	trb = td->trb_vaddr;
@@ -829,7 +998,7 @@ void dequeue_intr_td(struct aotg_ring *ring, struct aotg_td *td)
 	struct aotg_hcep *ep;
 
 	if (!ring || !td) {
-		
+		ACT_HCD_ERR
 		return;
 	}
 
@@ -856,7 +1025,7 @@ void dequeue_intr_td(struct aotg_ring *ring, struct aotg_td *td)
 }
 
 
-int aotg_ring_dequeue_intr_td(struct caninos_hcd *myhcd, struct aotg_hcep *ep,
+int aotg_ring_dequeue_intr_td(struct aotg_hcd *acthcd, struct aotg_hcep *ep,
 		struct aotg_ring *ring,	struct aotg_td *td)
 {
 	u32 addr;
@@ -882,7 +1051,7 @@ int aotg_ring_dequeue_intr_td(struct caninos_hcd *myhcd, struct aotg_hcep *ep,
 }
 
 
-int aotg_ring_dequeue_td(struct caninos_hcd *myhcd, struct aotg_ring *ring,
+int aotg_ring_dequeue_td(struct aotg_hcd *acthcd, struct aotg_ring *ring,
 	struct aotg_td *td, int dequeue_flag)
 {
 	int index;
@@ -891,31 +1060,32 @@ int aotg_ring_dequeue_td(struct caninos_hcd *myhcd, struct aotg_ring *ring,
 	td->urb = NULL;
 
 	if (dequeue_flag == TD_IN_QUEUE) {
-	
+		/*
+		 * must hold the spin_lock_irq, prevent td will be enqueue in ep->enring_list
+		 * in interrupt contex
+		 */
 		list_del(&td->queue_list);
 		aotg_release_td(td);
 		return 0;
 	} else if (dequeue_flag == TD_IN_RING) {
 		ep = (struct aotg_hcep *)urb->ep->hcpriv;
-	
+		/*aotg_stop_ring(ring);*/
 		writel(DMACTRL_DMACC, ep->ring->reg_dmactrl);
 		usb_clearbitsb(0x80, ep->reg_hcepcon);
 		usb_settoggle(ep->udev, ep->epnum, ep->is_out, 0);
-		
-		caninos_hcep_reset(caninos_to_hcd(myhcd), ep->mask, ENDPRST_FIFORST);
-		
+		aotg_hcep_reset(acthcd, ep->mask, ENDPRST_FIFORST);
 		writeb(ep->epnum, ep->reg_hcepctrl);
 		usb_setbitsb(0x80, ep->reg_hcepcon);
 		/*
 		 * dequeue urb, when the urb complete in hardware contex
 		 */
 		index = ring->mask & 0xf;
-		if ((0x1 << index) & (readw(myhcd->ctrl->base + HCINxDMAIRQ0)) ||
-			(0x1 << index) & (readw(myhcd->ctrl->base + HCOUTxBUFEMPTYIRQ0))) {
+		if ((0x1 << index) & (readw(acthcd->base + HCINxDMAIRQ0)) ||
+			(0x1 << index) & (readw(acthcd->base + HCOUTxBUFEMPTYIRQ0))) {
 			pr_warn("noticd:%s, IN%dIRQ:0x%x; OUT%dIRQ:0x%x\n",
-				__func__, index, readw(myhcd->ctrl->base + HCINxDMAIRQ0),
-				index, readw(myhcd->ctrl->base + HCOUTxBUFEMPTYIRQ0));
-			clear_ring_irq(myhcd, ring->mask);
+				__func__, index, readw(acthcd->base + HCINxDMAIRQ0),
+				index, readw(acthcd->base + HCOUTxBUFEMPTYIRQ0));
+			clear_ring_irq(acthcd, ring->mask);
 		}
 
 		dequeue_td(ring, td, dequeue_flag);
@@ -923,13 +1093,13 @@ int aotg_ring_dequeue_td(struct caninos_hcd *myhcd, struct aotg_ring *ring,
 	return 0;
 }
 
-unsigned int get_ring_irq(struct caninos_hcd *myhcd)
+unsigned int get_ring_irq(struct aotg_hcd *acthcd)
 {
 	unsigned int data;
 	unsigned int i;
 	unsigned int pending = 0;
 
-	data = readw(myhcd->ctrl->base + HCINxDMAIRQ0);
+	data = readw(acthcd->base + HCINxDMAIRQ0);
 
 	if (data) {
 		for (i = 1; i < 16; i++) {
@@ -940,7 +1110,7 @@ unsigned int get_ring_irq(struct caninos_hcd *myhcd)
 		}
 	}
 
-	data = readw(myhcd->ctrl->base + HCOUTxBUFEMPTYIRQ0);
+	data = readw(acthcd->base + HCOUTxBUFEMPTYIRQ0);
 
 	if (data) {
 		for (i = 1; i < 16; i++) {
@@ -954,22 +1124,21 @@ unsigned int get_ring_irq(struct caninos_hcd *myhcd)
 	return pending;
 }
 
-void clear_ring_irq(struct caninos_hcd *myhcd, unsigned int irq_mask)
+void clear_ring_irq(struct aotg_hcd *acthcd, unsigned int irq_mask)
 {
 	int index;
 	u8 is_out = irq_mask & AOTG_DMA_OUT_PREFIX;
 	index = irq_mask & 0xf;
 
 	if (is_out)
-		writew((0x1 << index), (myhcd->ctrl->base + HCOUTxBUFEMPTYIRQ0));
+		writew((0x1 << index), (acthcd->base + HCOUTxBUFEMPTYIRQ0));
 	else
-		writew((0x1 << index), (myhcd->ctrl->base + HCINxDMAIRQ0));
+		writew((0x1 << index), (acthcd->base + HCINxDMAIRQ0));
 
 	return;
 }
 
-int finish_td
-	(struct caninos_hcd *myhcd, struct aotg_ring *ring, struct aotg_td *td)
+int finish_td(struct aotg_hcd *acthcd, struct aotg_ring *ring, struct aotg_td *td)
 {
 	struct urb *urb;
 	struct aotg_trb *trb;
@@ -987,7 +1156,7 @@ int finish_td
 			return -1;
 		td->cross_ring = 0;
 		aotg_set_trb_as_ring_linkaddr(ring, ring->first_trb);
-		usb_setbitsl(DMACTRL_DMACS, (void __iomem *)ring->reg_dmactrl);
+		usb_setbitsl(DMACTRL_DMACS, ring->reg_dmactrl);
 		return 1;
 	}
 
@@ -1020,6 +1189,7 @@ int finish_td
 	 * fetch transfer_flags by urb instead of td->urb.
 	 */
 	if (urb->actual_length > urb->transfer_buffer_length) {
+		ACT_HCD_DBG
 		urb->actual_length = 0;
 		if (urb->transfer_flags & URB_SHORT_NOT_OK)
 			status = -EREMOTEIO;
@@ -1028,14 +1198,14 @@ int finish_td
 	}
 
 	usb_hcd_unlink_urb_from_ep(bus_to_hcd(urb->dev->bus), urb);
-	spin_unlock(&myhcd->lock);
+	spin_unlock(&acthcd->lock);
 	usb_hcd_giveback_urb(bus_to_hcd(urb->dev->bus), urb, status);
-	spin_lock(&myhcd->lock);
+	spin_lock(&acthcd->lock);
 
 	return 0;
 }
 
-int intr_finish_td(struct caninos_hcd *myhcd, struct aotg_ring *ring,
+int intr_finish_td(struct aotg_hcd *acthcd, struct aotg_ring *ring,
 	struct aotg_td *td)
 {
 	int length;
@@ -1067,14 +1237,14 @@ int intr_finish_td(struct caninos_hcd *myhcd, struct aotg_ring *ring,
 	status = 0;
 
 	usb_hcd_unlink_urb_from_ep(bus_to_hcd(urb->dev->bus), urb);
-	spin_unlock(&myhcd->lock);
+	spin_unlock(&acthcd->lock);
 	usb_hcd_giveback_urb(bus_to_hcd(urb->dev->bus), urb, status);
-	spin_lock(&myhcd->lock);
+	spin_lock(&acthcd->lock);
 
 	return 0;
 }
 
-int isoc_finish_td(struct caninos_hcd *myhcd, struct aotg_ring *ring,
+int isoc_finish_td(struct aotg_hcd *acthcd, struct aotg_ring *ring,
 	struct aotg_td *td)
 {
 	struct urb *urb;
@@ -1084,7 +1254,7 @@ int isoc_finish_td(struct caninos_hcd *myhcd, struct aotg_ring *ring,
 	int status;
 
 	if (!ring || !td || ((struct list_head *)(&td->enring_list)->next == LIST_POISON1)) {
-		
+		ACT_HCD_ERR
 		return -1;
 	}
 
@@ -1122,14 +1292,14 @@ int isoc_finish_td(struct caninos_hcd *myhcd, struct aotg_ring *ring,
 	status = 0;
 
 	usb_hcd_unlink_urb_from_ep(bus_to_hcd(urb->dev->bus), urb);
-	spin_unlock(&myhcd->lock);
+	spin_unlock(&acthcd->lock);
 	usb_hcd_giveback_urb(bus_to_hcd(urb->dev->bus), urb, status);
-	spin_lock(&myhcd->lock);
+	spin_lock(&acthcd->lock);
 
 	return 0;
 }
 
-void handle_ring_dma_tx(struct caninos_hcd *myhcd, unsigned int irq_mask)
+void handle_ring_dma_tx(struct aotg_hcd *acthcd, unsigned int irq_mask)
 {
 	int ret;
 	struct aotg_td *td = NULL, *next;
@@ -1137,19 +1307,19 @@ void handle_ring_dma_tx(struct caninos_hcd *myhcd, unsigned int irq_mask)
 	struct aotg_hcep *ep;
 
 	if (AOTG_IS_DMA_OUT(irq_mask))
-		ep = myhcd->outep[AOTG_GET_DMA_NUM(irq_mask)];
+		ep = acthcd->outep[AOTG_GET_DMA_NUM(irq_mask)];
 	else
-		ep = myhcd->inep[AOTG_GET_DMA_NUM(irq_mask)];
+		ep = acthcd->inep[AOTG_GET_DMA_NUM(irq_mask)];
 
 	if (ep == NULL) {
-		
+		ACT_HCD_ERR
 		return;
 	}
 
 
 	ring = ep->ring;
 	if (!ring) {
-		
+		ACT_HCD_ERR
 		return;
 	}
 
@@ -1163,12 +1333,12 @@ void handle_ring_dma_tx(struct caninos_hcd *myhcd, unsigned int irq_mask)
 			td = list_first_entry_or_null(&ep->enring_td_list, struct aotg_td, enring_list);
 			if (!td)
 				break;
-			ret = isoc_finish_td(myhcd, ring, td);
+			ret = isoc_finish_td(acthcd, ring, td);
 		} while (ret == 0);
 
 		if (!list_empty(&ep->queue_td_list)) {
 			list_for_each_entry_safe(td, next, &ep->queue_td_list, queue_list) {
-				ret = aotg_ring_enqueue_isoc_td(myhcd, ring, td);
+				ret = aotg_ring_enqueue_isoc_td(acthcd, ring, td);
 				if (ret)
 					return;
 				list_del(&td->queue_list);
@@ -1178,7 +1348,8 @@ void handle_ring_dma_tx(struct caninos_hcd *myhcd, unsigned int irq_mask)
 		}
 
 		if (!list_empty(&ep->enring_td_list) && !is_ring_running(ring)) {
-			
+			//if (ring->dequeue_trb != ring->first_trb)
+				//aotg_reorder_iso_td(acthcd, ring);
 			aotg_start_ring(ring, ring_trb_virt_to_dma(ring, ring->dequeue_trb));
 		} else if (list_empty(&ep->enring_td_list) && is_ring_running(ring)) {
 			aotg_stop_ring(ring);
@@ -1192,7 +1363,7 @@ void handle_ring_dma_tx(struct caninos_hcd *myhcd, unsigned int irq_mask)
 			td = list_first_entry_or_null(&ep->enring_td_list, struct aotg_td, enring_list);
 			if (!td)
 				break;
-			ret = intr_finish_td(myhcd, ring, td);
+			ret = intr_finish_td(acthcd, ring, td);
 		} while (ret == 0);
 
 		if (!is_ring_running(ring)) {
@@ -1206,7 +1377,7 @@ void handle_ring_dma_tx(struct caninos_hcd *myhcd, unsigned int irq_mask)
 		td = list_first_entry_or_null(&ep->enring_td_list, struct aotg_td, enring_list);
 		if (!td)
 			break;
-		ret = finish_td(myhcd, ring, td);
+		ret = finish_td(acthcd, ring, td);
 		if (ep->hep->enabled == 0)
 			break;
 	} while (ret == 0);
@@ -1216,7 +1387,7 @@ void handle_ring_dma_tx(struct caninos_hcd *myhcd, unsigned int irq_mask)
 
 	if (!list_empty(&ep->queue_td_list)) {
 		list_for_each_entry_safe(td, next, &ep->queue_td_list, queue_list) {
-			ret = aotg_ring_enqueue_td(myhcd, ring, td);
+			ret = aotg_ring_enqueue_td(acthcd, ring, td);
 			if (ret)
 				return;
 			list_del(&td->queue_list);
@@ -1231,42 +1402,37 @@ void handle_ring_dma_tx(struct caninos_hcd *myhcd, unsigned int irq_mask)
 		aotg_stop_ring(ring);
 }
 
-void aotg_ring_irq_handler(struct caninos_hcd *myhcd)
+void aotg_ring_irq_handler(struct aotg_hcd *acthcd)
 {
 	unsigned int irq_mask;
 	unsigned long flags;
 	bool dma_nest = false;
-	
-	spin_lock_irqsave(&myhcd->lock, flags);
-	
-	if (myhcd->check_trb_mutex) {
+
+	spin_lock_irqsave(&acthcd->lock, flags);
+	if (acthcd->check_trb_mutex == 1)
 		dma_nest = true;
-	}
-	
-	myhcd->check_trb_mutex = true;
-	
+	acthcd->check_trb_mutex = 1;
+
 	do {
-		irq_mask = get_ring_irq(myhcd);
-		
-		if (irq_mask == 0)
-		{
-			myhcd->check_trb_mutex = false;
-			spin_unlock_irqrestore(&myhcd->lock, flags);
+		irq_mask = get_ring_irq(acthcd);
+		if (irq_mask == 0) {
+			acthcd->check_trb_mutex = 0;
+			spin_unlock_irqrestore(&acthcd->lock, flags);
 			return;
 		}
-		
-		clear_ring_irq(myhcd, irq_mask);
+		clear_ring_irq(acthcd, irq_mask);
 
-		if (dma_nest == true)
-		{
-			spin_unlock_irqrestore(&myhcd->lock, flags);
+		if (dma_nest == true) {
+			spin_unlock_irqrestore(&acthcd->lock, flags);
 			return;
 		}
 
-		handle_ring_dma_tx(myhcd, irq_mask);
+		handle_ring_dma_tx(acthcd, irq_mask);
 	} while (irq_mask);
-	
-	myhcd->check_trb_mutex = false;
-	spin_unlock_irqrestore(&myhcd->lock, flags);
+	acthcd->check_trb_mutex = 0;
+	spin_unlock_irqrestore(&acthcd->lock, flags);
+	return;
 }
+
+
 
