@@ -612,6 +612,47 @@
 			dma-names = "tx","rx";
 			status = "okay";
 		};
+
+		ethernet@e0220000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			reg = <0x0 0xe0220000 0x0 0x1174>;
+			interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&ethernet_state_default>;
+			
+			compatible = "caninos,s700-ethernet";
+
+			clocks = <&cmu CLK_ETHERNET_PLL>, <&cmu CLK_RMII_REF>;
+			clock-names = "stmmaceth", "rmii_ref";
+
+			resets = <&rst RST_ETHERNET>;
+			reset-names = "stmmaceth";
+			
+			phy-mode = "rmii";
+			phy-handle = <&phy0>;
+			phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>; // If Lora is in use, remove this property. Only necessary for old base boards
+			//phy-power-en = "ethernet_gpio_regulator";
+			phy-reset-gpios = <&gpiod 31 GPIO_ACTIVE_HIGH>;
+
+			phy-addr = <1>;
+			//max-frame-size = <1518>; //if not set will use 9000
+			max-speed=<100>;
+			//snps,force_thresh_dma_mode=<1>; //choose between store and forward or threshould the fifo
+			status = "okay";
+			mdio0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "snps,dwmac-mdio";
+				phy0: ethernet-phy@0 {
+					reg = <0x1>;
+					device_type = "ethernet-phy";
+				};
+			};
+		};
 	};
 };
 

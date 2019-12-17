@@ -179,6 +179,41 @@
 				actions,pull = <2>; /*pull up*/
 			};
 		};
+		ethernet_state_default: ethernet_default {
+			ethernet_pwr { //change mfp1[22:21] to digital function
+				actions,groups = "mfp1_22_21";
+				actions,function = "lcd0";
+			};
+
+			ethernet_smi { // pins: MDC & MDIO
+				actions,groups = "eth_smi_dummy";
+				actions,function = "eth_rmii";
+			};
+
+			ethernet_rmii_txd01 {
+				actions,groups = "mfp0_18_16_eth_txd0", "mfp0_18_16_eth_txd1";
+				actions,function = "eth_rmii";
+			};
+
+			ethernet_rmii_txen_rxer {
+				actions,groups = "mfp0_15_13_rmii_txen", "mfp0_15_13_rmii_rxen";
+				actions,function = "eth_rmii";
+			};
+
+			ethernet_rmii_crs_dv {
+				actions,groups = "mfp0_22_20";
+				actions,function = "eth_rmii";
+			};
+
+			ethernet_rmii_rxd10 {
+				actions,groups = "mfp0_10_8_rmii_rxd1", "mfp0_10_8_rmii_rxd0";
+				actions,function = "eth_rmii";
+			};
+			ethernet_rmii_ref_clk {
+				actions,groups = "mfp0_7_6";
+				actions,function = "eth_rmii";
+			};
+		};
 	};
 	};
 };

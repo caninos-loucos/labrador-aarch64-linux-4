@@ -153,6 +153,14 @@ static struct caninos_rcu_reset_reg_data k7_reg_data[] = {
 		.deassert_clear_mask = BIT(29),
 		.deassert_set_mask   = BIT(29),
 	},
+	[RST_ETHERNET] = {
+		.assert_offset       = S700_DEVRST1,
+		.assert_clear_mask   = BIT(23),
+		.assert_set_mask     = 0,
+		.deassert_offset     = S700_DEVRST1,
+		.deassert_clear_mask = BIT(23),
+		.deassert_set_mask   = BIT(23),
+	},
 };
 
 struct caninos_rcu_reset_priv

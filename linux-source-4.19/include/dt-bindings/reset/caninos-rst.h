@@ -17,7 +17,8 @@
 #define RST_PCM0  13
 #define RST_PCM1  14
 #define RST_AUDIO 15
-#define NR_RESETS 16
+#define RST_ETHERNET 16
+#define NR_RESETS 17
 
 #endif
 
