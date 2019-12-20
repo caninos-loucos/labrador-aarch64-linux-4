@@ -120,7 +120,10 @@ static long calc_clk_div(long rate, long src, long min, long max, long mul)
 	rate1 = src / (div1 * mul);
 	rate2 = src / (div2 * mul);
 	
-	if (calc_clk_error(rate1, rate) < calc_clk_error(rate2, rate)) {
+
+	if ((rate2 > rate) ||
+		(calc_clk_error(rate1, rate) < calc_clk_error(rate2, rate))
+		) {
 		return div1;
 	}
 	else {

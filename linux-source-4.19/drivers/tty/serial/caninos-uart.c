@@ -11,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/serial.h>
 #include <linux/serial_core.h>
+#include <linux/reset.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 
@@ -65,6 +66,7 @@ struct caninos_uart_port
 {
 	struct uart_port port;
 	struct clk *clk;
+	//struct reset_control *rst;
 };
 
 #define to_caninos_uart_port(x) container_of(x, struct caninos_uart_port, port)
@@ -318,7 +320,7 @@ static int caninos_uart_startup(struct uart_port *port)
 	}
 	
 	spin_lock_irqsave(&port->lock, flags);
-	
+
 	val = uart_readl(port, UART_STAT);
 	val |= UART_STAT_RIP | UART_STAT_TIP
 		| UART_STAT_RXER | UART_STAT_TFER | UART_STAT_RXST;
@@ -693,8 +695,12 @@ static int caninos_uart_probe(struct platform_device *pdev)
 	const struct caninos_uart_info *info = NULL;
 	const struct of_device_id *match;
 	struct caninos_uart_port *port;
+	struct reset_control *rst;
 	struct resource *res_mem;
 	int ret, irq;
+	struct device *dev = &pdev->dev;
+	char uart_name[10];
+	//void __iomem *reg;
 	
 	if (pdev->dev.of_node)
 	{
@@ -750,6 +756,26 @@ static int caninos_uart_probe(struct platform_device *pdev)
 		pr_err("Could not get uart%d clock.\n", pdev->id);
 		return PTR_ERR(port->clk);
 	}
+
+	sprintf(uart_name, "uart%d", pdev->id);
+	rst = devm_reset_control_get(dev, uart_name);
+	if (IS_ERR(rst))
+	{
+		dev_err(&pdev->dev, "could not get device reset control.\n");
+		return -ENODEV;
+	}
+
+	reset_control_assert(rst);
+
+	if (clk_prepare_enable(port->clk))
+	{
+			dev_err(&pdev->dev, "could not prepare enable clk\n");
+			return -ENODEV;
+	}
+
+	mdelay(10);
+
+	reset_control_deassert(rst);
 	
 	port->port.dev = &pdev->dev;
 	port->port.line = pdev->id;
@@ -772,6 +798,13 @@ static int caninos_uart_probe(struct platform_device *pdev)
 	port->port.ops = &caninos_uart_ops;
 	
 	caninos_uart_ports[pdev->id] = port;
+
+	//reg = ioremap(0xE01B0000 + 0x88, 4);
+	//writel(readl(reg) | (0x2<<26), reg);//driver str
+	//iounmap(reg);
+
+
+
 	platform_set_drvdata(pdev, port);
 	
 	ret = uart_add_one_port(&caninos_uart_driver, &port->port);

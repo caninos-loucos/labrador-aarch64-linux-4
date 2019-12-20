@@ -14,8 +14,14 @@
 	#size-cells = <2>;
 	
 	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
 		serial3 = &uart3;
-		
+		serial4 = &uart4;
+		serial5 = &uart5;
+		serial6 = &uart6;
+
 		gpio0 = &gpioa;
 		gpio1 = &gpiob;
 		gpio2 = &gpioc;
@@ -294,15 +300,23 @@
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe0124000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART2>;
+			resets = <&rst RST_UART2>;
+			reset-names = "uart2";
 			interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
-			status = "disabled";
+			pinctrl-names = "default";
+			pinctrl-0 = <&serial2_state_default>;
+			status = "okay";
 		};
 		
 		uart3: serial@e0126000 {
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe0126000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART3>;
+			resets = <&rst RST_UART3>;
+			reset-names = "uart3";
 			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&serial3_state_default>;
 			status = "okay";
 		};
 		
@@ -359,6 +373,7 @@
 			pinctrl-0 = <&mm1_pinctrl_state>;
 			power-gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>;
 			enable-gpios = <&gpiob 30 GPIO_ACTIVE_HIGH>;
+			reset-gpios = <&gpioc 3 GPIO_ACTIVE_HIGH>;//reset in wilc3000 and bt_wake in rtl8723bs
 			status = "okay";
 		};
 		
