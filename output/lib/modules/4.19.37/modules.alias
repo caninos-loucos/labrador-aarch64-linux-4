@@ -9,6 +9,8 @@ alias crypto-ccm_base ccm
 alias ccm_base ccm
 alias crypto-arc4 arc4
 alias arc4 arc4
+alias crypto-ecdh ecdh_generic
+alias ecdh ecdh_generic
 alias i2c:fsa9480 fsa9480
 alias usb:v0BDAp0140d*dc*dsc*dp*ic*isc*ip*in* rtsx_usb
 alias usb:v0BDAp0139d*dc*dsc*dp*ic*isc*ip*in* rtsx_usb
@@ -5844,6 +5846,7 @@ alias sdio:c*v024Cd0626* r8723bs
 alias sdio:c*v024Cd0623* r8723bs
 alias sdio:c*v024Cd0523* r8723bs
 alias acpi*:OBDA8723:* r8723bs
+alias tty-ldisc-15 hci_uart
 alias usb:v1397p00BDd*dc*dsc*dp*ic*isc*ip*in* snd_bcd2000
 alias usb:v0E41p5050d*dc*dsc*dp*ic*isc*ip*in* snd_usb_pod
 alias usb:v0E41p4650d*dc*dsc*dp*ic*isc*ip*in00* snd_usb_pod
@@ -5869,3 +5872,6 @@ alias rpc-auth-gss-krb5p rpcsec_gss_krb5
 alias rpc-auth-gss-krb5i rpcsec_gss_krb5
 alias rpc-auth-gss-krb5 rpcsec_gss_krb5
 alias net-pf-16-proto-16-family-nl80211 cfg80211
+alias net-pf-31 bluetooth
+alias bt-proto-3 rfcomm
+alias bt-proto-4 bnep
