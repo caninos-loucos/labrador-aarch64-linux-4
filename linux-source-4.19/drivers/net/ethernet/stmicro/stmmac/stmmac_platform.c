@@ -420,7 +420,6 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 		return ERR_PTR(rc);
 
 	of_property_read_u32(np, "tx-fifo-depth", &plat->tx_fifo_size);
-	pr_info("tx-fifo-size = %d", plat->tx_fifo_size);
 
 	of_property_read_u32(np, "rx-fifo-depth", &plat->rx_fifo_size);
 
@@ -433,14 +432,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 	/* Set the maxmtu to a default of JUMBO_LEN in case the
 	 * parameter is not present in the device tree.
 	 */
-	//caninos stuff
-	if(of_property_read_u32(np, "max-frame-size", &plat->maxmtu)){
-		if(plat->max_speed < 1000){
-			plat->maxmtu = 1518;
-		}else{
-			plat->maxmtu = JUMBO_LEN;
-		}
-	}
+	plat->maxmtu = JUMBO_LEN;
 
 	/* Set default value for multicast hash bins */
 	plat->multicast_filter_bins = HASH_TABLE_SIZE;
