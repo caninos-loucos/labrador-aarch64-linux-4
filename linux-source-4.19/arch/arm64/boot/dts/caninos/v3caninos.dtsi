@@ -638,25 +638,6 @@
 			};
 		};
 
-		mtl_tx_setup: tx-queues-config {
-			snps,tx-queues-to-use = <2>;
-			snps,tx-sched-sp;
-			queue0 {
-				//snps,weight = <0x10>;
-				snps,dcb-algorithm;
-				snps,priority = <0x0>;
-			};
-
-			queue1 {
-				snps,avb-algorithm;
-				snps,send_slope = <0x1000>;
-				snps,idle_slope = <0x1000>;
-				snps,high_credit = <0x3E800>;
-				snps,low_credit = <0xFFC18000>;
-				snps,priority = <0x1>;
-			};
-		};
-
 		ethernet@e0220000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -688,18 +669,7 @@
 			rx-fifo-depth = <16384>;
 			tx-fifo-depth = <16384>;
 
-			/*these options are not necessary in Fast ethernet*/
-			//snps,txpbl = <8>;
-			//snps,rxpbl = <8>;
-			//snps,no-pbl-x8;
-			//snps,mixed-burst;
-			//snps,aal;
-
 			snps,force_thresh_dma_mode=<1>; //choose between store and forward or threshould the fifo
-
-			/*actually the queue configs are not working*/
-			//snps,mtl-rx-config = <&mtl_rx_setup>;
-			//snps,mtl-tx-config = <&mtl_tx_setup>;
 
 			status = "okay";
 			mdio0 {
