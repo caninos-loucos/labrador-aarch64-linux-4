@@ -633,7 +633,7 @@
 			#size-cells = <0>;
 
 			reg = <0x0 0xe0220000 0x0 0x1174>;
-			interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
 
 			pinctrl-names = "default";
@@ -656,7 +656,6 @@
 			phy-addr = <1>;
 			//max-frame-size = <1518>; //if not set will use 9000
 			max-speed=<100>;
-			//snps,force_thresh_dma_mode=<1>; //choose between store and forward or threshould the fifo
 			status = "okay";
 			mdio0 {
 				#address-cells = <1>;
