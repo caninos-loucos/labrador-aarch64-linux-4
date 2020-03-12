@@ -628,16 +628,6 @@
 			status = "okay";
 		};
 
-		mtl_rx_setup: rx-queues-config {
-			snps,rx-queues-to-use = <1>;
-			snps,rx-sched-sp;
-			queue0 {
-				snps,dcb-algorithm;
-				snps,map-to-dma-channel = <0x0>;
-				snps,priority = <0x0>;
-			};
-		};
-
 		ethernet@e0220000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -660,17 +650,12 @@
 			phy-mode = "rmii";
 			phy-handle = <&phy0>;
 			phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>; // If Lora is in use, remove this property. Only necessary for old base boards
+			//phy-power-en = "ethernet_gpio_regulator";
 			phy-reset-gpios = <&gpiod 31 GPIO_ACTIVE_HIGH>;
 
 			phy-addr = <1>;
-			max-frame-size = <1518>; //if not set will use 9000
+			//max-frame-size = <1518>; //if not set will use 9000
 			max-speed=<100>;
-
-			rx-fifo-depth = <16384>;
-			tx-fifo-depth = <16384>;
-
-			snps,force_thresh_dma_mode=<1>; //choose between store and forward or threshould the fifo
-
 			status = "okay";
 			mdio0 {
 				#address-cells = <1>;
