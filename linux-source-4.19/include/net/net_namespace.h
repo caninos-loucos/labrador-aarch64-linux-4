@@ -161,9 +161,6 @@ struct net {
 #endif
 	struct sock		*diag_nlsk;
 	atomic_t		fnhe_genid;
-#if !defined(__GENKSYMS__) && !defined(MODULE)
-	int			ipv4_sysctl_tcp_min_snd_mss;
-#endif
 } __randomize_layout;
 
 #include <linux/seq_file_net.h>
@@ -325,7 +322,7 @@ static inline struct net *read_pnet(const possible_net_t *pnet)
 #define __net_initconst	__initconst
 #endif
 
-int peernet2id_alloc(struct net *net, struct net *peer);
+int peernet2id_alloc(struct net *net, struct net *peer, gfp_t gfp);
 int peernet2id(struct net *net, struct net *peer);
 bool peernet_has_id(struct net *net, struct net *peer);
 struct net *get_net_ns_by_id(struct net *net, int id);

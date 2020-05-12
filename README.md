@@ -1,64 +1,96 @@
 # labrador-linux-64
-Linux 4 for Caninos Labrador V3
+Linux 4 kernel source code for "Caninos Labrador v3.0".
 
-@What is all about?
->This repository contains the source code of Labrador's 64bits linux kernel (version 4.19.37).
+## Release Notes
+Current (12-05-2020)
+1) Kernel version updated from 4.19.37 to 4.19.98
+2) Added base board user configurable led support
+3) New fully functional and complete caninos-clk driver (written from scratch)
+4) Caninos KMS/DRM driver prepared for hdmi custom video modes and cvbs output
+5) Corrected a plethora of minor bugs
 
->Boards newer than LABRADOR CORE v3.0 should work fine with this kernel!
+## About
+This repository contains the source code of Caninos Labrador's 64bits linux
+kernel.
+Boards newer than "Labrador Core v3.0" should work fine with this kernel.
 
-@What is needed?
->Some tools are necessary for compilation, please read the 'install' file in this repository.
+## Usage
+Some tools are necessary for compilation, please read the "install" file in this
+repository.
+After installing these tools, clone this repository in your computer.
+Then, go to it's main directory and execute it's makefile.
 
-@How to compile?
->Clone the git repository, go to the main path and run make from your favourite terminal.
+```
+$ git clone https://github.com/caninos-loucos/labrador-linux-64.git
+$ cd labrador-linux-64 && make
+```
 
-$ make
+## Incremental Build
+If you want to do an incremental build, execute the following commands:
 
-@How can I execute an "incremental" build?
->Just execute the command below;
+1) To load "Labrador Core v3.0"'s configuration
+```
+make config
+```
+>Note: this will overwrite all configurations already set up.
 
-$ make kernel
+2) To change which modules are compiled into your kernel image
+```
+make menuconfig
+```
+3) To compile your kernel image
+```
+make kernel
+```
+4) To reset everything
+```
+make clean
+```
 
-@How to choose what modules are compiled in?
->Just execute the command below;
+## Installation
+After a successful build, the kernel should be avaliable at "output" folder.
+The modules are located at "output/lib/modules". Do the following:
 
-$ make menuconfig
+1) Copy the modules to the folder "/lib/modules" at your SDCARD/EMMC system's
+root.
 
-@How to transfer the compiled kernel to my board?
+```
+$ sudo cp -r output/lib/modules $ROOTFS/lib/
+```
 
->After a successful build, the kernel should be avaliable at output folder.
+2) Copy the Image file to the "/boot/" folder at your SDCARD/EMMC system's root.
 
->The modules are located at output/lib/modules. Copy them to the folder /lib/modules at your Linux system's root.
+```
+$ sudo cp -r output/Image $ROOTFS/boot/
+```
 
-$ sudo rm -r /lib/modules
-$ sudo cp -r output/lib/modules /lib/modules
+3) Copy the device tree files to "/boot/" folder at your SDCARD/EMMC
+system's root.
 
->Copy the Image file to /boot/ folder.
+```
+$ sudo cp -r output/v3emmc.dtb $ROOTFS/boot/
+$ sudo cp -r output/v3sdc.dtb $ROOTFS/boot/
+```
+>Note: $ROOTFS must be replaced by the complete directory path of your target
+system's root mounting point.
 
-$ sudo rm /boot/Image
-$ cp output/Image /boot/Image
+## Bootloader Installation
 
->Copy device tree files to /boot/ folder.
+To update the bootloader in a SDCARD use:
+```
+$ sudo dd if=bootloader.bin of=/dev/$DEVNAME conv=notrunc seek=1 bs=512
+```
+> Note: $DEVNAME is the name of the target device. It is not a partition name.
+You can use lsblk, to know it's name.
 
-$ rm /boot/v3emmc.dtb
-$ rm /boot/v3sdc.dtb
-$ cp output/v3emmc.dtb /boot/v3emmc.dtb
-$ cp output/v3sdc.dtb /boot/v3sdc.dtb
-
-@How update the Bootloader?
-
->To update in SD card or a mounted image use;
-
-$ sudo dd if=bootloader.bin of=/dev/*DEVNAME* conv=notrunc seek=1 bs=512
->*DEVNAME* is where your sd card or disk image is mounted on system. You can use lsblk, for example, to know yours.
-
->To update in a live linux system use;
-
+To update the EMMC's bootloader from a live Linux system booted from SDCARD use:
+```
 $ sudo dd if=bootloader.bin of=/dev/mmcblk2 conv=notrunc seek=1 bs=512
+```
 
-@where to find out more about Caninos Loucos and Labrador?
+## Contributing
 
->Access the forum https://forum.caninosloucos.org.br/
+Caninos Loucos Forum: <https://forum.caninosloucos.org.br/>
 
->Access our site https://caninosloucos.org/pt/
+Caninos Loucos Website: <https://caninosloucos.org/>
 

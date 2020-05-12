@@ -14,14 +14,8 @@
 	#size-cells = <2>;
 	
 	aliases {
-		serial0 = &uart0;
-		serial1 = &uart1;
-		serial2 = &uart2;
 		serial3 = &uart3;
-		serial4 = &uart4;
-		serial5 = &uart5;
-		serial6 = &uart6;
-
+		
 		gpio0 = &gpioa;
 		gpio1 = &gpiob;
 		gpio2 = &gpioc;
@@ -52,16 +46,24 @@
 		#size-cells = <2>;
 		ranges;
 		
+		/* reserve 48MB for framebuffer */
+		fb_reserved: framebuffer@19000000 {
+			reg = <0x0 0x19000000 0x0 0x3000000>;
+			no-map;
+		};
+		
 		/* reserve 16MB for secure monitor */
 		secmon@1f000000 {
 			reg = <0x0 0x1f000000 0x0 0x1000000>;
 			no-map;
 		};
 		
-		/* reserve 48MB for framebuffer */
-		fb_reserved: framebuffer@19000000 {
-			reg = <0x0 0x19000000 0x0 0x3000000>;
-			no-map;
+		/* reserve 512MB for cma */
+		cma_reserved: linux,cma {
+            compatible = "shared-dma-pool";
+            reusable;
+			reg = <0x0 0x20000000 0x0 0x20000000>;
+            linux,cma-default;
 		};
 	};
 	
@@ -137,8 +139,7 @@
 		
 		cmu: clock-controller@e0168000 {
 			compatible = "caninos,k7-cmu";
-			reg = <0x0 0xe0168000 0x0 0xa8>,
-			      <0x0 0xe01680b0 0x0 0x14>;
+			reg = <0 0xe0168000 0 0x1000>;
 			#clock-cells = <1>;
 			status = "okay";
 		};
@@ -242,7 +243,6 @@
 			compatible = "caninos,k7-usb2.0-0";
 			reg = <0 0xe01d0000 0 0x1000>;
 			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
-			//power-domains = <&powergate POWER_DOMAIN_USB2H0>;
 			clocks = <&cmu CLK_USB2H0_PLLEN>,
 				     <&cmu CLK_USB2H0_PHY>,
 				     <&cmu CLK_USB2H0_CCE>;
@@ -256,7 +256,6 @@
 			compatible = "caninos,k7-usb2.0-1";
 			reg = <0 0xe01d8000 0 0x1000>;
 			interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
-			//power-domains = <&powergate POWER_DOMAIN_USB2H1>;
 			clocks = <&cmu CLK_USB2H1_PLLEN>,
 				     <&cmu CLK_USB2H1_PHY>,
 				     <&cmu CLK_USB2H1_CCE>;
@@ -266,10 +265,48 @@
 			status = "okay";
 		};
 		
-		fb0: video {
-			compatible = "caninos,k7-fb";
+		leds {
+		    compatible = "gpio-leds";
+		    
+		    led@1 {
+                label = "led1"; //LVDS_RXOC_P - GPIOB12
+                gpios = <&gpiob 12 GPIO_ACTIVE_HIGH>;
+                linux,default-trigger = "default-on";
+                default-state = "ON";
+            };
+            
+		    led@2 {
+                label = "led2"; //LCD0_D17 - GPIOB31
+                gpios = <&gpiob 31 GPIO_ACTIVE_HIGH>;
+                linux,default-trigger = "heartbeat";
+                default-state = "ON";
+            };
+        };
+		
+		drm: video {
+			compatible = "caninos,k7-drm";
+			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
+			
 			memory-region = <&fb_reserved>;
 			status = "okay";
+			
+			reg = <0x0 0xe02e0000 0x0 0x1014>,
+			      <0x0 0xe02b0000 0x0 0x80>,
+			      <0x0 0xe0168000 0x0 0x100>,
+			      <0x0 0xe02c0000 0x0 0x1f0>;
+			      
+			reg-names = "de", "cvbs", "cmu", "hdmi";
+			
+			clocks = <&cmu CLK_TVOUT>,
+			         <&cmu CLK_CVBS_PLL>,
+			         <&cmu CLK_HDMI_DEV>,
+			         <&cmu CLK_DE>,
+			         <&cmu CLK_DEV>;
+			
+			clock-names = "tvout", "cvbs_pll", "hdmi", "clk", "parent_clk";
+			
+			resets = <&rst RST_TVOUT>, <&rst RST_HDMI>, <&rst RST_DE>;
+			reset-names = "tvout", "hdmi", "de";
 		};
 		
 		timer: timer@e024c000 {
@@ -300,23 +337,15 @@
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe0124000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART2>;
-			resets = <&rst RST_UART2>;
-			reset-names = "uart2";
 			interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&serial2_state_default>;
-			status = "okay";
+			status = "disabled";
 		};
 		
 		uart3: serial@e0126000 {
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe0126000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART3>;
-			resets = <&rst RST_UART3>;
-			reset-names = "uart3";
 			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&serial3_state_default>;
 			status = "okay";
 		};
 		
@@ -373,7 +402,6 @@
 			pinctrl-0 = <&mm1_pinctrl_state>;
 			power-gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>;
 			enable-gpios = <&gpiob 30 GPIO_ACTIVE_HIGH>;
-			reset-gpios = <&gpioc 3 GPIO_ACTIVE_HIGH>;//reset in wilc3000 and bt_wake in rtl8723bs
 			status = "okay";
 		};
 		
@@ -396,219 +424,26 @@
 			compatible = "caninos,k7-i2c";
 			reg = <0 0xe0170000 0 0x1000>;
 			interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
-			#address-cells = <1>;
-			#size-cells = <0>;
 			clocks = <&cmu CLK_I2C0>;
 			clock-names = "i2c0";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_i2c0_default>;
-			clock-frequency = <400000>;
 			i2c_num = <0>;
+			clock-frequency = <400000>;
 			status = "okay";
 			
-			/* atc2603c */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			
 			atc260x: atc2603c@65 {
-				compatible = "actions,atc2603c";
+				compatible = "atc2603c";
 				reg = <0x65>;
-				interrupt-parent = <&sirq>;
-				interrupts = <2 0x4>;
-				interrupt-controller;
-				#interrupt-cells = <1>;
-				
-				/* enable/disable output 32.768K clock via I2S_MCLK1 pin */
-				losc_32k_output_enable = <1>;
-				
-				/* select voltage of the 32.768K clock output, 18:1.8v, 31:3.1v */
-				losc_32k_output_voltage = <18>;
-				
-				pm {
-					compatible = "actions,atc2603c-pm";
-				};
-
-				onoff {
-					compatible = "actions,atc2603c-onoff";
-				};
-				
-				atc260x_gpio: atc260x_gpio {
-					compatible = "actions,atc2603c-gpio";
-					gpio-controller;
-					#gpio-cells = <2>;
-				};
-				
-				atc260x_sgpio: atc260x_sgpio {
-					compatible = "actions,atc2603c-sgpio";
-					gpio-controller;
-					#gpio-cells = <2>;
-					interrupt-controller;
-					#interrupt-cells = <2>;
-				};
 				
 				atc260x_audio: atc260x-audio {
 					compatible = "actions,atc2603c-audio";
 					status = "okay";
 				};
-				
-				dcdc1: dcdc1 {
-					compatible = "actions,atc2603c-dcdc1","actions,atc2603c-dcdc";
-					regulator-name = "dcdc1";
-					regulator-min-microvolt = <700000>;
-					regulator-max-microvolt = <1400000>;
-					regulator-always-on;
-				};
-				
-				dcdc2: dcdc2 {
-					compatible = "actions,atc2603c-dcdc2","actions,atc2603c-dcdc";
-					regulator-name = "dcdc2";
-					regulator-min-microvolt = <1300000>;
-					regulator-max-microvolt = <2200000>;
-					regulator-always-on;
-				};
-				
-				dcdc3: dcdc3 {
-					compatible = "actions,atc2603c-dcdc3","actions,atc2603c-dcdc";
-					regulator-name = "dcdc3";
-					regulator-min-microvolt = <2600000>;
-					regulator-max-microvolt = <3300000>;
-					regulator-always-on;
-				};
-				
-				dcdc4: dcdc4 {
-					status = "disabled";
-				};
-
-				dcdc5: dcdc5 {
-					status = "disabled";
-				};
-				
-				ldo1: ldo1 {
-					compatible = "actions,atc2603c-ldo1","actions,atc2603c-ldo";
-					regulator-name = "ldo1";
-					regulator-min-microvolt  = <2800000>;
-					regulator-max-microvolt = <2800000>;
-					regulator-always-on;
-				};
-				
-				ldo2: ldo2 {
-					compatible = "actions,atc2603c-ldo2","actions,atc2603c-ldo";
-					regulator-name = "ldo2";
-					regulator-min-microvolt  = <2600000>;
-					regulator-max-microvolt = <3300000>;
-					regulator-always-on;
-				};
-				
-				ldo3: ldo3 {
-					compatible = "actions,atc2603c-ldo3","actions,atc2603c-ldo";
-					regulator-name = "ldo3";
-					regulator-min-microvolt  = <1500000>;
-					regulator-max-microvolt = <2000000>;
-					regulator-always-on;
-				};
-				
-				ldo4: ldo4 {
-					status = "disabled";
-				};
-				
-				ldo5: ldo5 {
-					compatible = "actions,atc2603c-ldo5","actions,atc2603c-ldo";
-					regulator-name = "ldo5";
-					regulator-min-microvolt  = <3100000>;
-					regulator-max-microvolt = <3100000>;
-					regulator-always-on;
-				};
-				
-				ldo6: ldo6 {
-					compatible = "actions,atc2603c-ldo6","actions,atc2603c-ldo";
-					regulator-name = "ldo6";
-					regulator-min-microvolt  = <700000>;
-					regulator-max-microvolt = <1400000>;
-					regulator-always-on;
-				};
-				
-				ldo7: ldo7 {
-					compatible = "actions,atc2603c-ldo7","actions,atc2603c-ldo";
-					regulator-name = "ldo7";
-					regulator-min-microvolt  = <1800000>;
-					regulator-max-microvolt = <1800000>;
-					regulator-always-on;
-					//regulator-suspend-off;
-				};
-				
-				ldo8: ldo8 {
-					compatible = "actions,atc2603c-ldo8","actions,atc2603c-ldo";
-					regulator-name = "ldo8";
-					regulator-min-microvolt  = <2300000>;
-					regulator-max-microvolt = <3300000>;
-				};
-				
-				ldo9: ldo9 {
-					status = "disabled";
-				};
-				
-				ldo10: ldo10 {
-					status = "disabled";
-				};
-				
-				ldo11: ldo11 {
-					compatible = "actions,atc2603c-ldo11","actions,atc2603c-ldo";
-					regulator-name = "ldo11";
-					regulator-min-microvolt  = <2600000>;
-					regulator-max-microvolt = <3300000>;
-					regulator-always-on;
-				};
-				
-				switch1:switch1 {
-					compatible = "actions,atc2603c-switch1","actions,atc2603c-switch";
-					regulator-name = "switch1";
-					regulator-min-microvolt  = <3000000>;
-					regulator-max-microvolt = <3300000>;
-					regulator-always-on;
-				};
-				
-				switch2:switch2 {
-					status = "disabled";
-				};
 			};
-		};
-		
-		i2c1: i2c@e0174000 {
-			compatible = "caninos,k7-i2c";
-			reg = <0 0xe0174000 0 0x1000>;
-			interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			clocks = <&cmu CLK_I2C1>;
-			clock-names = "i2c1";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_i2c1_default>;
-			clock-frequency = <400000>;
-			i2c_num = <1>;
-			status = "okay";
-		};
-		
-		i2c2: i2c@e0178000 {
-			compatible = "caninos,k7-i2c";
-			reg = <0 0xe0178000 0 0x1000>;
-			interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			clocks = <&cmu CLK_I2C2>;
-			clock-names = "i2c2";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_i2c2_default>;
-			clock-frequency = <400000>;
-			i2c_num = <2>;
-			status = "okay";
-		};
-		
-		i2c3: i2c@e017c000 {
-			compatible = "caninos,k7-i2c";
-			reg = <0 0xe017c000 0 0x1000>;
-			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			clocks = <&cmu CLK_I2C3>;
-			clock-names = "i2c3";
-			status = "disabled";
 		};
 		
 		sound@e0166000 {
@@ -627,7 +462,53 @@
 			dma-names = "tx","rx";
 			status = "okay";
 		};
-
+		
+		i2c1: i2c@e0174000 {
+			compatible = "caninos,k7-i2c";
+			reg = <0 0xe0174000 0 0x1000>;
+			interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_I2C1>;
+			clock-names = "i2c1";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_i2c1_default>;
+			i2c_num = <1>;
+			clock-frequency = <400000>;
+			status = "okay";
+			
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		
+		i2c2: i2c@e0178000 {
+			compatible = "caninos,k7-i2c";
+			reg = <0 0xe0178000 0 0x1000>;
+			interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_I2C2>;
+			clock-names = "i2c2";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_i2c2_default>;
+			i2c_num = <2>;
+			clock-frequency = <400000>;
+			status = "okay";
+			
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		
+		i2c3: i2c@e017c000 {
+			compatible = "caninos,k7-i2c";
+			reg = <0 0xe017c000 0 0x1000>;
+			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_I2C3>;
+			clock-names = "i2c3";
+			i2c_num = <3>;
+			clock-frequency = <400000>;
+			status = "disabled";
+			
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		
 		ethernet@e0220000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -649,13 +530,19 @@
 			
 			phy-mode = "rmii";
 			phy-handle = <&phy0>;
-			phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>; // If Lora is in use, remove this property. Only necessary for old base boards
+
+            // If Lora is in use, remove the next property.
+            // Only necessary for old base boards
+			phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>;
+ 
 			//phy-power-en = "ethernet_gpio_regulator";
 			phy-reset-gpios = <&gpiod 31 GPIO_ACTIVE_HIGH>;
 
 			phy-addr = <1>;
 			//max-frame-size = <1518>; //if not set will use 9000
 			max-speed=<100>;
+            //choose between store and forward or threshould the fifo
+			//snps,force_thresh_dma_mode=<1>;
 			status = "okay";
 			mdio0 {
 				#address-cells = <1>;

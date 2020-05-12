@@ -1,3 +1,22 @@
+/*
+ * Caninos I2C
+ *
+ * Copyright (c) 2019 LSI-TEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * Copyright (c) 2012 Actions Semi Inc.
+ * Author: Actions Semi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/err.h>
@@ -644,19 +663,19 @@ static int owl_i2c_probe(struct platform_device *pdev)
 	struct i2c_adapter *adap;
 	struct resource *res;
 	int ret;
-	u32 phy_addr;
-
+	
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
+	
 	if (!dev)
 		return -ENOMEM;
+	
 	init_completion(&dev->cmd_complete);
 	dev->dev = &pdev->dev;
-
+	
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
-	phy_addr = res->start;
-
+	
 	dev->base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(dev->base))
 		return PTR_ERR(dev->base);
@@ -692,45 +711,36 @@ static int owl_i2c_probe(struct platform_device *pdev)
 		else
 			dev->freq_mode = I2C_FREQ_MODE_FAST;
 	}
-
+	
 	adap = &dev->adapter;
-	
-	snprintf(dev->adapter.name, sizeof(dev->adapter.name), "OWL I2C adapter");
-	
 	i2c_set_adapdata(adap, dev);
 	
 	adap->owner = THIS_MODULE;
-	adap->class = I2C_CLASS_HWMON;
+	adap->class = I2C_CLASS_DEPRECATED;
+	
+	snprintf(dev->adapter.name, sizeof(dev->adapter.name), "caninos I2C adapter");
+	
 	adap->algo = &owl_i2c_algorithm;
 	adap->timeout = OWL_I2C_TIMEOUT;
-	adap->dev.parent = dev->dev;
+	adap->dev.parent = &pdev->dev;
 	adap->dev.of_node = pdev->dev.of_node;
-	adap->nr = pdev->id;
 	
-	ret = i2c_add_numbered_adapter(adap);
+	ret = i2c_add_adapter(adap);
 	
-	if (ret) {
-		dev_err(dev->dev, "Adapter %s registration failed\n",
-			adap->name);
+	if (ret)
+	{
+		dev_err(dev->dev, "adapter registration failed\n");
 		clk_disable_unprepare(dev->clk);
 		return ret;
 	}
-
-
-
-	dev_info(dev->dev, "I2C adapter ready to operate.\n");
-
 	return 0;
 }
-
 
 static int owl_i2c_remove(struct platform_device *pdev)
 {
 	struct owl_i2c_dev *dev = platform_get_drvdata(pdev);
-
 	i2c_del_adapter(&dev->adapter);
 	clk_disable_unprepare(dev->clk);
-
 	return 0;
 }
 
@@ -742,31 +752,17 @@ static const struct of_device_id owl_i2c_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, owl_i2c_dt_ids);
 
 static struct platform_driver owl_i2c_driver = {
-	.probe		= owl_i2c_probe,
-	.remove		= owl_i2c_remove,
-	.driver		= {
-		.name	= "i2c-caninos",
-		.owner	= THIS_MODULE,
+	.probe = owl_i2c_probe,
+	.remove	= owl_i2c_remove,
+	.driver	= {
+		.name = "i2c-caninos",
+		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(owl_i2c_dt_ids),
 	},
 };
 
-static int __init owl_i2c_init(void)
-{
-	pr_info("[OWL] I2C controller initialization\n");
+module_platform_driver(owl_i2c_driver);
 
-	return platform_driver_register(&owl_i2c_driver);
-}
-
-static void __exit owl_i2c_exit(void)
-{
-	platform_driver_unregister(&owl_i2c_driver);
-}
-
-subsys_initcall(owl_i2c_init);
-module_exit(owl_i2c_exit);
-
-MODULE_AUTHOR("David Liu <liuwei@actions-semi.com>");
-MODULE_DESCRIPTION("I2C driver for Actions OWL SoCs");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:i2c-owl");
+MODULE_ALIAS("platform:i2c-caninos");
+

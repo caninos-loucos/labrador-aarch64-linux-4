@@ -282,9 +282,7 @@ enum
 	LINUX_MIB_TCPACKCOMPRESSED,		/* TCPAckCompressed */
 	LINUX_MIB_TCPZEROWINDOWDROP,		/* TCPZeroWindowDrop */
 	LINUX_MIB_TCPRCVQDROP,			/* TCPRcvQDrop */
-#if !defined(__KERNEL__) || (!defined(__GENKSYMS__) && !defined(MODULE))
 	LINUX_MIB_TCPWQUEUETOOBIG,		/* TCPWqueueTooBig */
-#endif
 	__LINUX_MIB_MAX
 };
 

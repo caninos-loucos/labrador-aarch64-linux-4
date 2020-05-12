@@ -288,7 +288,7 @@ MODULE_DEVICE_TABLE(of, aotg_of_match);
 static int aotg_hcd_get_dts(struct platform_device *pdev)
 {
 	struct device_node *of_node = pdev->dev.of_node;
-	enum of_gpio_flags flags;
+
 
 	if (of_device_is_compatible(of_node, aotg_of_match[0].compatible)) {
 		pdev->id = 0;
@@ -422,7 +422,7 @@ static int __init aotg_init(void)
 	
 	INIT_DELAYED_WORK(&start_mon_wker, start_mon);
 	
-	queue_delayed_work(start_mon_wq, &start_mon_wker, msecs_to_jiffies(10000));
+	queue_delayed_work(start_mon_wq, &start_mon_wker, msecs_to_jiffies(5000));
 	
 	return 0;
 }

@@ -5,10 +5,11 @@ config ARCH_ACTIONS
 	select OWL_TIMER
 	help
 	  This enables support for the Actions Semiconductor S900 SoC family.
-
+	  
 config ARCH_CANINOS
 	bool "CaninosLabrador"
 	select CANINOS_TIMER
+	select PINCTRL
 	help
 	  This enables support for the Caninos Labrador board family.
 

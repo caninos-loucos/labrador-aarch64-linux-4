@@ -23,7 +23,6 @@
 #include <linux/rculist.h>
 #include <linux/wait.h>
 #include <linux/memcontrol.h>
-#include <linux/module.h>
 
 #include <linux/fsnotify_backend.h>
 #include "fsnotify.h"

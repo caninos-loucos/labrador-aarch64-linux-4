@@ -2275,10 +2275,11 @@ static void aotg_hub_endpoint_disable(struct usb_hcd *hcd,
 
 static int aotg_hcd_get_frame(struct usb_hcd *hcd)
 {
-	struct timeval	tv;
-
-	do_gettimeofday(&tv);
-	return tv.tv_usec / 1000;
+	struct timespec64 ts;
+	
+	ktime_get_real_ts64(&ts);
+	
+	return ts.tv_nsec / 1000000;
 }
 
 static int aotg_hub_status_data(struct usb_hcd *hcd, char *buf)

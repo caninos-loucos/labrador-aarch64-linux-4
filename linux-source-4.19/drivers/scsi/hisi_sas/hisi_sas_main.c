@@ -184,7 +184,14 @@ static void hisi_sas_slot_index_clear(struct hisi_hba *hisi_hba, int slot_idx)
 
 static void hisi_sas_slot_index_free(struct hisi_hba *hisi_hba, int slot_idx)
 {
-	hisi_sas_slot_index_clear(hisi_hba, slot_idx);
+	unsigned long flags;
+
+	if (hisi_hba->hw->slot_index_alloc || (slot_idx >=
+	    hisi_hba->hw->max_command_entries - HISI_SAS_RESERVED_IPTT_CNT)) {
+		spin_lock_irqsave(&hisi_hba->lock, flags);
+		hisi_sas_slot_index_clear(hisi_hba, slot_idx);
+		spin_unlock_irqrestore(&hisi_hba->lock, flags);
+	}
 }
 
 static void hisi_sas_slot_index_set(struct hisi_hba *hisi_hba, int slot_idx)
@@ -194,24 +201,34 @@ static void hisi_sas_slot_index_set(struct hisi_hba *hisi_hba, int slot_idx)
 	set_bit(slot_idx, bitmap);
 }
 
-static int hisi_sas_slot_index_alloc(struct hisi_hba *hisi_hba, int *slot_idx)
+static int hisi_sas_slot_index_alloc(struct hisi_hba *hisi_hba,
+				     struct scsi_cmnd *scsi_cmnd)
 {
-	unsigned int index;
+	int index;
 	void *bitmap = hisi_hba->slot_index_tags;
+	unsigned long flags;
 
+	if (scsi_cmnd)
+		return scsi_cmnd->request->tag;
+
+	spin_lock_irqsave(&hisi_hba->lock, flags);
 	index = find_next_zero_bit(bitmap, hisi_hba->slot_index_count,
-			hisi_hba->last_slot_index + 1);
+				   hisi_hba->last_slot_index + 1);
 	if (index >= hisi_hba->slot_index_count) {
-		index = find_next_zero_bit(bitmap, hisi_hba->slot_index_count,
-					   0);
-		if (index >= hisi_hba->slot_index_count)
+		index = find_next_zero_bit(bitmap,
+				hisi_hba->slot_index_count,
+				hisi_hba->hw->max_command_entries -
+				HISI_SAS_RESERVED_IPTT_CNT);
+		if (index >= hisi_hba->slot_index_count) {
+			spin_unlock_irqrestore(&hisi_hba->lock, flags);
 			return -SAS_QUEUE_FULL;
+		}
 	}
 	hisi_sas_slot_index_set(hisi_hba, index);
-	*slot_idx = index;
 	hisi_hba->last_slot_index = index;
+	spin_unlock_irqrestore(&hisi_hba->lock, flags);
 
-	return 0;
+	return index;
 }
 
 static void hisi_sas_slot_index_init(struct hisi_hba *hisi_hba)
@@ -250,9 +267,7 @@ void hisi_sas_slot_task_free(struct hisi_hba *hisi_hba, struct sas_task *task,
 
 	memset(slot, 0, offsetof(struct hisi_sas_slot, buf));
 
-	spin_lock_irqsave(&hisi_hba->lock, flags);
 	hisi_sas_slot_index_free(hisi_hba, slot->idx);
-	spin_unlock_irqrestore(&hisi_hba->lock, flags);
 }
 EXPORT_SYMBOL_GPL(hisi_sas_slot_task_free);
 
@@ -282,6 +297,90 @@ static void hisi_sas_task_prep_abort(struct hisi_hba *hisi_hba,
 			device_id, abort_flag, tag_to_abort);
 }
 
+static void hisi_sas_dma_unmap(struct hisi_hba *hisi_hba,
+			       struct sas_task *task, int n_elem,
+			       int n_elem_req, int n_elem_resp)
+{
+	struct device *dev = hisi_hba->dev;
+
+	if (!sas_protocol_ata(task->task_proto)) {
+		if (task->num_scatter) {
+			if (n_elem)
+				dma_unmap_sg(dev, task->scatter,
+					     task->num_scatter,
+					     task->data_dir);
+		} else if (task->task_proto & SAS_PROTOCOL_SMP) {
+			if (n_elem_req)
+				dma_unmap_sg(dev, &task->smp_task.smp_req,
+					     1, DMA_TO_DEVICE);
+			if (n_elem_resp)
+				dma_unmap_sg(dev, &task->smp_task.smp_resp,
+					     1, DMA_FROM_DEVICE);
+		}
+	}
+}
+
+static int hisi_sas_dma_map(struct hisi_hba *hisi_hba,
+			    struct sas_task *task, int *n_elem,
+			    int *n_elem_req, int *n_elem_resp)
+{
+	struct device *dev = hisi_hba->dev;
+	int rc;
+
+	if (sas_protocol_ata(task->task_proto)) {
+		*n_elem = task->num_scatter;
+	} else {
+		unsigned int req_len, resp_len;
+
+		if (task->num_scatter) {
+			*n_elem = dma_map_sg(dev, task->scatter,
+					     task->num_scatter, task->data_dir);
+			if (!*n_elem) {
+				rc = -ENOMEM;
+				goto prep_out;
+			}
+		} else if (task->task_proto & SAS_PROTOCOL_SMP) {
+			*n_elem_req = dma_map_sg(dev, &task->smp_task.smp_req,
+						 1, DMA_TO_DEVICE);
+			if (!*n_elem_req) {
+				rc = -ENOMEM;
+				goto prep_out;
+			}
+			req_len = sg_dma_len(&task->smp_task.smp_req);
+			if (req_len & 0x3) {
+				rc = -EINVAL;
+				goto err_out_dma_unmap;
+			}
+			*n_elem_resp = dma_map_sg(dev, &task->smp_task.smp_resp,
+						  1, DMA_FROM_DEVICE);
+			if (!*n_elem_resp) {
+				rc = -ENOMEM;
+				goto err_out_dma_unmap;
+			}
+			resp_len = sg_dma_len(&task->smp_task.smp_resp);
+			if (resp_len & 0x3) {
+				rc = -EINVAL;
+				goto err_out_dma_unmap;
+			}
+		}
+	}
+
+	if (*n_elem > HISI_SAS_SGE_PAGE_CNT) {
+		dev_err(dev, "task prep: n_elem(%d) > HISI_SAS_SGE_PAGE_CNT",
+			*n_elem);
+		rc = -EINVAL;
+		goto err_out_dma_unmap;
+	}
+	return 0;
+
+err_out_dma_unmap:
+	/* It would be better to call dma_unmap_sg() here, but it's messy */
+	hisi_sas_dma_unmap(hisi_hba, task, *n_elem,
+			   *n_elem_req, *n_elem_resp);
+prep_out:
+	return rc;
+}
+
 static int hisi_sas_task_prep(struct sas_task *task,
 			      struct hisi_sas_dq **dq_pointer,
 			      bool is_tmf, struct hisi_sas_tmf_task *tmf,
@@ -300,20 +399,6 @@ static int hisi_sas_task_prep(struct sas_task *task,
 	struct hisi_sas_dq *dq;
 	unsigned long flags;
 	int wr_q_index;
-
-	if (!sas_port) {
-		struct task_status_struct *ts = &task->task_status;
-
-		ts->resp = SAS_TASK_UNDELIVERED;
-		ts->stat = SAS_PHY_DOWN;
-		/*
-		 * libsas will use dev->port, should
-		 * not call task_done for sata
-		 */
-		if (device->dev_type != SAS_SATA_DEV)
-			task->task_done(task);
-		return -ECOMM;
-	}
 
 	if (DEV_IS_GONE(sas_dev)) {
 		if (sas_dev)
@@ -338,60 +423,32 @@ static int hisi_sas_task_prep(struct sas_task *task,
 		return -ECOMM;
 	}
 
-	if (!sas_protocol_ata(task->task_proto)) {
-		unsigned int req_len, resp_len;
+	rc = hisi_sas_dma_map(hisi_hba, task, &n_elem,
+			      &n_elem_req, &n_elem_resp);
+	if (rc < 0)
+		goto prep_out;
 
-		if (task->num_scatter) {
-			n_elem = dma_map_sg(dev, task->scatter,
-					    task->num_scatter, task->data_dir);
-			if (!n_elem) {
-				rc = -ENOMEM;
-				goto prep_out;
-			}
-		} else if (task->task_proto & SAS_PROTOCOL_SMP) {
-			n_elem_req = dma_map_sg(dev, &task->smp_task.smp_req,
-						1, DMA_TO_DEVICE);
-			if (!n_elem_req) {
-				rc = -ENOMEM;
-				goto prep_out;
-			}
-			req_len = sg_dma_len(&task->smp_task.smp_req);
-			if (req_len & 0x3) {
-				rc = -EINVAL;
-				goto err_out_dma_unmap;
-			}
-			n_elem_resp = dma_map_sg(dev, &task->smp_task.smp_resp,
-						 1, DMA_FROM_DEVICE);
-			if (!n_elem_resp) {
-				rc = -ENOMEM;
-				goto err_out_dma_unmap;
-			}
-			resp_len = sg_dma_len(&task->smp_task.smp_resp);
-			if (resp_len & 0x3) {
-				rc = -EINVAL;
-				goto err_out_dma_unmap;
+	if (hisi_hba->hw->slot_index_alloc)
+		rc = hisi_hba->hw->slot_index_alloc(hisi_hba, device);
+	else {
+		struct scsi_cmnd *scsi_cmnd = NULL;
+
+		if (task->uldd_task) {
+			struct ata_queued_cmd *qc;
+
+			if (dev_is_sata(device)) {
+				qc = task->uldd_task;
+				scsi_cmnd = qc->scsicmd;
+			} else {
+				scsi_cmnd = task->uldd_task;
 			}
 		}
-	} else
-		n_elem = task->num_scatter;
-
-	if (n_elem > HISI_SAS_SGE_PAGE_CNT) {
-		dev_err(dev, "task prep: n_elem(%d) > HISI_SAS_SGE_PAGE_CNT",
-			n_elem);
-		rc = -EINVAL;
-		goto err_out_dma_unmap;
+		rc  = hisi_sas_slot_index_alloc(hisi_hba, scsi_cmnd);
 	}
-
-	spin_lock_irqsave(&hisi_hba->lock, flags);
-	if (hisi_hba->hw->slot_index_alloc)
-		rc = hisi_hba->hw->slot_index_alloc(hisi_hba, &slot_idx,
-						    device);
-	else
-		rc = hisi_sas_slot_index_alloc(hisi_hba, &slot_idx);
-	spin_unlock_irqrestore(&hisi_hba->lock, flags);
-	if (rc)
+	if (rc < 0)
 		goto err_out_dma_unmap;
 
+	slot_idx = rc;
 	slot = &hisi_hba->slot_info[slot_idx];
 
 	spin_lock_irqsave(&dq->lock, flags);
@@ -452,23 +509,10 @@ static int hisi_sas_task_prep(struct sas_task *task,
 	return 0;
 
 err_out_tag:
-	spin_lock_irqsave(&hisi_hba->lock, flags);
 	hisi_sas_slot_index_free(hisi_hba, slot_idx);
-	spin_unlock_irqrestore(&hisi_hba->lock, flags);
 err_out_dma_unmap:
-	if (!sas_protocol_ata(task->task_proto)) {
-		if (task->num_scatter) {
-			dma_unmap_sg(dev, task->scatter, task->num_scatter,
-			     task->data_dir);
-		} else if (task->task_proto & SAS_PROTOCOL_SMP) {
-			if (n_elem_req)
-				dma_unmap_sg(dev, &task->smp_task.smp_req,
-					     1, DMA_TO_DEVICE);
-			if (n_elem_resp)
-				dma_unmap_sg(dev, &task->smp_task.smp_resp,
-					     1, DMA_FROM_DEVICE);
-		}
-	}
+	hisi_sas_dma_unmap(hisi_hba, task, n_elem,
+			   n_elem_req, n_elem_resp);
 prep_out:
 	dev_err(dev, "task prep: failed[%d]!\n", rc);
 	return rc;
@@ -480,12 +524,37 @@ static int hisi_sas_task_exec(struct sas_task *task, gfp_t gfp_flags,
 	u32 rc;
 	u32 pass = 0;
 	unsigned long flags;
-	struct hisi_hba *hisi_hba = dev_to_hisi_hba(task->dev);
-	struct device *dev = hisi_hba->dev;
+	struct hisi_hba *hisi_hba;
+	struct device *dev;
+	struct domain_device *device = task->dev;
+	struct asd_sas_port *sas_port = device->port;
 	struct hisi_sas_dq *dq = NULL;
 
+	if (!sas_port) {
+		struct task_status_struct *ts = &task->task_status;
+
+		ts->resp = SAS_TASK_UNDELIVERED;
+		ts->stat = SAS_PHY_DOWN;
+		/*
+		 * libsas will use dev->port, should
+		 * not call task_done for sata
+		 */
+		if (device->dev_type != SAS_SATA_DEV)
+			task->task_done(task);
+		return -ECOMM;
+	}
+
+	hisi_hba = dev_to_hisi_hba(device);
+	dev = hisi_hba->dev;
+
 	if (unlikely(test_bit(HISI_SAS_REJECT_CMD_BIT, &hisi_hba->flags))) {
-		if (in_softirq())
+		/*
+		 * For IOs from upper layer, it may already disable preempt
+		 * in the IO path, if disable preempt again in down(),
+		 * function schedule() will report schedule_bug(), so check
+		 * preemptible() before goto down().
+		 */
+		if (!preemptible())
 			return -EINVAL;
 
 		down(&hisi_hba->sem);
@@ -716,7 +785,8 @@ static void hisi_sas_phyup_work(struct work_struct *work)
 	struct asd_sas_phy *sas_phy = &phy->sas_phy;
 	int phy_no = sas_phy->id;
 
-	hisi_hba->hw->sl_notify(hisi_hba, phy_no); /* This requires a sleep */
+	if (phy->identify.target_port_protocols == SAS_PROTOCOL_SSP)
+		hisi_hba->hw->sl_notify_ssp(hisi_hba, phy_no);
 	hisi_sas_bytes_dmaed(hisi_hba, phy_no);
 }
 
@@ -885,7 +955,7 @@ static int hisi_sas_queue_command(struct sas_task *task, gfp_t gfp_flags)
 	return hisi_sas_task_exec(task, gfp_flags, 0, NULL);
 }
 
-static void hisi_sas_phy_set_linkrate(struct hisi_hba *hisi_hba, int phy_no,
+static int hisi_sas_phy_set_linkrate(struct hisi_hba *hisi_hba, int phy_no,
 			struct sas_phy_linkrates *r)
 {
 	struct sas_phy_linkrates _r;
@@ -894,6 +964,9 @@ static void hisi_sas_phy_set_linkrate(struct hisi_hba *hisi_hba, int phy_no,
 	struct asd_sas_phy *sas_phy = &phy->sas_phy;
 	enum sas_linkrate min, max;
 
+	if (r->minimum_linkrate > SAS_LINK_RATE_1_5_GBPS)
+		return -EINVAL;
+
 	if (r->maximum_linkrate == SAS_LINK_RATE_UNKNOWN) {
 		max = sas_phy->phy->maximum_linkrate;
 		min = r->minimum_linkrate;
@@ -901,15 +974,20 @@ static void hisi_sas_phy_set_linkrate(struct hisi_hba *hisi_hba, int phy_no,
 		max = r->maximum_linkrate;
 		min = sas_phy->phy->minimum_linkrate;
 	} else
-		return;
+		return -EINVAL;
 
 	_r.maximum_linkrate = max;
 	_r.minimum_linkrate = min;
+
+	sas_phy->phy->maximum_linkrate = max;
+	sas_phy->phy->minimum_linkrate = min;
 
 	hisi_hba->hw->phy_disable(hisi_hba, phy_no);
 	msleep(100);
 	hisi_hba->hw->phy_set_linkrate(hisi_hba, phy_no, &_r);
 	hisi_hba->hw->phy_start(hisi_hba, phy_no);
+
+	return 0;
 }
 
 static int hisi_sas_control_phy(struct asd_sas_phy *sas_phy, enum phy_func func,
@@ -935,8 +1013,7 @@ static int hisi_sas_control_phy(struct asd_sas_phy *sas_phy, enum phy_func func,
 		break;
 
 	case PHY_FUNC_SET_LINK_RATE:
-		hisi_sas_phy_set_linkrate(hisi_hba, phy_no, funcdata);
-		break;
+		return hisi_sas_phy_set_linkrate(hisi_hba, phy_no, funcdata);
 	case PHY_FUNC_GET_EVENTS:
 		if (hisi_hba->hw->get_events) {
 			hisi_hba->hw->get_events(hisi_hba, phy_no);
@@ -952,8 +1029,7 @@ static int hisi_sas_control_phy(struct asd_sas_phy *sas_phy, enum phy_func func,
 
 static void hisi_sas_task_done(struct sas_task *task)
 {
-	if (!del_timer(&task->slow_task->timer))
-		return;
+	del_timer(&task->slow_task->timer);
 	complete(&task->slow_task->completion);
 }
 
@@ -962,13 +1038,17 @@ static void hisi_sas_tmf_timedout(struct timer_list *t)
 	struct sas_task_slow *slow = from_timer(slow, t, timer);
 	struct sas_task *task = slow->task;
 	unsigned long flags;
+	bool is_completed = true;
 
 	spin_lock_irqsave(&task->task_state_lock, flags);
-	if (!(task->task_state_flags & SAS_TASK_STATE_DONE))
+	if (!(task->task_state_flags & SAS_TASK_STATE_DONE)) {
 		task->task_state_flags |= SAS_TASK_STATE_ABORTED;
+		is_completed = false;
+	}
 	spin_unlock_irqrestore(&task->task_state_lock, flags);
 
-	complete(&task->slow_task->completion);
+	if (!is_completed)
+		complete(&task->slow_task->completion);
 }
 
 #define TASK_TIMEOUT 20
@@ -1021,8 +1101,16 @@ static int hisi_sas_exec_internal_tmf_task(struct domain_device *device,
 				struct hisi_sas_slot *slot = task->lldd_task;
 
 				dev_err(dev, "abort tmf: TMF task timeout and not done\n");
-				if (slot)
+				if (slot) {
+					struct hisi_sas_cq *cq =
+					       &hisi_hba->cq[slot->dlvry_queue];
+					/*
+					 * flush tasklet to avoid free'ing task
+					 * before using task in IO completion
+					 */
+					tasklet_kill(&cq->tasklet);
 					slot->task = NULL;
+				}
 
 				goto ex_err;
 			} else
@@ -1398,6 +1486,17 @@ static int hisi_sas_abort_task(struct sas_task *task)
 
 	spin_lock_irqsave(&task->task_state_lock, flags);
 	if (task->task_state_flags & SAS_TASK_STATE_DONE) {
+		struct hisi_sas_slot *slot = task->lldd_task;
+		struct hisi_sas_cq *cq;
+
+		if (slot) {
+			/*
+			 * flush tasklet to avoid free'ing task
+			 * before using task in IO completion
+			 */
+			cq = &hisi_hba->cq[slot->dlvry_queue];
+			tasklet_kill(&cq->tasklet);
+		}
 		spin_unlock_irqrestore(&task->task_state_lock, flags);
 		rc = TMF_RESP_FUNC_COMPLETE;
 		goto out;
@@ -1409,12 +1508,12 @@ static int hisi_sas_abort_task(struct sas_task *task)
 	if (task->lldd_task && task->task_proto & SAS_PROTOCOL_SSP) {
 		struct scsi_cmnd *cmnd = task->uldd_task;
 		struct hisi_sas_slot *slot = task->lldd_task;
-		u32 tag = slot->idx;
+		u16 tag = slot->idx;
 		int rc2;
 
 		int_to_scsilun(cmnd->device->lun, &lun);
 		tmf_task.tmf = TMF_ABORT_TASK;
-		tmf_task.tag_of_task_to_be_managed = cpu_to_le16(tag);
+		tmf_task.tag_of_task_to_be_managed = tag;
 
 		rc = hisi_sas_debug_issue_ssp_tmf(task->dev, lun.scsi_lun,
 						  &tmf_task);
@@ -1453,12 +1552,19 @@ static int hisi_sas_abort_task(struct sas_task *task)
 		/* SMP */
 		struct hisi_sas_slot *slot = task->lldd_task;
 		u32 tag = slot->idx;
+		struct hisi_sas_cq *cq = &hisi_hba->cq[slot->dlvry_queue];
 
 		rc = hisi_sas_internal_task_abort(hisi_hba, device,
 			     HISI_SAS_INT_ABT_CMD, tag);
 		if (((rc < 0) || (rc == TMF_RESP_FUNC_FAILED)) &&
-					task->lldd_task)
-			hisi_sas_do_release_task(hisi_hba, task, slot);
+					task->lldd_task) {
+			/*
+			 * flush tasklet to avoid free'ing task
+			 * before using task in IO completion
+			 */
+			tasklet_kill(&cq->tasklet);
+			slot->task = NULL;
+		}
 	}
 
 out:
@@ -1661,7 +1767,7 @@ static int hisi_sas_query_task(struct sas_task *task)
 
 		int_to_scsilun(cmnd->device->lun, &lun);
 		tmf_task.tmf = TMF_QUERY_TASK;
-		tmf_task.tag_of_task_to_be_managed = cpu_to_le16(tag);
+		tmf_task.tag_of_task_to_be_managed = tag;
 
 		rc = hisi_sas_debug_issue_ssp_tmf(device,
 						  lun.scsi_lun,
@@ -1707,14 +1813,11 @@ hisi_sas_internal_abort_task_exec(struct hisi_hba *hisi_hba, int device_id,
 	port = to_hisi_sas_port(sas_port);
 
 	/* simply get a slot and send abort command */
-	spin_lock_irqsave(&hisi_hba->lock, flags);
-	rc = hisi_sas_slot_index_alloc(hisi_hba, &slot_idx);
-	if (rc) {
-		spin_unlock_irqrestore(&hisi_hba->lock, flags);
+	rc = hisi_sas_slot_index_alloc(hisi_hba, NULL);
+	if (rc < 0)
 		goto err_out;
-	}
-	spin_unlock_irqrestore(&hisi_hba->lock, flags);
 
+	slot_idx = rc;
 	slot = &hisi_hba->slot_info[slot_idx];
 
 	spin_lock_irqsave(&dq->lock, flags_dq);
@@ -1750,7 +1853,6 @@ hisi_sas_internal_abort_task_exec(struct hisi_hba *hisi_hba, int device_id,
 	spin_lock_irqsave(&task->task_state_lock, flags);
 	task->task_state_flags |= SAS_TASK_AT_INITIATOR;
 	spin_unlock_irqrestore(&task->task_state_lock, flags);
-
 	WRITE_ONCE(slot->ready, 1);
 	/* send abort command to the chip */
 	spin_lock_irqsave(&dq->lock, flags);
@@ -1761,9 +1863,7 @@ hisi_sas_internal_abort_task_exec(struct hisi_hba *hisi_hba, int device_id,
 	return 0;
 
 err_out_tag:
-	spin_lock_irqsave(&hisi_hba->lock, flags);
 	hisi_sas_slot_index_free(hisi_hba, slot_idx);
-	spin_unlock_irqrestore(&hisi_hba->lock, flags);
 err_out:
 	dev_err(dev, "internal abort task prep: failed[%d]!\n", rc);
 
@@ -1825,8 +1925,16 @@ hisi_sas_internal_task_abort(struct hisi_hba *hisi_hba,
 		if (!(task->task_state_flags & SAS_TASK_STATE_DONE)) {
 			struct hisi_sas_slot *slot = task->lldd_task;
 
-			if (slot)
+			if (slot) {
+				struct hisi_sas_cq *cq =
+					&hisi_hba->cq[slot->dlvry_queue];
+				/*
+				 * flush tasklet to avoid free'ing task
+				 * before using task in IO completion
+				 */
+				tasklet_kill(&cq->tasklet);
 				slot->task = NULL;
+			}
 			dev_err(dev, "internal task abort: timeout and not done.\n");
 			res = -EIO;
 			goto exit;
@@ -1947,12 +2055,6 @@ EXPORT_SYMBOL_GPL(hisi_sas_kill_tasklets);
 
 struct scsi_transport_template *hisi_sas_stt;
 EXPORT_SYMBOL_GPL(hisi_sas_stt);
-
-struct device_attribute *host_attrs[] = {
-	&dev_attr_phy_event_threshold,
-	NULL,
-};
-EXPORT_SYMBOL_GPL(host_attrs);
 
 static struct sas_domain_function_template hisi_sas_transport_ops = {
 	.lldd_dev_found		= hisi_sas_dev_found,
@@ -2131,6 +2233,8 @@ int hisi_sas_alloc(struct hisi_hba *hisi_hba, struct Scsi_Host *shost)
 	hisi_sas_init_mem(hisi_hba);
 
 	hisi_sas_slot_index_init(hisi_hba);
+	hisi_hba->last_slot_index = hisi_hba->hw->max_command_entries -
+		HISI_SAS_RESERVED_IPTT_CNT;
 
 	hisi_hba->wq = create_singlethread_workqueue(dev_name(dev));
 	if (!hisi_hba->wq) {
@@ -2246,6 +2350,7 @@ static struct Scsi_Host *hisi_sas_shost_alloc(struct platform_device *pdev,
 	struct Scsi_Host *shost;
 	struct hisi_hba *hisi_hba;
 	struct device *dev = &pdev->dev;
+	int error;
 
 	shost = scsi_host_alloc(hw->sht, sizeof(*hisi_hba));
 	if (!shost) {
@@ -2266,8 +2371,11 @@ static struct Scsi_Host *hisi_sas_shost_alloc(struct platform_device *pdev,
 	if (hisi_sas_get_fw_info(hisi_hba) < 0)
 		goto err_out;
 
-	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64)) &&
-	    dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
+	error = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+	if (error)
+		error = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+
+	if (error) {
 		dev_err(dev, "No usable DMA addressing method\n");
 		goto err_out;
 	}
@@ -2333,9 +2441,15 @@ int hisi_sas_probe(struct platform_device *pdev,
 	shost->max_lun = ~0;
 	shost->max_channel = 1;
 	shost->max_cmd_len = 16;
-	shost->sg_tablesize = min_t(u16, SG_ALL, HISI_SAS_SGE_PAGE_CNT);
-	shost->can_queue = hisi_hba->hw->max_command_entries;
-	shost->cmd_per_lun = hisi_hba->hw->max_command_entries;
+	if (hisi_hba->hw->slot_index_alloc) {
+		shost->can_queue = hisi_hba->hw->max_command_entries;
+		shost->cmd_per_lun = hisi_hba->hw->max_command_entries;
+	} else {
+		shost->can_queue = hisi_hba->hw->max_command_entries -
+			HISI_SAS_RESERVED_IPTT_CNT;
+		shost->cmd_per_lun = hisi_hba->hw->max_command_entries -
+			HISI_SAS_RESERVED_IPTT_CNT;
+	}
 
 	sha->sas_ha_name = DRV_NAME;
 	sha->dev = hisi_hba->dev;

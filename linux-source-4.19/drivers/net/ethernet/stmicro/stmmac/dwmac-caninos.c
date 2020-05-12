@@ -205,8 +205,6 @@ static void owl_gmac_exit(struct platform_device *pdev, void *priv)
         gpio_free(gmac->powergpio);
 		mdelay(30);
 	}
-
-	return 0;
 }
 
 /* of_data specifying hardware features and callbacks.

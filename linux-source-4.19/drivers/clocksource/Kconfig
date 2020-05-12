@@ -119,10 +119,11 @@ config SUN5I_HSTIMER
 	depends on COMMON_CLK
 	help
 	  Enables support the Sun5i timer.
-
+	  
 config CANINOS_TIMER
 	bool "Caninos timer driver" if COMPILE_TEST
 	select CLKSRC_MMIO
+	depends on ARCH_CANINOS
 	help
 	  Enables the support for the Caninos Labrador timer driver.
 
@@ -142,6 +143,7 @@ config VT8500_TIMER
 config NPCM7XX_TIMER
 	bool "NPCM7xx timer driver" if COMPILE_TEST
 	depends on HAS_IOMEM
+	select TIMER_OF
 	select CLKSRC_MMIO
 	help
 	  Enable 24-bit TIMER0 and TIMER1 counters in the NPCM7xx architecture,

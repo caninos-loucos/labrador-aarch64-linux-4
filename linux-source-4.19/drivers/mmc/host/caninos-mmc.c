@@ -58,7 +58,6 @@ struct caninos_mmc_host
 	int irq;
 	int power_gpio;
 	int enable_gpio;
-	int reset_gpio;
 	
 	int clk_on;
 	
@@ -541,17 +540,8 @@ static void sdc_power_up(struct mmc_host * mmc)
 	if (gpio_is_valid(host->enable_gpio)) {
 		gpio_set_value(host->enable_gpio, 1);
 	}
-
-	mdelay(10);
-
-	if (gpio_is_valid(host->reset_gpio)) {
-		gpio_set_value(host->reset_gpio, 1);
-		mdelay(10);
-		gpio_set_value(host->reset_gpio, 0);
-		mdelay(10);
-		gpio_set_value(host->reset_gpio, 1);
-	}
 	
+	mdelay(10);
 	
 	reset_control_deassert(host->rst);
 	
@@ -601,10 +591,6 @@ static void sdc_power_off(struct mmc_host * mmc)
 	
     if (gpio_is_valid(host->power_gpio)) {
 		gpio_set_value(host->power_gpio, 0);
-	}
-
-	if (gpio_is_valid(host->reset_gpio)) {
-		gpio_set_value(host->reset_gpio, 0);
 	}
 }
 
@@ -1187,10 +1173,6 @@ static void caninos_mmc_power_off(struct caninos_mmc_host *host)
     if (gpio_is_valid(host->power_gpio)) {
 		gpio_set_value(host->power_gpio, 0);
 	}
-
-	if (gpio_is_valid(host->reset_gpio)) {
-		gpio_set_value(host->reset_gpio, 0);
-	}
 }
 
 static void caninos_mmc_power_up(struct caninos_mmc_host *host)
@@ -1234,10 +1216,6 @@ static void caninos_mmc_power_on(struct caninos_mmc_host *host)
 {
 	if (gpio_is_valid(host->enable_gpio)) {
 		gpio_set_value(host->enable_gpio, 1);
-	}
-
-	if (gpio_is_valid(host->reset_gpio)) {
-		gpio_set_value(host->reset_gpio, 1);
 	}
 	
 	writel(readl(HOST_STATE(host)) | SD_STATE_TEIE, HOST_STATE(host));
@@ -1538,21 +1516,6 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 		}
 		else {
 			gpio_direction_output(host->power_gpio, 0);
-		}
-	}
-
-	host->reset_gpio = of_get_named_gpio(dev->of_node, "reset-gpios", 0);
-	
-	if (gpio_is_valid(host->reset_gpio))
-	{
-		if (devm_gpio_request(dev, host->reset_gpio, "reset_gpio"))
-		{
-			dev_err(dev, "could not request reset gpio.\n");
-			mmc_free_host(mmc);
-			return -ENODEV;
-		}
-		else {
-			gpio_direction_output(host->reset_gpio, 0);
 		}
 	}
 	

@@ -378,13 +378,6 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	
 	chip->phys_base = res->start;
 	
-	if (!request_mem_region(res->start, resource_size(res), dev_name(dev)))
-	{
-		dev_err(dev, "could not get request memory region\n");
-		snd_card_free(card);
-		return -EBUSY;
-	}
-	
 	chip->base = devm_ioremap_nocache(dev, res->start, resource_size(res));
 	
 	if (IS_ERR(chip->base))
@@ -504,28 +497,14 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &caninos_pcm_ops);
 	
 	/* Setup Playback Substream DMA channel */
-	err = snd_pcm_lib_preallocate_pages
+	snd_pcm_lib_preallocate_pages
 		(pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream,
 		SNDRV_DMA_TYPE_DEV, chip->txchan->device->dev, 64*1024, 64*1024);
 	
-	if (err < 0)
-	{
-		dev_err(dev, "playback snd_pcm_lib_preallocate_pages() failed");
-		snd_card_free(card);
-		return err;
-	}
-	
 	/* Setup Capture Substream DMA channel */
-	err = snd_pcm_lib_preallocate_pages
+	snd_pcm_lib_preallocate_pages
 		(pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream,
 		SNDRV_DMA_TYPE_DEV, chip->rxchan->device->dev, 64*1024, 64*1024);
-	
-	if (err < 0)
-	{
-		dev_err(dev, "capture snd_pcm_lib_preallocate_pages() failed");
-		snd_card_free(card);
-		return err;
-	}
 	
 	strcpy(card->mixername, "Caninos Mixer");
 	

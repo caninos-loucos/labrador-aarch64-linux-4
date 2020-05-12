@@ -1,3 +1,22 @@
+/*
+ * Caninos Reset
+ *
+ * Copyright (c) 2019 LSI-TEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * Copyright (c) 2012 Actions Semi Inc.
+ * Author: Actions Semi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/module.h>
 #include <linux/reset-controller.h>
 #include <linux/of_address.h>
@@ -161,6 +180,54 @@ static struct caninos_rcu_reset_reg_data k7_reg_data[] = {
 		.deassert_clear_mask = BIT(23),
 		.deassert_set_mask   = BIT(23),
 	},
+	[RST_VDE] = {
+		.assert_offset       = S700_DEVRST0,
+		.assert_clear_mask   = BIT(10),
+		.assert_set_mask     = 0,
+		.deassert_offset     = S700_DEVRST0,
+		.deassert_clear_mask = BIT(10),
+		.deassert_set_mask   = BIT(10),
+	},
+	[RST_VCE] = {
+		.assert_offset       = S700_DEVRST0,
+		.assert_clear_mask   = BIT(11),
+		.assert_set_mask     = 0,
+		.deassert_offset     = S700_DEVRST0,
+		.deassert_clear_mask = BIT(11),
+		.deassert_set_mask   = BIT(11),
+	},
+	[RST_GPU3D] = {
+		.assert_offset       = S700_DEVRST0,
+		.assert_clear_mask   = BIT(8),
+		.assert_set_mask     = 0,
+		.deassert_offset     = S700_DEVRST0,
+		.deassert_clear_mask = BIT(8),
+		.deassert_set_mask   = BIT(8),
+	},
+	[RST_TVOUT] = {
+		.assert_offset       = S700_DEVRST0,
+		.assert_clear_mask   = BIT(3),
+		.assert_set_mask     = 0,
+		.deassert_offset     = S700_DEVRST0,
+		.deassert_clear_mask = BIT(3),
+		.deassert_set_mask   = BIT(3),
+	},
+	[RST_HDMI] = {
+		.assert_offset       = S700_DEVRST0,
+		.assert_clear_mask   = BIT(5),
+		.assert_set_mask     = 0,
+		.deassert_offset     = S700_DEVRST0,
+		.deassert_clear_mask = BIT(5),
+		.deassert_set_mask   = BIT(5),
+	},
+	[RST_DE] = {
+		.assert_offset       = S700_DEVRST0,
+		.assert_clear_mask   = BIT(0),
+		.assert_set_mask     = 0,
+		.deassert_offset     = S700_DEVRST0,
+		.deassert_clear_mask = BIT(0),
+		.deassert_set_mask   = BIT(0),
+	},
 };
 
 struct caninos_rcu_reset_priv
@@ -216,6 +283,8 @@ static int caninos_rcu_reset_update(struct reset_controller_dev *rcdev, unsigned
 	struct caninos_rcu_reset_priv *priv = to_caninos_rcu_reset_priv(rcdev);
 	unsigned long flags;
 	u32 val;
+	
+	dev_info(priv->dev, "reset id=%lu assert=%d", id, assert);
 	
 	spin_lock_irqsave(&priv->lock, flags);
 	
@@ -324,7 +393,7 @@ static int caninos_rcu_reset_probe(struct platform_device *pdev)
 	priv->rcdev.nr_resets = NR_RESETS;
 	priv->data = of_id->data;
 	
-	priv->cmu_base = devm_ioremap_resource(dev, res);
+	priv->cmu_base = devm_ioremap(dev, res->start, resource_size(res));
 	
 	if (IS_ERR(priv->cmu_base))
 	{

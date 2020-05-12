@@ -54,7 +54,6 @@ int aotg_device_init(int dev_id)
 	struct device *dev = aotg_data[dev_id].dev;
 	struct aotg_hcd *acthcd;
 	struct usb_hcd *hcd;
-	struct aotg_udc *udc;
 	int ret = 0;
 	
 	mutex_lock(&aotg_onoff_mutex);
@@ -141,7 +140,6 @@ int aotg_device_init(int dev_id)
 int aotg_device_exit(int dev_id)
 {
 	struct aotg_hcd *acthcd;
-	struct aotg_udc *udc;
 	struct usb_hcd *hcd;
 	struct aotg_hcep *ep;
 	int i;

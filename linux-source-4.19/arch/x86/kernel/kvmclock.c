@@ -119,7 +119,6 @@ static inline void kvm_sched_clock_init(bool stable)
 {
 	if (!stable)
 		clear_sched_clock_stable();
-
 	kvm_sched_clock_offset = kvm_clock_read();
 	pv_time_ops.sched_clock = kvm_sched_clock_read;
 

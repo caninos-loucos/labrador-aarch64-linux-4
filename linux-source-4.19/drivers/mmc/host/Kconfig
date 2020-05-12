@@ -893,7 +893,7 @@ config MMC_BCM2835
 	  sdhost controller (supported by this driver).
 
 	  If unsure, say N.
-
+	  
 config MMC_CANINOS
 	tristate "Caninos MMC Controller support"
 	depends on ARCH_CANINOS || COMPILE_TEST

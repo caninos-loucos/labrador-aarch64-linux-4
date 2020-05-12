@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <sound/soc.h>
 #include <linux/dma-mapping.h>
+#include <linux/of_platform.h>
 #include "atc2603c-audio-regs.h"
 #include "caninos-codec.h"
 
@@ -547,14 +548,10 @@ static int atc2603c_platform_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct atc260x_audio *codec;
 	
-	pdev->dev.init_name = "atc2603c-audio";
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32); 
-	pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
-	
 	codec_local_data.pmic = dev_get_drvdata(dev->parent);
 	
 	if (!codec_local_data.pmic) {
-		return -ENODEV;
+		return -EINVAL;
 	}
 	
 	codec = devm_kzalloc(dev, sizeof(*codec), GFP_KERNEL);
@@ -604,18 +601,7 @@ static struct platform_driver atc2603c_platform_driver = {
 	},
 };
 
-static int __init atc2603c_init(void)
-{
-	return platform_driver_register(&atc2603c_platform_driver);
-}
-
-static void __exit atc2603c_exit(void)
-{
-	platform_driver_unregister(&atc2603c_platform_driver);
-}
-
-module_init(atc2603c_init);
-module_exit(atc2603c_exit);
+module_platform_driver(atc2603c_platform_driver);
 
 MODULE_DESCRIPTION("ATC2603C audio CODEC driver");
 MODULE_LICENSE("GPL");
