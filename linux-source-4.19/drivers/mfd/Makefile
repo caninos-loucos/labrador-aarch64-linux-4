@@ -243,3 +243,4 @@ obj-$(CONFIG_MFD_ROHM_BD718XX)	+= rohm-bd718x7.o
 atc260x-objs := atc260x-core.o
 obj-$(CONFIG_MFD_ATC260X)	+= atc260x.o
 obj-$(CONFIG_MFD_ATC260X_I2C)	+= atc260x-i2c.o
+obj-$(CONFIG_MFD_ATC260X_AUXADC) += atc260x-auxadc.o

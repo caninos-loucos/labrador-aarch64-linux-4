@@ -443,6 +443,11 @@
 					compatible = "actions,atc2603c-audio";
 					status = "okay";
 				};
+				
+				atc260x_auxadc: atc260x-auxadc {
+					compatible = "actions,atc2603c-auxadc";
+					status = "okay";
+				};
 			};
 		};
 		

@@ -151,6 +151,10 @@ config MFD_ATC260X
 	bool
 	select MFD_CORE
 	select REGMAP_IRQ
+	select MFD_ATC260X_AUXADC
+	
+config MFD_ATC260X_AUXADC
+    bool
 	
 config MFD_ATC260X_I2C
 	bool "Actions ATC260x PMIC variants with I2C"

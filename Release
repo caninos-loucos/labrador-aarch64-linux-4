@@ -1,7 +1,0 @@
-Release Notes (12-05-2020)
-1) Kernel version updated from 4.19.37 to 4.19.98
-2) Added base board user configurable led support
-3) New fully functional and complete caninos-clk driver (written from scratch)
-4) Caninos kms/drm driver prepared for hdmi custom video modes and cvbs output
-5) Corrected a plethora of minor bugs
-

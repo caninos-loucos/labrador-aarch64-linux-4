@@ -7,7 +7,8 @@ Current (12-05-2020)
 2) Added base board user configurable led support
 3) New fully functional and complete caninos-clk driver (written from scratch)
 4) Caninos KMS/DRM driver prepared for hdmi custom video modes and cvbs output
-5) Corrected a plethora of minor bugs
+5) Added base board 10bit ADC input support
+6) Corrected a plethora of minor bugs
 
 ## About
 This repository contains the source code of Caninos Labrador's 64bits linux
