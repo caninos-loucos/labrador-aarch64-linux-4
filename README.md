@@ -39,11 +39,15 @@ make config
 ```
 make menuconfig
 ```
-3) To compile your kernel image
+3) To compile the device tree binary blob
+```
+make dtbs
+```
+4) To compile your kernel image
 ```
 make kernel
 ```
-4) To reset everything
+5) To reset everything
 ```
 make clean
 ```
@@ -62,15 +66,15 @@ $ sudo cp -r output/lib/modules $ROOTFS/lib/
 2) Copy the Image file to the "/boot/" folder at your SDCARD/EMMC system's root.
 
 ```
-$ sudo cp -r output/Image $ROOTFS/boot/
+$ sudo cp output/Image $ROOTFS/boot/
 ```
 
 3) Copy the device tree files to "/boot/" folder at your SDCARD/EMMC
 system's root.
 
 ```
-$ sudo cp -r output/v3emmc.dtb $ROOTFS/boot/
-$ sudo cp -r output/v3sdc.dtb $ROOTFS/boot/
+$ sudo cp output/v3emmc.dtb $ROOTFS/boot/
+$ sudo cp output/v3sdc.dtb $ROOTFS/boot/
 ```
 >Note: $ROOTFS must be replaced by the complete directory path of your target
 system's root mounting point.
