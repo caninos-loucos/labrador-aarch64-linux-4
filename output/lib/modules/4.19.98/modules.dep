@@ -2,6 +2,7 @@ kernel/crypto/crypto_engine.ko:
 kernel/crypto/cmac.ko:
 kernel/crypto/ccm.ko:
 kernel/crypto/arc4.ko:
+kernel/crypto/ecdh_generic.ko:
 kernel/drivers/video/backlight/backlight.ko:
 kernel/drivers/xen/xen-gntdev.ko:
 kernel/drivers/xen/xen-gntalloc.ko:
@@ -456,6 +457,7 @@ kernel/drivers/hid/hid-sensor-hub.ko:
 kernel/drivers/hid/hid-sensor-custom.ko: kernel/drivers/hid/hid-sensor-hub.ko
 kernel/drivers/staging/rtl8723bs/r8723bs.ko: kernel/net/wireless/cfg80211.ko
 kernel/drivers/input/gameport/gameport.ko:
+kernel/drivers/bluetooth/hci_uart.ko: kernel/net/bluetooth/bluetooth.ko kernel/crypto/ecdh_generic.ko
 kernel/sound/usb/bcd2000/snd-bcd2000.ko:
 kernel/sound/usb/line6/snd-usb-line6.ko:
 kernel/sound/usb/line6/snd-usb-pod.ko: kernel/sound/usb/line6/snd-usb-line6.ko
@@ -464,4 +466,7 @@ kernel/net/bpfilter/bpfilter.ko:
 kernel/net/sunrpc/auth_gss/auth_rpcgss.ko:
 kernel/net/sunrpc/auth_gss/rpcsec_gss_krb5.ko: kernel/net/sunrpc/auth_gss/auth_rpcgss.ko
 kernel/net/wireless/cfg80211.ko:
+kernel/net/bluetooth/bluetooth.ko: kernel/crypto/ecdh_generic.ko
+kernel/net/bluetooth/rfcomm/rfcomm.ko: kernel/net/bluetooth/bluetooth.ko kernel/crypto/ecdh_generic.ko
+kernel/net/bluetooth/bnep/bnep.ko: kernel/net/bluetooth/bluetooth.ko kernel/crypto/ecdh_generic.ko
 kernel/net/mac80211/mac80211.ko: kernel/net/wireless/cfg80211.ko

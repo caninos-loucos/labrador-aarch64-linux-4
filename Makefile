@@ -8,7 +8,7 @@ COMPILER=aarch64-linux-gnu-
 
 .PHONY: all config menuconfig dtbs kernel clean 
 
-all: clean config dtbs kernel
+all: clean config kernel
 
 config:
 	$(Q)mkdir $(BUILD)
@@ -23,9 +23,10 @@ dtbs:
 	$(Q)cp $(BUILD)/arch/arm64/boot/dts/caninos/v3sdc.dtb $(OUTPUT)/
 	$(Q)cp $(BUILD)/arch/arm64/boot/dts/caninos/v3emmc.dtb $(OUTPUT)/
 	
-kernel:
+kernel: dtbs
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD) CROSS_COMPILE=$(COMPILER) ARCH=arm64 -j$(CPUS) Image modules
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD) CROSS_COMPILE=$(COMPILER) ARCH=arm64 -j$(CPUS) INSTALL_MOD_PATH=$(BUILD) modules_install
+	$(Q)rm -rf $(OUTPUT)/lib
 	$(Q)mkdir -p $(OUTPUT)/lib
 	$(Q)cp -rf $(BUILD)/lib/modules $(OUTPUT)/lib/; find $(OUTPUT)/lib/ -type l -exec rm -f {} \;
 	$(Q)cp $(BUILD)/arch/arm64/boot/Image $(OUTPUT)/

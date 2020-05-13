@@ -226,7 +226,8 @@ static struct caninos_pll_clock k7_pll_clks[] __initdata = {
                 CMU_AUDIOPLL, 0, 4, 0, 1, 0, 0, 0, clk_audio_pll_table),
                 
     CANINOS_PLL(CLK_ETHERNET_PLL, "ethernet_pll", NULL,
-                CMU_ETHERNETPLL, 500000000, 0, 0, 0, 0, 0, 0, NULL),
+                CMU_ETHERNETPLL, 500000000, 0, 0, 0, 0, 0,
+                CANINOS_CLK_IS_CRITICAL, NULL),
 };
 
 /* mux clocks */
