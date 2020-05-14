@@ -26,7 +26,7 @@
 #include "stmmac_platform.h"
 
 
-struct owl_priv_data {
+struct caninos_priv_data {
 	int interface;
 	int clk_enabled;
 	struct clk *tx_clk;
@@ -39,12 +39,12 @@ struct owl_priv_data {
 
 /*ethernet mac base register*/
 void __iomem *ppaddr;
-struct owl_priv_data *gmac;
+struct caninos_priv_data *gmac;
 
-#define OWL_GMAC_GMII_RGMII_RATE	125000000
-#define OWL_GMAC_MII_RATE		50000000
+#define CANINOS_GMAC_GMII_RGMII_RATE	125000000
+#define CANINOS_GMAC_MII_RATE		50000000
 
-static int owl_gmac_init(struct platform_device *pdev, void *priv)
+static int caninos_gmac_init(struct platform_device *pdev, void *priv)
 {
 	int ret;
 	int limit;
@@ -119,11 +119,11 @@ static int owl_gmac_init(struct platform_device *pdev, void *priv)
 	 * clock driver, and enabling/disabling the clock.
 	 */
 	if (gmac->interface == PHY_INTERFACE_MODE_RGMII) {
-		clk_set_rate(gmac->tx_clk, OWL_GMAC_GMII_RGMII_RATE);
+		clk_set_rate(gmac->tx_clk, CANINOS_GMAC_GMII_RGMII_RATE);
 		clk_prepare_enable(gmac->tx_clk);
 		gmac->clk_enabled = 1;
 	} else {
-		clk_set_rate(gmac->tx_clk, OWL_GMAC_MII_RATE);
+		clk_set_rate(gmac->tx_clk, CANINOS_GMAC_MII_RATE);
 		clk_prepare_enable(gmac->tx_clk);
 		gmac->clk_enabled = 1;
 	}
@@ -149,6 +149,12 @@ static int owl_gmac_init(struct platform_device *pdev, void *priv)
 			ret |= (0x2 << 14);//not tested yet
 			writel(ret, addr);
 	}else{
+		//on testing
+		/*addr = ioremap(0xe01680ac, 4);
+			ret = readl(addr);
+			ret &= 0xff807fff;
+			ret |= 0x00198000;
+			writel(ret, addr);*/
 		/*when RMII set only driver str */
 			addr = ioremap(0xe01b0080, 4);
 			ret = readl(addr);
@@ -186,7 +192,7 @@ static int owl_gmac_init(struct platform_device *pdev, void *priv)
 	return 0;
 }
 
-static void owl_gmac_exit(struct platform_device *pdev, void *priv)
+static void caninos_gmac_exit(struct platform_device *pdev, void *priv)
 {
 	if (gmac->clk_enabled) {
 		clk_disable(gmac->tx_clk);
@@ -211,11 +217,11 @@ static void owl_gmac_exit(struct platform_device *pdev, void *priv)
 
 /* of_data specifying hardware features and callbacks.
 hardware features were copied from drivers.*/
-struct plat_stmmacenet_data owl_gmac_data = {
+struct plat_stmmacenet_data caninos_gmac_data = {
 	.has_gmac = 1,
 	.tx_coe = 0,
-	.init = owl_gmac_init,
-	.exit = owl_gmac_exit,
+	.init = caninos_gmac_init,
+	.exit = caninos_gmac_exit,
 };
 
 int stmmac_pltfr_probe(struct platform_device *pdev)
@@ -240,11 +246,14 @@ int stmmac_pltfr_probe(struct platform_device *pdev)
 
 	ret = stmmac_get_platform_resources(pdev, stmmac_res);
 	if (ret){
-		pr_err("error to get irq resource");
+		pr_err("error to get platform resource");
 		return ret;
 	}
 	
 	ppaddr = stmmac_res->addr;
+
+	//getting mac address from dts
+
 	
 	if (pdev->dev.of_node) {
 
@@ -253,11 +262,12 @@ int stmmac_pltfr_probe(struct platform_device *pdev)
 			pr_err("%s: main dt probe failed", __func__);
 			return ret;
 		}
+		pr_info("%s: max-frame-size = %u",__func__, plat_dat->maxmtu);	
 
-		plat_dat->init = owl_gmac_data.init;
-		plat_dat->exit = owl_gmac_data.exit;
-		plat_dat->has_gmac = owl_gmac_data.has_gmac;
-		plat_dat->tx_coe = owl_gmac_data.tx_coe;
+		plat_dat->init = caninos_gmac_data.init;
+		plat_dat->exit = caninos_gmac_data.exit;
+		plat_dat->has_gmac = caninos_gmac_data.has_gmac;
+		plat_dat->tx_coe = caninos_gmac_data.tx_coe;
 		if (!plat_dat) {
 			pr_err("%s: ERROR: no memory", __func__);
 			return  -ENOMEM;
@@ -283,6 +293,7 @@ int stmmac_pltfr_probe(struct platform_device *pdev)
 	the mdio clock is higher than 2,5MHZ, so changing to 0x4 is getting around 1,7MHZ. 
 	*/
 	plat_dat->clk_csr = 0x4; 
+	plat_dat->riwt_off = 1;//force to disable RX mitigation via wtg
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, stmmac_res);
 	if (ret) {
@@ -295,25 +306,25 @@ int stmmac_pltfr_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id owl_dwmac_match[] = {
-	{.compatible = "caninos,s700-ethernet", .data = &owl_gmac_data},
+static const struct of_device_id caninos_dwmac_match[] = {
+	{.compatible = "caninos,s700-ethernet", .data = &caninos_gmac_data},
 	{}
 };
 
 
-MODULE_DEVICE_TABLE(of, owl_dwmac_match);
+MODULE_DEVICE_TABLE(of, caninos_dwmac_match);
 
-static struct platform_driver __refdata owl_dwmac_driver = {
+static struct platform_driver __refdata caninos_dwmac_driver = {
 	.probe = stmmac_pltfr_probe,
 	.remove = stmmac_pltfr_remove,
 	.driver = {
-		   .name = "asoc-ethernet",
+		   .name = "k7-ethernet",
 		   .pm = &stmmac_pltfr_pm_ops,
-		   .of_match_table = owl_dwmac_match,
+		   .of_match_table = caninos_dwmac_match,
 		   },
 };
 
-module_platform_driver(owl_dwmac_driver);
+module_platform_driver(caninos_dwmac_driver);
 
 MODULE_AUTHOR("Igor Ruschi <igor.lima@lsitec.org.br>");
 MODULE_DESCRIPTION("Caninos DWMAC specific glue layer");

@@ -270,15 +270,7 @@ kernel/drivers/mmc/core/pwrseq_emmc.ko
 kernel/drivers/mmc/core/mmc_block.ko
 kernel/drivers/mmc/host/caninos-mmc.ko
 kernel/drivers/mux/mux-core.ko
-kernel/drivers/net/mii.ko
 kernel/drivers/net/xen-netfront.ko
-kernel/drivers/net/ethernet/stmicro/stmmac/stmmac.ko
-kernel/drivers/net/ethernet/stmicro/stmmac/stmmac-platform.ko
-kernel/drivers/net/ethernet/stmicro/stmmac/dwmac-caninos.ko
-kernel/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.ko
-kernel/drivers/net/phy/libphy.ko
-kernel/drivers/net/phy/fixed_phy.ko
-kernel/drivers/of/of_mdio.ko
 kernel/drivers/regulator/fixed.ko
 kernel/drivers/regulator/gpio-regulator.ko
 kernel/drivers/regulator/pwm-regulator.ko

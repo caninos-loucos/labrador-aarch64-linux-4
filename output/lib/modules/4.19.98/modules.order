@@ -8,8 +8,14 @@ kernel/drivers/xen/xen-gntdev.ko
 kernel/drivers/xen/xen-gntalloc.ko
 kernel/drivers/misc/eeprom/eeprom_93cx6.ko
 kernel/drivers/misc/cardreader/rtsx_usb.ko
+kernel/drivers/net/phy/libphy.ko
+kernel/drivers/net/phy/fixed_phy.ko
 kernel/drivers/net/phy/microchip.ko
 kernel/drivers/net/phy/realtek.ko
+kernel/drivers/net/ethernet/stmicro/stmmac/stmmac.ko
+kernel/drivers/net/ethernet/stmicro/stmmac/stmmac-platform.ko
+kernel/drivers/net/ethernet/stmicro/stmmac/dwmac-caninos.ko
+kernel/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.ko
 kernel/drivers/net/wireless/realtek/rtl818x/rtl8187/rtl8187.ko
 kernel/drivers/net/wireless/realtek/rtlwifi/rtlwifi.ko
 kernel/drivers/net/wireless/realtek/rtlwifi/rtl_usb.ko
@@ -40,6 +46,7 @@ kernel/drivers/net/usb/usbnet.ko
 kernel/drivers/net/usb/cdc_ncm.ko
 kernel/drivers/net/usb/huawei_cdc_ncm.ko
 kernel/drivers/net/usb/cdc_mbim.ko
+kernel/drivers/net/mii.ko
 kernel/drivers/usb/storage/ums-alauda.ko
 kernel/drivers/usb/storage/ums-cypress.ko
 kernel/drivers/usb/storage/ums-datafab.ko
@@ -455,6 +462,7 @@ kernel/drivers/hid/hid-waltop.ko
 kernel/drivers/hid/hid-wiimote.ko
 kernel/drivers/hid/hid-sensor-hub.ko
 kernel/drivers/hid/hid-sensor-custom.ko
+kernel/drivers/of/of_mdio.ko
 kernel/drivers/staging/rtl8723bs/r8723bs.ko
 kernel/drivers/input/gameport/gameport.ko
 kernel/drivers/bluetooth/hci_uart.ko

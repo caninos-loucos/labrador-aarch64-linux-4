@@ -26,6 +26,7 @@
 #include "dwmac1000.h"
 #include "dwmac_dma.h"
 
+
 static void dwmac1000_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
 {
 	u32 value = readl(ioaddr + DMA_AXI_BUS_MODE);
@@ -233,6 +234,8 @@ static void dwmac1000_get_hw_feature(void __iomem *ioaddr,
 {
 	u32 hw_cap = readl(ioaddr + DMA_HW_FEATURE);
 
+	pr_info("get hw features: REG_VAL = %x", hw_cap);
+	pr_info("%s: the hardware features read from DMA_HW_FEATURE do not match with datasheet,\n so this function was forced to disable these differences.", __func__);
 	dma_cap->mbps_10_100 = (hw_cap & DMA_HW_FEAT_MIISEL);
 	dma_cap->mbps_1000 = (hw_cap & DMA_HW_FEAT_GMIISEL) >> 1;
 	dma_cap->half_duplex = (hw_cap & DMA_HW_FEAT_HDSEL) >> 2;
@@ -253,10 +256,11 @@ static void dwmac1000_get_hw_feature(void __iomem *ioaddr,
 	dma_cap->eee = (hw_cap & DMA_HW_FEAT_EEESEL) >> 14;
 	dma_cap->av = (hw_cap & DMA_HW_FEAT_AVSEL) >> 15;
 	/* TX and RX csum */
-	dma_cap->tx_coe = (hw_cap & DMA_HW_FEAT_TXCOESEL) >> 16;
-	dma_cap->rx_coe_type1 = (hw_cap & DMA_HW_FEAT_RXTYP1COE) >> 17;
-	dma_cap->rx_coe_type2 = (hw_cap & DMA_HW_FEAT_RXTYP2COE) >> 18;
-	dma_cap->rxfifo_over_2048 = (hw_cap & DMA_HW_FEAT_RXFIFOSIZE) >> 19;
+	dma_cap->tx_coe = 0;//(hw_cap & DMA_HW_FEAT_TXCOESEL) >> 16;
+	dma_cap->rx_coe_type1 = 0;//(hw_cap & DMA_HW_FEAT_RXTYP1COE) >> 17;
+	dma_cap->rx_coe_type2 = 0;//(hw_cap & DMA_HW_FEAT_RXTYP2COE) >> 18;
+	dma_cap->rxfifo_over_2048 = 0;//(hw_cap & DMA_HW_FEAT_RXFIFOSIZE) >> 19;
+	//dma_cap->rxfifo_over_2048 = (hw_cap & DMA_HW_FEAT_RXFIFOSIZE) >> 19;
 	/* TX and RX number of channels */
 	dma_cap->number_rx_channel = (hw_cap & DMA_HW_FEAT_RXCHCNT) >> 20;
 	dma_cap->number_tx_channel = (hw_cap & DMA_HW_FEAT_TXCHCNT) >> 22;
