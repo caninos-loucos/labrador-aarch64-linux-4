@@ -16,8 +16,17 @@ kernel.
 Boards newer than "Labrador Core v3.0" should work fine with this kernel.
 
 ## Usage
-Some tools are necessary for compilation, please read the "install" file in this
-repository.
+Prior to compilation, make sure you have the following libraries and/or
+tools installed on your machine:
+1) GNU Binutils environment
+2) Native GCC compiler
+3) GCC cross-compiler targeting "gcc-aarch64-linux-gnu"
+4) Make build tool
+5) Git client
+6) Bison and Flex development libraries
+7) NCurses development libraries
+8) LibSSL development libraries
+
 After installing these tools, clone this repository in your computer.
 Then, go to it's main directory and execute it's makefile.
 
@@ -52,7 +61,7 @@ make kernel
 make clean
 ```
 
-## Installation
+## Kernel Installation
 After a successful build, the kernel should be avaliable at "output" folder.
 The modules are located at "output/lib/modules". Do the following:
 
