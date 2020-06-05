@@ -327,8 +327,11 @@
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe0120000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART0>;
+			resets = <&rst RST_UART0>;
 			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
-			status = "disabled";
+			pinctrl-names = "default";
+			pinctrl-0 = <&serial0_state_default>;
+			status = "okay";
 		};
 		
 		uart1: serial@e0122000 {
@@ -344,7 +347,6 @@
 			reg = <0x0 0xe0124000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART2>;
 			resets = <&rst RST_UART2>;
-			reset-names = "uart2";
 			interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&serial2_state_default>;
@@ -356,7 +358,6 @@
 			reg = <0x0 0xe0126000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART3>;
 			resets = <&rst RST_UART3>;
-			reset-names = "uart3";
 			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&serial3_state_default>;
@@ -462,6 +463,11 @@
 				
 				atc260x_auxadc: atc260x-auxadc {
 					compatible = "actions,atc2603c-auxadc";
+					status = "okay";
+				};
+				
+				atc260x_poweroff: atc260x-poweroff {
+					compatible = "actions,atc2603c-poweroff";
 					status = "okay";
 				};
 			};
