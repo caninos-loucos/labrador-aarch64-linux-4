@@ -147,25 +147,7 @@ config MFD_BD9571MWV
 	  This driver can also be built as a module. If so, the module
 	  will be called bd9571mwv.
 
-config MFD_ATC260X
-	bool
-	select MFD_CORE
-	select REGMAP_IRQ
-	select MFD_ATC260X_AUXADC
-	
-config MFD_ATC260X_AUXADC
-    bool
-	
-config MFD_ATC260X_I2C
-	bool "Actions ATC260x PMIC variants with I2C"
-	select MFD_ATC260X
-	select REGMAP_I2C
-	depends on I2C && OF
-	help
-	  Support for the Actions ATC260x PMIC
-	  when controlled using I2C. This driver provides common support
-	  for accessing the device, additional drivers must be enabled in
-	  order to use the functionality of the device.
+source "drivers/mfd/atc260x/Kconfig"
 
 config MFD_AC100
 	tristate "X-Powers AC100"

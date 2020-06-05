@@ -1,0 +1,24 @@
+    
+config MFD_ATC260X
+	bool "Actions ATC260x PMICs"
+	select MFD_CORE
+	select REGMAP_I2C
+	select REGMAP_IRQ
+	depends on I2C && OF
+	help
+	  Support for the Actions ATC260x PMICs
+	  This driver provides common support for accessing the device, additional 
+	  drivers must be enabled in order to use the functionality of the device.
+
+config MFD_ATC260X_AUXADC
+	bool "ATC260x PMICs Auxiliary ADC"
+	depends on MFD_ATC260X
+	help
+	  Support for reading the ATC260x PMICs auxiliary ADC inputs.
+
+config MFD_ATC260X_POWEROFF
+	bool "ATC260x PMICs Power on/off"
+	depends on MFD_ATC260X
+	help
+	  Support for ATC260x PMICs power buttons.
+
