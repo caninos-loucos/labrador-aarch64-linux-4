@@ -44,6 +44,51 @@ static ssize_t adc_show(struct kobject *kobj, struct kobj_attribute *attr,
     else if (strcmp(attr->attr.name, "adc2") == 0) {
         ret = atc260x_reg_read(pmic, ATC2603C_PMU_AUXADC1);
     }
+    else if (strcmp(attr->attr.name, "ictemp") == 0)
+    {
+        ret = atc260x_reg_read(pmic, ATC2603C_PMU_ICTEMPADC);
+        ret = (s32)(((s64)ret * 399155) >> 11) - 14899 - 30000;
+    }
+    else if (strcmp(attr->attr.name, "batv") == 0)
+    {
+        ret = atc260x_reg_read(pmic, ATC2603C_PMU_BATVADC);
+        ret = (s32)(((s64)ret * 375) >> 6);
+    }
+    else if (strcmp(attr->attr.name, "bati") == 0)
+    {
+        ret = atc260x_reg_read(pmic, ATC2603C_PMU_BATIADC);
+        ret = (s32)(((s64)ret * 1500) >> 10);
+    }
+    else if (strcmp(attr->attr.name, "vbusv") == 0)
+    {
+        ret = atc260x_reg_read(pmic, ATC2603C_PMU_VBUSVADC);
+        ret = (s32)(((s64)ret * 1875) >> 8);
+    }
+    else if (strcmp(attr->attr.name, "vbusi") == 0)
+    {
+        ret = atc260x_reg_read(pmic, ATC2603C_PMU_VBUSIADC);
+        ret = (s32)(((s64)ret * 1500) >> 10);
+    }
+    else if (strcmp(attr->attr.name, "syspwrv") == 0)
+    {
+        ret = atc260x_reg_read(pmic, ATC2603C_PMU_SYSPWRADC);
+        ret = (s32)(((s64)ret * 1875) >> 8);
+    }
+    else if (strcmp(attr->attr.name, "wallv") == 0)
+    {
+        ret = atc260x_reg_read(pmic, ATC2603A_PMU_WALLVADC);
+        ret = (s32)(((s64)ret * 1875) >> 8);
+    }
+    else if (strcmp(attr->attr.name, "walli") == 0)
+    {
+        ret = atc260x_reg_read(pmic, ATC2603A_PMU_WALLIADC);
+        ret = (s32)(((s64)ret * 1500) >> 10);
+    }
+    else if (strcmp(attr->attr.name, "chgi") == 0)
+    {
+        ret = atc260x_reg_read(pmic, ATC2603A_PMU_CHGIADC);
+        ret = (s32)(((s64)ret * 2000) >> 10);
+    }
     
     timestamp = ktime_get();
     
@@ -64,19 +109,53 @@ static struct kobj_attribute adc1_attr =
     
 static struct kobj_attribute adc2_attr =
     __ATTR(adc2, 0664, adc_show, adc_store);
+    
+static struct kobj_attribute ictemp_attr =
+    __ATTR(ictemp, 0664, adc_show, adc_store);
+
+static struct kobj_attribute batv_attr =
+    __ATTR(batv, 0664, adc_show, adc_store);
+
+static struct kobj_attribute bati_attr =
+    __ATTR(bati, 0664, adc_show, adc_store);
+
+static struct kobj_attribute vbusv_attr =
+    __ATTR(vbusv, 0664, adc_show, adc_store);
+
+static struct kobj_attribute vbusi_attr =
+    __ATTR(vbusi, 0664, adc_show, adc_store);
+
+static struct kobj_attribute syspwrv_attr =
+    __ATTR(syspwrv, 0664, adc_show, adc_store);
+
+static struct kobj_attribute wallv_attr =
+    __ATTR(wallv, 0664, adc_show, adc_store);
+
+static struct kobj_attribute walli_attr =
+    __ATTR(walli, 0664, adc_show, adc_store);
+
+static struct kobj_attribute chgi_attr =
+    __ATTR(chgi, 0664, adc_show, adc_store);
 
 static struct attribute *adc_attrs[] = {
     &adc0_attr.attr,
     &adc1_attr.attr,
     &adc2_attr.attr,
+    &ictemp_attr.attr,
+    &batv_attr.attr,
+    &bati_attr.attr,
+    &vbusv_attr.attr,
+    &vbusi_attr.attr,
+    &syspwrv_attr.attr,
+    &wallv_attr.attr,
+    &walli_attr.attr,
+    &chgi_attr.attr,
     NULL,
 };
 
 static struct attribute_group attr_group = {
     .attrs = adc_attrs,
 };
-
-// PMIC pin 23 AUXIN0 corresponds to ADC input on base board debug connector
 
 static struct kobject *adc_kobj;
 
