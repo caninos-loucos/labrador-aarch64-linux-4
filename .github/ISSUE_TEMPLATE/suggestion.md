@@ -1,7 +1,7 @@
 ---
-name: Making a sugestion
-about: Make a sugestion for project
-title: "[SUGESTION] --  "
+name: Making a suggestion
+about: Make a suggestion for project
+title: "[SUGGESTION] --  "
 labels: ''
 assignees: ''
 
