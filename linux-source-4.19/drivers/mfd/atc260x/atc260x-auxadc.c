@@ -32,67 +32,124 @@ static struct atc260x_dev *pmic = NULL;
 static ssize_t adc_show(struct kobject *kobj, struct kobj_attribute *attr,
                         char *buffer)
 {
-    int ret = -EINVAL;
+    int reg, mult, shift, offset, ret;
     ktime_t timestamp;
+    const char *unit;
+    s64 usec, val;
     
-    if (strcmp(attr->attr.name, "adc0") == 0) {
-        ret = atc260x_reg_read(pmic, ATC2603C_PMU_AUXADC0);
+    if (strcmp(attr->attr.name, "adc0") == 0)
+    {
+    	reg    = ATC2603C_PMU_AUXADC0;
+    	mult   = 1;
+    	shift  = 0;
+    	offset = 0;
+    	unit   = "/1024";
     }
-    else if (strcmp(attr->attr.name, "adc1") == 0) {
-        ret = atc260x_reg_read(pmic, ATC2603C_PMU_AUXADC1);
+    else if (strcmp(attr->attr.name, "adc1") == 0)
+    {
+    	reg    = ATC2603C_PMU_AUXADC1;
+    	mult   = 1;
+    	shift  = 0;
+    	offset = 0;
+    	unit   = "/1024";
     }
-    else if (strcmp(attr->attr.name, "adc2") == 0) {
-        ret = atc260x_reg_read(pmic, ATC2603C_PMU_AUXADC1);
+    else if (strcmp(attr->attr.name, "adc2") == 0)
+    {
+    	reg    = ATC2603C_PMU_AUXADC2;
+    	mult   = 1;
+    	shift  = 0;
+    	offset = 0;
+    	unit   = "/1024";
     }
     else if (strcmp(attr->attr.name, "ictemp") == 0)
     {
-        ret = atc260x_reg_read(pmic, ATC2603C_PMU_ICTEMPADC);
-        ret = (s32)(((s64)ret * 399155) >> 11) - 14899 - 30000;
+    	reg    = ATC2603C_PMU_ICTEMPADC;
+    	mult   = 399155;
+    	shift  = 11;
+    	offset = -44899;
+    	unit   = "mCelsius";
     }
     else if (strcmp(attr->attr.name, "batv") == 0)
     {
-        ret = atc260x_reg_read(pmic, ATC2603C_PMU_BATVADC);
-        ret = (s32)(((s64)ret * 375) >> 6);
+    	reg    = ATC2603C_PMU_BATVADC;
+    	mult   = 375;
+    	shift  = 6;
+    	offset = 0;
+    	unit   = "mV";
     }
     else if (strcmp(attr->attr.name, "bati") == 0)
     {
-        ret = atc260x_reg_read(pmic, ATC2603C_PMU_BATIADC);
-        ret = (s32)(((s64)ret * 1500) >> 10);
+    	reg    = ATC2603C_PMU_BATIADC;
+    	mult   = 1500;
+    	shift  = 10;
+    	offset = 0;
+    	unit   = "mA";
     }
     else if (strcmp(attr->attr.name, "vbusv") == 0)
     {
-        ret = atc260x_reg_read(pmic, ATC2603C_PMU_VBUSVADC);
-        ret = (s32)(((s64)ret * 1875) >> 8);
+    	reg    = ATC2603C_PMU_VBUSVADC;
+    	mult   = 1875;
+    	shift  = 8;
+    	offset = 0;
+    	unit   = "mV";
     }
     else if (strcmp(attr->attr.name, "vbusi") == 0)
     {
-        ret = atc260x_reg_read(pmic, ATC2603C_PMU_VBUSIADC);
-        ret = (s32)(((s64)ret * 1500) >> 10);
+    	reg    = ATC2603C_PMU_VBUSIADC;
+    	mult   = 1500;
+    	shift  = 10;
+    	offset = 0;
+    	unit   = "mA";
     }
     else if (strcmp(attr->attr.name, "syspwrv") == 0)
     {
-        ret = atc260x_reg_read(pmic, ATC2603C_PMU_SYSPWRADC);
-        ret = (s32)(((s64)ret * 1875) >> 8);
+    	reg    = ATC2603C_PMU_SYSPWRADC;
+    	mult   = 1875;
+    	shift  = 8;
+    	offset = 0;
+    	unit   = "mV";
     }
     else if (strcmp(attr->attr.name, "wallv") == 0)
-    {
-        ret = atc260x_reg_read(pmic, ATC2603A_PMU_WALLVADC);
-        ret = (s32)(((s64)ret * 1875) >> 8);
+    {   
+        reg    = ATC2603A_PMU_WALLVADC;
+    	mult   = 1875;
+    	shift  = 8;
+    	offset = 0;
+    	unit   = "mV";
     }
     else if (strcmp(attr->attr.name, "walli") == 0)
     {
-        ret = atc260x_reg_read(pmic, ATC2603A_PMU_WALLIADC);
-        ret = (s32)(((s64)ret * 1500) >> 10);
+        reg    = ATC2603A_PMU_WALLIADC;
+    	mult   = 1500;
+    	shift  = 10;
+    	offset = 0;
+    	unit   = "mA";
     }
     else if (strcmp(attr->attr.name, "chgi") == 0)
     {
-        ret = atc260x_reg_read(pmic, ATC2603A_PMU_CHGIADC);
-        ret = (s32)(((s64)ret * 2000) >> 10);
+        reg    = ATC2603A_PMU_CHGIADC;
+    	mult   = 2000;
+    	shift  = 10;
+    	offset = 0;
+    	unit   = "mA";
+    }
+    else {
+    	return -EINVAL;
     }
     
     timestamp = ktime_get();
+    ret = atc260x_reg_read(pmic, reg);
     
-    return sprintf(buffer, "%llu %d\n", ktime_to_us(timestamp), ret);
+    if (ret < 0) {
+    	return ret;
+    }
+    
+    usec = ktime_to_us(timestamp);
+    
+    val = (s64)(ret & 0x3FF);
+    val = ((val * mult) >> shift) + offset;
+    
+    return sprintf(buffer, "%lld %lld %s\n", usec, val, unit);
 }
 
 static ssize_t adc_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -157,14 +214,53 @@ static struct attribute_group attr_group = {
     .attrs = adc_attrs,
 };
 
-static struct kobject *adc_kobj;
+static struct kobject *adc_kobj = NULL;
 
-static int init_auxadc_sysfs_group(void)
+static int atc2603c_platform_probe(struct platform_device *pdev)
 {
-    int ret;
+	struct device *dev = &pdev->dev;
+	int ret, val;
+	
+	pmic = dev_get_drvdata(dev->parent);
+	
+	if (!pmic) {
+		return -EINVAL;
+	}
+	
+	ret = atc260x_reg_read(pmic, ATC2603C_PMU_AUXADC_CTL1);
+    
+    if (ret < 0) {
+    	return ret;
+    }
+    
+    val = ret & 0xFFFFU;
+    
+    // sets pmic reference resistor to 20mOhms
+    val &= ~BIT(4);
+    // disable ADC comp offset trimming (not needed at chip rev. b)
+    val &= ~BIT(3);
+    // use highest ADC clock
+    val |= BIT(0);
+    // set ADC input range to 0-3V
+    val |= BIT(1);
+    // use internal clock for ADC
+    val &= ~BIT(11);
+    // enable and setup coulomb meter
+    val &= 0xFC1FU;
+    val |= 0x01E0U;
+    
+    ret = atc260x_reg_write(pmic, ATC2603C_PMU_AUXADC_CTL1, val);
+    
+    if (ret < 0) {
+    	return ret;
+    }
     
     // start all adcs
-    atc260x_reg_write(pmic, ATC2603C_PMU_AUXADC_CTL0, 0xffffU);
+    ret = atc260x_reg_write(pmic, ATC2603C_PMU_AUXADC_CTL0, 0xFFFFU);
+    
+    if (ret < 0) {
+    	return ret;
+    }
     
     // create directory auxadc at /sys/kernel/
 	adc_kobj = kobject_create_and_add("auxadc", kernel_kobj);
@@ -175,34 +271,23 @@ static int init_auxadc_sysfs_group(void)
 	
 	ret = sysfs_create_group(adc_kobj, &attr_group);
 	
-	if(ret) {
+	if(ret)
+	{
 	    kobject_put(adc_kobj);
+	    adc_kobj = NULL;
 	}
 	
 	return ret;
 }
 
-static void exit_auxadc_sysfs_group(void)
-{
-	kobject_put(adc_kobj);
-}
-
-static int atc2603c_platform_probe(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	
-	pmic = dev_get_drvdata(dev->parent);
-	
-	if (!pmic) {
-		return -EINVAL;
-	}
-	
-	return init_auxadc_sysfs_group();
-}
-
 static int atc2603c_platform_remove(struct platform_device *pdev)
 {
-    exit_auxadc_sysfs_group();
+	if (adc_kobj)
+	{
+		kobject_put(adc_kobj);
+		adc_kobj = NULL;
+	}
+	
     pmic = NULL;
 	return 0;
 }
