@@ -420,7 +420,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 		return ERR_PTR(rc);
 
 	of_property_read_u32(np, "tx-fifo-depth", &plat->tx_fifo_size);
-	
+
 	of_property_read_u32(np, "rx-fifo-depth", &plat->rx_fifo_size);
 
 	plat->force_sf_dma_mode =
@@ -432,7 +432,6 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 	/* Set the maxmtu to a default of JUMBO_LEN in case the
 	 * parameter is not present in the device tree.
 	 */
-	//caninos stuff
 	plat->maxmtu = JUMBO_LEN;
 
 	/* Set default value for multicast hash bins */

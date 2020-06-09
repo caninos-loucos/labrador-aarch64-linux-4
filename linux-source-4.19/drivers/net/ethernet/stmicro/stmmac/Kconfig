@@ -53,15 +53,6 @@ config DWMAC_ANARION
 	  Support for Adaptrum Anarion GMAC Ethernet controller.
 
 	  This selects the Anarion SoC glue layer support for the stmmac driver.
-	  
-config DWMAC_CANINOS
-	tristate "Caninos Labrador DWMAC support"
-	default ARCH_CANINOS
-	depends on OF && (ARCH_CANINOS || COMPILE_TEST)
-	help
-	  Support for Caninos Labrador GMAC Ethernet controller.
-
-	  This selects the Caninos Labrador glue layer for the stmmac driver.
 
 config DWMAC_IPQ806X
 	tristate "QCA IPQ806x DWMAC support"

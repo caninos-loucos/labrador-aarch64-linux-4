@@ -5,6 +5,7 @@
 #include <dt-bindings/clock/caninos-clk.h>
 #include <dt-bindings/reset/caninos-rst.h>
 #include <dt-bindings/dma/caninos-dma.h>
+#include <dt-bindings/power/caninos-power.h>
 
 / {
 	compatible = "caninos,k7";
@@ -269,6 +270,56 @@
 			resets = <&rst RST_USBH1>;
 			reset-names = "usb2h1";
 			status = "okay";
+		};
+		
+        usb2_phy: usb2phy@0xe040ce00 {
+			compatible = "actions,s700-usb2phy";
+			reg = <0 0xe040ce00 0 0x4>;
+			phy_type = <1>;		/* 1: PHY_R; 2: PHY_C */
+			status = "okay";
+		};
+
+		usb3_phy: usb3phy@0xe040cd00 {
+			compatible = "actions,s700-usb3phy";
+			reg = <0 0xe040cd00 0 0x100>;
+			phy_type = <1>;		/* 1: PHY_R; 2: PHY_C */
+            status = "okay";
+		};
+		
+		sps: power-domain@e01b0100 {
+			compatible = "caninos,k7-sps";
+			reg = <0 0xe01b0100 0 0x100>;
+			#power-domain-cells = <1>;
+			status = "okay";
+		};
+		
+		owl_dwc3@e040ce04 {
+			compatible = "actions,s700-dwc3";
+			reg = <0 0xe040ce04 0 0xc>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			
+			power-domains = <&sps PD_USB3>;
+
+			clocks = <&cmu CLK_USB3_480MPLL0>,
+			         <&cmu CLK_USB3_480MPHY0>,
+			         <&cmu CLK_USB3_5GPHY>,
+			         <&cmu CLK_USB3_CCE>,
+			         <&cmu CLK_USB3_MAC>;
+			         
+			clock-names = "usb3_480mpll0", "usb3_480mphy0",
+			              "usb3_5gphy", "usb3_cce", "usb3_mac";
+			              
+			resets	= <&rst RST_USB3>;
+			reset-names = "usb3";
+
+			dwc3@e0400000 {
+				compatible = "synopsys,dwc3";
+				reg = <0 0xe0400000 0 0xcd00>;
+				interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>;
+				usb-phy = <&usb2_phy>, <&usb3_phy>;
+			};
 		};
 		
 		leds {
@@ -537,49 +588,52 @@
 		};
 		
 		ethernet@e0220000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			reg = <0x0 0xe0220000 0x0 0x1174>;
+			compatible = "actions,s700-ethernet";
+			reg = <0 0xe0220000 0 0x2000>,
+				  <0 0xe024c0a0 0 0x4>,
+			      <0 0xe01680a0 0 0x10>,
+			      <0 0xe01680ac 0 0x4>,
+			      <0 0xe01680b4 0 0x4>;
+			
 			interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
+			
+			clocks = <&cmu CLK_ETHERNET>, <&cmu CLK_RMII_REF>;
+			clock-names = "ethernet", "rmii_ref";
+			
+			resets = <&rst RST_ETHERNET>;
+			reset-names = "ethernet";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
 
 			pinctrl-names = "default";
 			pinctrl-0 = <&ethernet_state_default>;
 			
-			compatible = "caninos,s700-ethernet";
-
-			clocks = <&cmu CLK_ETHERNET_PLL>, <&cmu CLK_RMII_REF>;
-			clock-names = "stmmaceth", "rmii_ref";
-
-			resets = <&rst RST_ETHERNET>;
-			reset-names = "stmmaceth";
-			
 			phy-mode = "rmii";
 			phy-handle = <&phy0>;
-
-            // If Lora is in use, remove the next property.
+			
+			//phy-power-en = "ethernet_gpio_regulator";
+			
+			// If Lora is in use, remove the next property.
             // Only necessary for old base boards
 			phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>;
- 
-			//phy-power-en = "ethernet_gpio_regulator";
-			phy-reset-gpios = <&gpiod 31 GPIO_ACTIVE_HIGH>;
-
-			phy-addr = <1>;
-			//max-frame-size = <1518>; //if not set will use 9000
+			
+			phy-reset-gpios = <&gpiod 31 GPIO_ACTIVE_HIGH>; 
+			
+			
+			phy-addr = "1";
+			address-bits = <48>;
+			max-frame-size = <1518>;
 			max-speed=<100>;
-            //choose between store and forward or threshould the fifo
-			//snps,force_thresh_dma_mode=<1>;
+
 			status = "okay";
-			mdio0 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				compatible = "snps,dwmac-mdio";
-				phy0: ethernet-phy@0 {
-					reg = <0x1>;
-					device_type = "ethernet-phy";
-				};
+			
+			phy0: ethernet-phy@0 {
+				compatible = "RTL8201F,rtl8201f";
+				reg = <0>;
 			};
+			
 		};
 	};
 };

@@ -30,7 +30,8 @@
 #define RST_TVOUT    20
 #define RST_HDMI     21
 #define RST_DE       22
-#define NR_RESETS    23
+#define RST_USB3     23
+#define NR_RESETS    24
 
 #endif
 
