@@ -614,9 +614,19 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			
-			phy0: ethernet-phy@0 {
-				compatible = "RTL8201F,rtl8201f";
-				reg = <0>;
+			rx-fifo-depth = <16384>;
+			tx-fifo-depth = <16384>;
+			
+			snps,force_thresh_dma_mode=<1>;
+			
+			mdio0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "snps,dwmac-mdio";
+				phy0: ethernet-phy@0 {
+					reg = <0x1>;
+					device_type = "ethernet-phy";
+				};
 			};
 		};
 	};
