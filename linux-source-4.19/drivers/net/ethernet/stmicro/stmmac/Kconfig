@@ -166,6 +166,17 @@ config DWMAC_SUN8I
 	  This selects Allwinner SoC glue layer support for the
 	  stmmac device driver. This driver is used for H3/A83T/A64
 	  EMAC ethernet controller.
+
+config DWMAC_CANINOS
+	tristate "Caninos Labrador DWMAC support"
+	default ARCH_CANINOS
+	depends on OF && (ARCH_CANINOS || COMPILE_TEST)
+	---help---
+	  Support for Caninos Labrador ethernet controllers.
+
+	  This selects Caninos Labrador SoC glue layer support for the
+	  stmmac device driver.
+
 endif
 
 config STMMAC_PCI

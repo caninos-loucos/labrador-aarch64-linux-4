@@ -42,8 +42,9 @@ static int atc2603c_platform_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	
-	pm_power_off = atc260x_poweroff;
-	arm_pm_restart = atc260x_restart;
+	// Still not implemented
+	//pm_power_off = atc260x_poweroff;
+	//arm_pm_restart = atc260x_restart;
 	
 	return 0;
 }

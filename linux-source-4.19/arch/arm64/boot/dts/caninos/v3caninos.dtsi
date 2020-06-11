@@ -276,13 +276,13 @@
 			compatible = "actions,s700-usb2phy";
 			reg = <0 0xe040ce00 0 0x4>;
 			phy_type = <1>;		/* 1: PHY_R; 2: PHY_C */
-			status = "okay";
 		};
 
 		usb3_phy: usb3phy@0xe040cd00 {
 			compatible = "actions,s700-usb3phy";
 			reg = <0 0xe040cd00 0 0x100>;
 			phy_type = <1>;		/* 1: PHY_R; 2: PHY_C */
+			fix_vbus_reset = <1>;
             status = "okay";
 		};
 		
@@ -588,52 +588,36 @@
 		};
 		
 		ethernet@e0220000 {
-			compatible = "actions,s700-ethernet";
-			reg = <0 0xe0220000 0 0x2000>,
-				  <0 0xe024c0a0 0 0x4>,
-			      <0 0xe01680a0 0 0x10>,
-			      <0 0xe01680ac 0 0x4>,
-			      <0 0xe01680b4 0 0x4>;
-			
+			compatible = "caninos,k7-gmac", "snps,dwmac";
+			reg = <0 0xe0220000 0 0x2000>;
 			interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
-			
+			phy-mode = "rmii";
+			max-speed = <100>;
+			max-frame-size = <1518>;
 			clocks = <&cmu CLK_ETHERNET>, <&cmu CLK_RMII_REF>;
-			clock-names = "ethernet", "rmii_ref";
-			
+			clock-names = "stmmaceth", "rmii_ref";
 			resets = <&rst RST_ETHERNET>;
-			reset-names = "ethernet";
-
-			#address-cells = <1>;
-			#size-cells = <0>;
-
+			reset-names = "stmmaceth";
+			phy-handle = <&phy0>;
+			
 			pinctrl-names = "default";
 			pinctrl-0 = <&ethernet_state_default>;
 			
-			phy-mode = "rmii";
-			phy-handle = <&phy0>;
-			
-			//phy-power-en = "ethernet_gpio_regulator";
-			
-			// If Lora is in use, remove the next property.
+			// If Lora is in use, remove the phy-power-gpio property.
             // Only necessary for old base boards
 			phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>;
-			
 			phy-reset-gpios = <&gpiod 31 GPIO_ACTIVE_HIGH>; 
 			
-			
-			phy-addr = "1";
-			address-bits = <48>;
-			max-frame-size = <1518>;
-			max-speed=<100>;
-
 			status = "okay";
+			
+			#address-cells = <1>;
+			#size-cells = <0>;
 			
 			phy0: ethernet-phy@0 {
 				compatible = "RTL8201F,rtl8201f";
 				reg = <0>;
 			};
-			
 		};
 	};
 };
