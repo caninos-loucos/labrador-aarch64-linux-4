@@ -301,6 +301,8 @@ static int caninos_gmac_probe(struct platform_device *pdev)
 	
 	/* platform data specifying hardware features and callbacks. */
 	plat_dat->tx_coe = 0;
+	plat_dat->riwt_off = 1;
+	plat_dat->clk_csr = 0x4;
 	plat_dat->has_gmac = 1;
 	plat_dat->bsp_priv = gmac;
 	plat_dat->init = caninos_gmac_init;
