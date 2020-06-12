@@ -305,7 +305,6 @@ kernel/drivers/usb/common/usb-common.ko
 kernel/drivers/usb/common/ulpi.ko
 kernel/drivers/usb/core/usbcore.ko
 kernel/drivers/usb/dwc3/dwc3.ko
-kernel/drivers/usb/dwc3/dwc3-caninos.ko
 kernel/drivers/usb/dwc3/dwc3-of-simple.ko
 kernel/drivers/usb/gadget/udc/udc-core.ko
 kernel/drivers/usb/host/xhci-hcd.ko

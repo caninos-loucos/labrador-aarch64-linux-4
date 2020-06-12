@@ -293,32 +293,32 @@
 			status = "okay";
 		};
 		
-		owl_dwc3@e040ce04 {
-			compatible = "actions,s700-dwc3";
-			reg = <0 0xe040ce04 0 0xc>;
+		usb3: usb@e0400000 {
+			compatible = "caninos,k7-dwc3";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
 			
-			power-domains = <&sps PD_USB3>;
-
-			clocks = <&cmu CLK_USB3_480MPLL0>,
-			         <&cmu CLK_USB3_480MPHY0>,
-			         <&cmu CLK_USB3_5GPHY>,
-			         <&cmu CLK_USB3_CCE>,
-			         <&cmu CLK_USB3_MAC>;
-			         
-			clock-names = "usb3_480mpll0", "usb3_480mphy0",
-			              "usb3_5gphy", "usb3_cce", "usb3_mac";
-			              
+			clocks = <&cmu CLK_USB3_CCE>, <&cmu CLK_USB3_480MPLL0>,
+			         <&cmu CLK_USB3_480MPHY0>, <&cmu CLK_USB3_5GPHY>;
+			clock-names = "ref_clk", "usb3_480mpll0", "usb3_480mphy0",
+			              "usb3_5gphy";
+			
 			resets	= <&rst RST_USB3>;
 			reset-names = "usb3";
-
-			dwc3@e0400000 {
-				compatible = "synopsys,dwc3";
+			
+			status = "okay";
+			
+			usbdrd_dwc3: dwc3 {
+				compatible = "snps,dwc3";
 				reg = <0 0xe0400000 0 0xcd00>;
 				interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>;
+				maximum-speed = "super-speed";
+				dr_mode = "host";
+				
 				usb-phy = <&usb2_phy>, <&usb3_phy>;
+				
+				power-domains = <&sps PD_USB3>;
 			};
 		};
 		
