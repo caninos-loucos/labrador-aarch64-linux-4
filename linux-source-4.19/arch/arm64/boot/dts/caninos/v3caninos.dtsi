@@ -272,20 +272,6 @@
 			status = "okay";
 		};
 		
-        usb2_phy: usb2phy@0xe040ce00 {
-			compatible = "actions,s700-usb2phy";
-			reg = <0 0xe040ce00 0 0x4>;
-			phy_type = <1>;		/* 1: PHY_R; 2: PHY_C */
-		};
-
-		usb3_phy: usb3phy@0xe040cd00 {
-			compatible = "actions,s700-usb3phy";
-			reg = <0 0xe040cd00 0 0x100>;
-			phy_type = <1>;		/* 1: PHY_R; 2: PHY_C */
-			fix_vbus_reset = <1>;
-            status = "okay";
-		};
-		
 		sps: power-domain@e01b0100 {
 			compatible = "caninos,k7-sps";
 			reg = <0 0xe01b0100 0 0x100>;
@@ -293,32 +279,41 @@
 			status = "okay";
 		};
 		
-		usb3: usb@e0400000 {
+		usb2_phy: usb2phy@e040ce00 {
+			compatible = "actions,s700-usb2phy";
+			reg = <0 0xe040ce00 0 0x4>;
+			phy_type = <1>;		/* 1: PHY_R; 2: PHY_C */
+		};
+
+		usb3_phy: usb3phy@e040cd00 {
+			compatible = "actions,s700-usb3phy";
+			reg = <0 0xe040cd00 0 0x100>;
+			phy_type = <1>;		/* 1: PHY_R; 2: PHY_C */
+			fix_vbus_reset = <1>;
+		};
+		
+		usbdrd3 {
 			compatible = "caninos,k7-dwc3";
+			clocks = <&cmu CLK_USB3_480MPLL0>, <&cmu CLK_USB3_480MPHY0>,
+			         <&cmu CLK_USB3_5GPHY>, <&cmu CLK_USB3_CCE>;
+			clock-names = "usb3_480mpll0", "usb3_480mphy0", "usb3_5gphy",
+			              "usb3_cce";
+			resets	= <&rst RST_USB3>;
+			reset-names = "usb3";
+			power-domains = <&sps PD_USB3>;
+			status = "okay";
+			
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
 			
-			clocks = <&cmu CLK_USB3_CCE>, <&cmu CLK_USB3_480MPLL0>,
-			         <&cmu CLK_USB3_480MPHY0>, <&cmu CLK_USB3_5GPHY>;
-			clock-names = "ref_clk", "usb3_480mpll0", "usb3_480mphy0",
-			              "usb3_5gphy";
-			
-			resets	= <&rst RST_USB3>;
-			reset-names = "usb3";
-			
-			status = "okay";
-			
-			usbdrd_dwc3: dwc3 {
+			dwc3@e0400000 {
 				compatible = "snps,dwc3";
 				reg = <0 0xe0400000 0 0xcd00>;
 				interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>;
-				maximum-speed = "super-speed";
-				dr_mode = "host";
-				
+				//maximum-speed = "super-speed";
+				//dr_mode = "host";
 				usb-phy = <&usb2_phy>, <&usb3_phy>;
-				
-				power-domains = <&sps PD_USB3>;
 			};
 		};
 		
@@ -378,7 +373,9 @@
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe0120000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART0>;
+			clock-names = "uart";
 			resets = <&rst RST_UART0>;
+			reset-names = "uart";
 			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&serial0_state_default>;
@@ -389,6 +386,7 @@
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe0122000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART1>;
+			clock-names = "uart";
 			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
@@ -397,7 +395,9 @@
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe0124000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART2>;
+			clock-names = "uart";
 			resets = <&rst RST_UART2>;
+			reset-names = "uart";
 			interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&serial2_state_default>;
@@ -408,7 +408,9 @@
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe0126000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART3>;
+			clock-names = "uart";
 			resets = <&rst RST_UART3>;
+			reset-names = "uart";
 			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&serial3_state_default>;
@@ -419,6 +421,7 @@
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe0128000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART4>;
+			clock-names = "uart";
 			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
@@ -427,6 +430,7 @@
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe012a000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART5>;
+			clock-names = "uart";
 			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
@@ -435,6 +439,7 @@
 			compatible = "caninos,k7-uart", "caninos,early-uart";
 			reg = <0x0 0xe012c000 0x0 0x2000>;
 			clocks = <&cmu CLK_UART6>;
+			clock-names = "uart";
 			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};

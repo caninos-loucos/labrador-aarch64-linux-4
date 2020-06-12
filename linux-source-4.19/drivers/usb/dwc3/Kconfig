@@ -102,6 +102,14 @@ config USB_DWC3_OF_SIMPLE
 	 Currently supports Xilinx and Qualcomm DWC USB3 IP.
 	 Say 'Y' or 'M' if you have one such device.
 
+config USB_DWC3_CANINOS
+	tristate "Caninos Labrador DWC3 Glue Layer"
+	depends on (ARCH_CANINOS || COMPILE_TEST) && OF
+	default USB_DWC3
+	help
+      Support USB3 functionality in Caninos Labrador.
+      Say 'Y' or 'M' if you have one such device.
+
 config USB_DWC3_ST
 	tristate "STMicroelectronics Platforms"
 	depends on (ARCH_STI || COMPILE_TEST) && OF

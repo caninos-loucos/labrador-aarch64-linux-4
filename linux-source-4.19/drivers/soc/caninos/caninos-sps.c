@@ -50,7 +50,7 @@ static int caninos_sps_power_on(struct generic_pm_domain *domain)
 {
 	struct caninos_sps_domain *pd = to_caninos_pd(domain);
 
-	dev_dbg(pd->sps->dev, "%s power on", pd->info->name);
+	dev_info(pd->sps->dev, "%s power on", pd->info->name);
 
 	return caninos_sps_set_power(pd, true);
 }
@@ -59,7 +59,7 @@ static int caninos_sps_power_off(struct generic_pm_domain *domain)
 {
 	struct caninos_sps_domain *pd = to_caninos_pd(domain);
 
-	dev_dbg(pd->sps->dev, "%s power off", pd->info->name);
+	dev_info(pd->sps->dev, "%s power off", pd->info->name);
 
 	return caninos_sps_set_power(pd, false);
 }

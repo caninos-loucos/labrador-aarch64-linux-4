@@ -352,5 +352,5 @@ module_platform_driver(caninos_dwmac_driver);
 
 MODULE_AUTHOR("LSI-TEC - Caninos Loucos");
 MODULE_DESCRIPTION("Caninos Labrador DWMAC specific glue layer");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
 
