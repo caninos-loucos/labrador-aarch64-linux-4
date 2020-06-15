@@ -13,6 +13,7 @@ struct caninos_sps_domain_info {
 	int pwr_bit;
 	int ack_bit;
 	unsigned int genpd_flags;
+	bool is_off;
 };
 
 struct caninos_sps_info {
@@ -39,50 +40,56 @@ struct caninos_sps_domain {
 static int caninos_sps_set_power(struct caninos_sps_domain *pd, bool enable)
 {
 	u32 pwr_mask, ack_mask;
-
 	ack_mask = BIT(pd->info->ack_bit);
 	pwr_mask = BIT(pd->info->pwr_bit);
-
 	return caninos_sps_set_pg(pd->sps->base, pwr_mask, ack_mask, enable);
 }
 
 static int caninos_sps_power_on(struct generic_pm_domain *domain)
 {
 	struct caninos_sps_domain *pd = to_caninos_pd(domain);
-
-	dev_info(pd->sps->dev, "%s power on", pd->info->name);
-
+	dev_info(pd->sps->dev, "%s power on.\n", pd->info->name);
 	return caninos_sps_set_power(pd, true);
 }
 
 static int caninos_sps_power_off(struct generic_pm_domain *domain)
 {
 	struct caninos_sps_domain *pd = to_caninos_pd(domain);
-
-	dev_info(pd->sps->dev, "%s power off", pd->info->name);
-
+	dev_info(pd->sps->dev, "%s power off.\n", pd->info->name);
 	return caninos_sps_set_power(pd, false);
 }
 
 static int caninos_sps_init_domain(struct caninos_sps *sps, int index)
 {
 	struct caninos_sps_domain *pd;
-
+	int ret;
+	
 	pd = devm_kzalloc(sps->dev, sizeof(*pd), GFP_KERNEL);
-	if (!pd)
+	
+	if (!pd) {
 		return -ENOMEM;
-
+	}
+	
 	pd->info = &sps->info->domains[index];
 	pd->sps = sps;
-
+	
 	pd->genpd.name = pd->info->name;
 	pd->genpd.power_on = caninos_sps_power_on;
 	pd->genpd.power_off = caninos_sps_power_off;
 	pd->genpd.flags = pd->info->genpd_flags;
-	pm_genpd_init(&pd->genpd, NULL, false);
-
+	
+	if (pd->info->is_off) {
+		ret = caninos_sps_power_off(&pd->genpd);
+	}
+	else {
+		ret = caninos_sps_power_on(&pd->genpd);
+	}
+	if (ret) {
+		return ret;
+	}
+	
+	pm_genpd_init(&pd->genpd, NULL, pd->info->is_off);
 	sps->genpd_data.domains[index] = &pd->genpd;
-
 	return 0;
 }
 
@@ -114,6 +121,7 @@ static int caninos_sps_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	sps->base = of_iomap(pdev->dev.of_node, 0);
+	
 	if (IS_ERR(sps->base)) {
 		dev_err(&pdev->dev, "failed to map sps registers\n");
 		return PTR_ERR(sps->base);
@@ -143,6 +151,9 @@ static const struct caninos_sps_domain_info k7_sps_domains[] = {
 	[PD_USB3] = {
 		.name = "USB3",
 		.pwr_bit = 10,
+		.ack_bit = 10,
+		.genpd_flags = 0,
+		.is_off = false,
 	},
 };
 

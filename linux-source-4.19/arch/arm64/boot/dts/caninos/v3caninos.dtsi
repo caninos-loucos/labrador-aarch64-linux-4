@@ -279,16 +279,17 @@
 			status = "okay";
 		};
 		
+		/*
 		usb2_phy: usb2phy@e040ce00 {
 			compatible = "actions,s700-usb2phy";
 			reg = <0 0xe040ce00 0 0x4>;
-			phy_type = <1>;		/* 1: PHY_R; 2: PHY_C */
+			phy_type = <1>;		// 1: PHY_R; 2: PHY_C
 		};
 
 		usb3_phy: usb3phy@e040cd00 {
 			compatible = "actions,s700-usb3phy";
 			reg = <0 0xe040cd00 0 0x100>;
-			phy_type = <1>;		/* 1: PHY_R; 2: PHY_C */
+			phy_type = <1>;		// 1: PHY_R; 2: PHY_C
 			fix_vbus_reset = <1>;
 		};
 		
@@ -316,6 +317,7 @@
 				usb-phy = <&usb2_phy>, <&usb3_phy>;
 			};
 		};
+		*/
 		
 		leds {
 		    compatible = "gpio-leds";
