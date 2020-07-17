@@ -197,7 +197,7 @@
 		};
 		
 		gpioa: gpioa@e01b0000 {
-			compatible = "actions,s700-gpio";
+			compatible = "caninos,k7-gpio";
 			reg = <0 0xe01b0000 0 0x1000>;
 			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
 			#gpio-cells = <2>;
@@ -207,7 +207,7 @@
 		};
 		
 		gpiob: gpiob@e01b0000 {
-			compatible = "actions,s700-gpio";
+			compatible = "caninos,k7-gpio";
 			reg = <0 0xe01b0000 0 0x1000>;
 			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
 			#gpio-cells = <2>;
@@ -217,7 +217,7 @@
 		};
 		
 		gpioc: gpioc@e01b0000 {
-			compatible = "actions,s700-gpio";
+			compatible = "caninos,k7-gpio";
 			reg = <0 0xe01b0000 0 0x1000>;
 			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 			#gpio-cells = <2>;
@@ -227,7 +227,7 @@
 		};
 		
 		gpiod: gpiod@e01b0000 {
-			compatible = "actions,s700-gpio";
+			compatible = "caninos,k7-gpio";
 			reg = <0 0xe01b0000 0 0x1000>;
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			#gpio-cells = <2>;
@@ -237,13 +237,45 @@
 		};
 		
 		gpioe: gpioe@e01b0000 {
-			compatible = "actions,s700-gpio";
+			compatible = "caninos,k7-gpio";
 			reg = <0 0xe01b0000 0 0x1000>;
 			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 			#gpio-cells = <2>;
 			gpio-controller;
 			interrupt-controller;
 			#interrupt-cells = <1>;
+		};
+		
+		pinctrl@e01b0000 {
+			compatible = "caninos,k7-pinctrl";
+			reg = <0 0xe01b0000 0 0x1000>;
+			clocks = <&cmu CLK_GPIO>;
+			clock-names = "mfp";
+			status = "okay";
+			
+			// dummy entries are used for gpio access at extio header
+			i2c2_state_gpio: i2c2_gpio {
+			};
+			uart0_state_gpio: uart0_gpio {
+			};
+			spi1_state_gpio: spi1_gpio {
+			};
+			pwm_state_gpio: pwm_gpio {
+			};
+			
+			// normal entries
+			i2c2_state_extio: i2c2_extio {
+				caninos,function = "i2c2";
+			};
+			spi1_state_extio: spi1_extio {
+				caninos,function = "spi1";
+			};
+			uart0_state_extio: uart0_extio {
+				caninos,function = "uart0";
+			};
+			pwm_state_extio: pwm_extio {
+				caninos,function = "pwm";
+			};
 		};
 		
 		usb2h0: usb@e01d0000 {
@@ -379,8 +411,6 @@
 			resets = <&rst RST_UART0>;
 			reset-names = "uart";
 			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&serial0_state_default>;
 			status = "okay";
 		};
 		
@@ -401,8 +431,6 @@
 			resets = <&rst RST_UART2>;
 			reset-names = "uart";
 			interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&serial2_state_default>;
 			status = "okay";
 		};
 		
@@ -414,8 +442,6 @@
 			resets = <&rst RST_UART3>;
 			reset-names = "uart";
 			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&serial3_state_default>;
 			status = "okay";
 		};
 		
@@ -456,8 +482,6 @@
 			reset-names = "mmc";
 			dmas = <&dma DMA_DRQ_SD0>;
 			dma-names = "mmc";
-			pinctrl-names = "default";
-			pinctrl-0 = <&mm0_pinctrl_state>;
 			status = "okay";
 		};
 		
@@ -471,11 +495,8 @@
 			reset-names = "mmc";
 			dmas = <&dma DMA_DRQ_SD1>;
 			dma-names = "mmc";
-			pinctrl-names = "default";
-			pinctrl-0 = <&mm1_pinctrl_state>;
-			power-gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>;
+			power-gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>; // base v1.0a
 			enable-gpios = <&gpiob 30 GPIO_ACTIVE_HIGH>;
-			//reset in wilc3000 and bt_wake in rtl8723bs
 			reset-gpios = <&gpioc 3 GPIO_ACTIVE_HIGH>;
 			status = "okay";
 		};
@@ -490,8 +511,6 @@
 			reset-names = "mmc";
 			dmas = <&dma DMA_DRQ_SD2>;
 			dma-names = "mmc";
-			pinctrl-names = "default";
-			pinctrl-0 = <&mm2_pinctrl_state>;
 			status = "okay";
 		};
 		
@@ -501,11 +520,13 @@
 			interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&cmu CLK_I2C0>;
 			clock-names = "i2c0";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_i2c0_default>;
 			i2c_num = <0>;
 			clock-frequency = <400000>;
 			status = "okay";
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <>;
+			pinctrl-1 = <>;
 			
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -531,34 +552,19 @@
 			};
 		};
 		
-		sound@e0166000 {
-			compatible = "caninos,sndcard";
-			pinctrl-names = "default";
-			pinctrl-0 = <&i2s0_state_default>;
-			reg = <0x0 0xe0166000 0x0 0x34>;
-			clocks = <&cmu CLK_I2SRX>,
-				     <&cmu CLK_I2STX>,
-				     <&cmu CLK_AUDIO_PLL>;
-			clock-names = "i2srx", "i2stx", "audio_pll";
-			resets = <&rst RST_AUDIO>;
-			reset-names = "audio_rst";
-			codec = <&atc260x_audio>;
-			dmas = <&dma DMA_DRQ_I2S_TX>, <&dma DMA_DRQ_I2S_RX>;
-			dma-names = "tx","rx";
-			status = "okay";
-		};
-		
 		i2c1: i2c@e0174000 {
 			compatible = "caninos,k7-i2c";
 			reg = <0 0xe0174000 0 0x1000>;
 			interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&cmu CLK_I2C1>;
 			clock-names = "i2c1";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_i2c1_default>;
 			i2c_num = <1>;
 			clock-frequency = <400000>;
 			status = "okay";
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <>;
+			pinctrl-1 = <>;
 			
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -570,11 +576,13 @@
 			interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&cmu CLK_I2C2>;
 			clock-names = "i2c2";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_i2c2_default>;
 			i2c_num = <2>;
 			clock-frequency = <400000>;
 			status = "okay";
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <&i2c2_state_gpio>;
+			pinctrl-1 = <&i2c2_state_extio>;
 			
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -590,8 +598,27 @@
 			clock-frequency = <400000>;
 			status = "disabled";
 			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <>;
+			pinctrl-1 = <>;
+			
 			#address-cells = <1>;
 			#size-cells = <0>;
+		};
+		
+		sound@e0166000 {
+			compatible = "caninos,sndcard";
+			reg = <0x0 0xe0166000 0x0 0x34>;
+			clocks = <&cmu CLK_I2SRX>,
+				     <&cmu CLK_I2STX>,
+				     <&cmu CLK_AUDIO_PLL>;
+			clock-names = "i2srx", "i2stx", "audio_pll";
+			resets = <&rst RST_AUDIO>;
+			reset-names = "audio_rst";
+			codec = <&atc260x_audio>;
+			dmas = <&dma DMA_DRQ_I2S_TX>, <&dma DMA_DRQ_I2S_RX>;
+			dma-names = "tx","rx";
+			status = "okay";
 		};
 		
 		ethernet@e0220000 {
@@ -608,11 +635,6 @@
 			reset-names = "stmmaceth";
 			phy-handle = <&phy0>;
 			
-			pinctrl-names = "default";
-			pinctrl-0 = <&ethernet_state_default>;
-			
-			// If Lora is in use, remove the phy-power-gpio property.
-            // Only necessary for old base boards
 			phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>;
 			phy-reset-gpios = <&gpiod 31 GPIO_ACTIVE_HIGH>; 
 			

@@ -1503,14 +1503,14 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 		return PTR_ERR(host->clk);
 	}
 	
-	host->pcl = pinctrl_get_select_default(dev);
+	//host->pcl = pinctrl_get_select_default(dev);
 	
-	if (IS_ERR(host->pcl))
-	{
-		dev_err(dev, "could not get device pinctrl configuration.\n");
-		mmc_free_host(mmc);
-		return -ENODEV;
-	}
+	//if (IS_ERR(host->pcl))
+	//{
+	//	dev_err(dev, "could not get device pinctrl configuration.\n");
+	//	mmc_free_host(mmc);
+	//	return -ENODEV;
+	//}
 	
 	host->enable_gpio = of_get_named_gpio(dev->of_node, "enable-gpios", 0);
 	

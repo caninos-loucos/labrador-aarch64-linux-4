@@ -607,43 +607,51 @@ static int owl_i2c_do_transfer(struct owl_i2c_dev *dev,
 	return ret;
 }
 
-static int owl_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
-		int num)
+static int caninos_i2c_request_gpios(struct owl_i2c_dev *dev)
+{
+	/*
+	Request the gpio bank at extio gpio driver
+	should return EAGAIN on error
+	*/
+	return 0;
+}
+
+static void caninos_i2c_release_gpios(struct owl_i2c_dev *dev)
+{
+	/*
+	Release the gpio bank at extio gpio driver
+	*/
+}
+
+static int owl_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 {
 	struct owl_i2c_dev *dev = i2c_get_adapdata(adap);
-	int i, ret;
-
-	i2c_dbg(dev, "msg num %d\n", num);
-
-	/* dump messages for debug */
-	for (i = 0; i < num; i++) {
-		i2c_dbg(dev, "  msg[%d]: addr 0x%x, len %d, flags 0x%x\n",
-			i, msgs[i].addr, msgs[i].len, msgs[i].flags);
-
-		if (!(msgs[i].flags & I2C_M_RD))
-			owl_i2c_dump_mem("[msg] write buf", msgs[i].buf,
-				msgs[i].len);
+	int ret;
+	
+	ret = caninos_i2c_request_gpios(dev);
+	
+	if (ret < 0)
+	{
+		i2c_warn(dev, "could not request gpios\n");
+		return ret;
 	}
-
+	
 	owl_i2c_hwinit(dev);
-
+	
 	/* Make sure the hardware is ready */
 	ret = owl_i2c_wait_if_busy(dev);
-	if (ret < 0) {
+	
+	if (ret < 0)
+	{
 		i2c_warn(dev, "bus busy before transfer\n");
+		caninos_i2c_release_gpios(dev);
 		return ret;
 	}
-
+	
 	/* Do transfer */
 	ret = owl_i2c_do_transfer(dev, msgs, num);
-	if (ret)
-		return ret;
-
-	/* dump messages for debug */
-	if (num == 2 && msgs[1].flags & I2C_M_RD)
-		owl_i2c_dump_mem("[msg] read buf", msgs[1].buf, msgs[1].len);
-
-	return (ret < 0) ? ret : i;
+	caninos_i2c_release_gpios(dev);
+	return (ret < 0) ? ret : num;
 }
 
 static u32 owl_i2c_func(struct i2c_adapter *adap)
@@ -654,6 +662,7 @@ static u32 owl_i2c_func(struct i2c_adapter *adap)
 static struct i2c_algorithm owl_i2c_algorithm = {
 	.master_xfer    = owl_i2c_xfer,
 	.functionality  = owl_i2c_func,
+	// master_xfer_atomic for PMIC at shutdown
 };
 
 static int owl_i2c_probe(struct platform_device *pdev)
@@ -663,6 +672,8 @@ static int owl_i2c_probe(struct platform_device *pdev)
 	struct i2c_adapter *adap;
 	struct resource *res;
 	int ret;
+	
+	dev_info(&pdev->dev, "Probe started!\n");
 	
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	

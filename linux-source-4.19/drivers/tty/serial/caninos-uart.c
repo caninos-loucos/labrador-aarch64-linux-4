@@ -30,7 +30,6 @@
 #include <linux/serial.h>
 #include <linux/serial_core.h>
 #include <linux/reset.h>
-#include <linux/pinctrl/consumer.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 
@@ -323,6 +322,12 @@ static void caninos_uart_shutdown(struct uart_port *port)
 	spin_unlock_irqrestore(&port->lock, flags);
 	
 	free_irq(port->irq, port);
+	
+	///
+	
+	/*
+	Release the gpio bank at extio gpio driver
+	*/
 }
 
 static int caninos_uart_startup(struct uart_port *port)
@@ -330,6 +335,12 @@ static int caninos_uart_startup(struct uart_port *port)
 	unsigned long flags;
 	u32 val;
 	int ret;
+	
+	///
+	
+	/*
+	Request the gpio bank at extio gpio driver
+	*/
 	
 	ret = request_irq(port->irq, caninos_uart_irq, IRQF_TRIGGER_HIGH,
 		DRIVER_NAME, port);
@@ -475,7 +486,7 @@ static int caninos_uart_request_port(struct uart_port *port)
 	if (!res) {
 		return -ENXIO;
 	}
-
+	
 	if (!devm_request_mem_region(port->dev, port->mapbase,
 		resource_size(res), dev_name(port->dev))) {
 		return -EBUSY;
@@ -778,14 +789,6 @@ static int caninos_uart_probe(struct platform_device *pdev)
 	{
 		pr_err("Could not get uart%d reset control.\n", pdev->id);
 		return PTR_ERR(port->rst);
-	}
-	
-	ret = pinctrl_pm_select_default_state(&pdev->dev); //Needs CONFIG_PM
-	
-	if (ret < 0)
-	{
-		pr_err("Could not select uart%d default pinctrl state.\n", pdev->id);
-		return ret;
 	}
 
 	reset_control_assert(port->rst);

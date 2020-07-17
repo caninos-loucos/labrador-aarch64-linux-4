@@ -387,14 +387,14 @@ static int snd_caninos_probe(struct platform_device *pdev)
 		return PTR_ERR(chip->base);
 	}
 	
-	chip->pcl = pinctrl_get_select_default(dev);
+	//chip->pcl = pinctrl_get_select_default(dev);
 	
-	if (IS_ERR(chip->pcl))
-	{
-		dev_err(dev, "could not get pinctrl device\n");
-		snd_card_free(card);
-		return PTR_ERR(chip->pcl);
-	}
+	//if (IS_ERR(chip->pcl))
+	//{
+	//	dev_err(dev, "could not get pinctrl device\n");
+	//	snd_card_free(card);
+	//	return PTR_ERR(chip->pcl);
+	//}
 	
 	chip->pll_clk = devm_clk_get(dev, "audio_pll");
 	

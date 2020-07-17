@@ -13,7 +13,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
-#include <linux/pinctrl/consumer.h>
+
 #include <asm-generic/gpio.h>
 
 enum owl_gpio_id {
@@ -50,12 +50,12 @@ struct gpio_regs {
 	unsigned long		intc_ctlr;
 };
 
-struct owl_gpio_bank_data {
+struct caninos_gpio_bank_data {
 	int			nr_gpios;
 	const struct gpio_regs	regs;
 };
 
-struct owl_gpio_bank {
+struct caninos_gpio_bank {
 	struct gpio_chip	gpio_chip;
 
 	void __iomem		*base;
@@ -68,22 +68,22 @@ struct owl_gpio_bank {
 	enum owl_gpio_id	devid;
 	const struct gpio_regs	*regs;
 
-	spinlock_t		lock;
+	spinlock_t	lock;
 };
 
 /* lock for shared register between banks,  e.g. share_intc_ctlr in s700 */
 static DEFINE_SPINLOCK(gpio_share_lock);
 
-static inline struct owl_gpio_bank *to_owl_bank(struct gpio_chip *chip)
+static inline struct caninos_gpio_bank *to_owl_bank(struct gpio_chip *chip)
 {
-	return container_of(chip, struct owl_gpio_bank, gpio_chip);
+	return container_of(chip, struct caninos_gpio_bank, gpio_chip);
 }
 
-static unsigned int read_intc_ctlr(struct owl_gpio_bank *bank)
+static unsigned int read_intc_ctlr(struct caninos_gpio_bank *bank)
 {
 	unsigned int val;
 	
-	/* s700: all banks share one INTC_CTLR register */
+	/* all banks share one INTC_CTLR register */
 	
 	val = readl_relaxed(bank->base + bank->regs->intc_ctlr);
 	val = (val >> (5 * bank->id)) & 0x1f;
@@ -91,11 +91,11 @@ static unsigned int read_intc_ctlr(struct owl_gpio_bank *bank)
 	return val;
 }
 
-static void write_intc_ctlr(struct owl_gpio_bank *bank, unsigned int ctlr)
+static void write_intc_ctlr(struct caninos_gpio_bank *bank, unsigned int ctlr)
 {
 	unsigned int val;
 
-	/* s700: all banks share one INTC_CTLR register */
+	/* all banks share one INTC_CTLR register */
 
 	unsigned long flags;
 
@@ -109,25 +109,17 @@ static void write_intc_ctlr(struct owl_gpio_bank *bank, unsigned int ctlr)
 	writel_relaxed(val, bank->base + bank->regs->intc_ctlr);
 	
 	spin_unlock_irqrestore(&gpio_share_lock, flags);
-
 }
 
 static int owl_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
-	/*
-	 * Map back to global GPIO space and request muxing, the direction
-	 * parameter does not matter for this controller.
-	 */
-	int gpio = chip->base + offset;
-	
-	return pinctrl_gpio_request(gpio);
+	return 0;
 }
 
 static void owl_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
-	struct owl_gpio_bank *bank = to_owl_bank(chip);
+	struct caninos_gpio_bank *bank = to_owl_bank(chip);
 	const struct gpio_regs *regs = bank->regs;
-	int gpio = chip->base + offset;
 	unsigned long flags = 0;
 	u32 val;
 
@@ -145,12 +137,11 @@ static void owl_gpio_free(struct gpio_chip *chip, unsigned offset)
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 
-	pinctrl_gpio_free(gpio);
 }
 
 static int owl_gpio_get(struct gpio_chip *chip, unsigned offset)
 {
-	struct owl_gpio_bank *bank = to_owl_bank(chip);
+	struct caninos_gpio_bank *bank = to_owl_bank(chip);
 	const struct gpio_regs *regs = bank->regs;
 	u32 val;
 
@@ -161,7 +152,7 @@ static int owl_gpio_get(struct gpio_chip *chip, unsigned offset)
 
 static void owl_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 {
-	struct owl_gpio_bank *bank = to_owl_bank(chip);
+	struct caninos_gpio_bank *bank = to_owl_bank(chip);
 	const struct gpio_regs *regs = bank->regs;
 	u32 val;
 
@@ -177,7 +168,7 @@ static void owl_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 
 static int owl_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
-	struct owl_gpio_bank *bank = to_owl_bank(chip);
+	struct caninos_gpio_bank *bank = to_owl_bank(chip);
 	const struct gpio_regs *regs = bank->regs;
 	unsigned long flags = 0;
 	u32 val;
@@ -200,7 +191,7 @@ static int owl_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 static int owl_gpio_direction_output(struct gpio_chip *chip,
 		unsigned offset, int value)
 {
-	struct owl_gpio_bank *bank = to_owl_bank(chip);
+	struct caninos_gpio_bank *bank = to_owl_bank(chip);
 	const struct gpio_regs *regs = bank->regs;
 	unsigned long flags = 0;
 	u32 val;
@@ -224,14 +215,14 @@ static int owl_gpio_direction_output(struct gpio_chip *chip,
 
 static int owl_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
-	struct owl_gpio_bank *bank = to_owl_bank(chip);
+	struct caninos_gpio_bank *bank = to_owl_bank(chip);
 
 	return irq_create_mapping(bank->irq_domain, offset);
 }
 
 static void owl_gpio_irq_mask(struct irq_data *d)
 {
-	struct owl_gpio_bank *bank = irq_data_get_irq_chip_data(d);
+	struct caninos_gpio_bank *bank = irq_data_get_irq_chip_data(d);
 	const struct gpio_regs *regs = bank->regs;
 	int gpio = d->hwirq;
 	unsigned long flags = 0;
@@ -255,7 +246,7 @@ static void owl_gpio_irq_mask(struct irq_data *d)
 
 static void owl_gpio_irq_unmask(struct irq_data *d)
 {
-	struct owl_gpio_bank *bank = irq_data_get_irq_chip_data(d);
+	struct caninos_gpio_bank *bank = irq_data_get_irq_chip_data(d);
 	const struct gpio_regs *regs = bank->regs;
 	int gpio = d->hwirq;
 	unsigned long flags = 0;
@@ -276,7 +267,7 @@ static void owl_gpio_irq_unmask(struct irq_data *d)
 
 static void owl_gpio_irq_ack(struct irq_data *d)
 {
-	struct owl_gpio_bank *bank = irq_data_get_irq_chip_data(d);
+	struct caninos_gpio_bank *bank = irq_data_get_irq_chip_data(d);
 	unsigned long flags = 0;
 	unsigned int val;
 	unsigned int gpio = d->hwirq;
@@ -295,7 +286,7 @@ static void owl_gpio_irq_ack(struct irq_data *d)
 
 static int owl_gpio_irq_set_type(struct irq_data *d, unsigned int flow_type)
 {
-	struct owl_gpio_bank *bank = irq_data_get_irq_chip_data(d);
+	struct caninos_gpio_bank *bank = irq_data_get_irq_chip_data(d);
 	const struct gpio_regs *regs = bank->regs;
 	int gpio = d->hwirq;
 	unsigned long flags = 0;
@@ -350,7 +341,7 @@ static int owl_gpio_irq_set_type(struct irq_data *d, unsigned int flow_type)
  * which have been set as summary IRQ lines and which are triggered,
  * and to call their interrupt handlers.
  */
- static void owl_gpio_irq_bank(struct owl_gpio_bank *bank)
+ static void owl_gpio_irq_bank(struct caninos_gpio_bank *bank)
 {
 	unsigned int child_irq, i;
 	unsigned long flags, pending;
@@ -368,7 +359,7 @@ static int owl_gpio_irq_set_type(struct irq_data *d, unsigned int flow_type)
 static void owl_gpio_irq_handler(struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
-	struct owl_gpio_bank *bank;
+	struct caninos_gpio_bank *bank;
 	
 	bank = irq_desc_get_handler_data(desc);
 	
@@ -388,7 +379,7 @@ static struct irq_chip owl_gpio_irq_chip = {
 };
 
 
-static int caninos_gpio_bank_setup(struct owl_gpio_bank *bank)
+static int caninos_gpio_bank_setup(struct caninos_gpio_bank *bank)
 {
 	struct gpio_chip *chip = &bank->gpio_chip;
 
@@ -406,6 +397,8 @@ static int caninos_gpio_bank_setup(struct owl_gpio_bank *bank)
 	chip->label = dev_name(chip->parent);
 	chip->of_node = chip->parent->of_node;
 	chip->owner = THIS_MODULE;
+	
+	// TODO: Add init_valid_mask implementation.
 
 	return 0;
 }
@@ -417,7 +410,7 @@ static int caninos_gpio_bank_setup(struct owl_gpio_bank *bank)
 static struct lock_class_key gpio_lock_class;
 static struct lock_class_key gpio_request_class;
 
-static int owl_gpio_irq_setup(struct owl_gpio_bank *bank)
+static int owl_gpio_irq_setup(struct caninos_gpio_bank *bank)
 {
 	struct gpio_chip *chip = &bank->gpio_chip;
 	int irq, i;
@@ -452,38 +445,19 @@ static int owl_gpio_irq_setup(struct owl_gpio_bank *bank)
 	return 0;
 }
 
-int caninos_gpio_check_dir_by_pinctrl(unsigned int gpio)
+int caninos_request_extio_group(const int *gpios, int num)
 {
-	struct owl_gpio_bank *bank;
-	const struct gpio_regs *regs;
-	u32 val, offset;
-	struct gpio_chip *chip = gpio_to_chip(gpio);
-
-	if (chip == NULL )
-		return 0;
-	bank = to_owl_bank(chip);
-	regs = bank->regs;
-
-	offset = gpio & (GPIO_PER_BANK-1);
-	val = readl(bank->base + regs->inen);
-	if ( val & GPIO_BIT(offset) ) {
-		pr_err("[GPIO] %s: GPIO%c%d, is used for input, inen=0x%x\n",
-			__func__,  'A' + bank->id,  offset,  val);
-		return -1;
-	}
-
-	val = readl(bank->base + regs->outen);
-	if ( val & GPIO_BIT(offset) ) {
-		pr_err("[GPIO] %s: GPIO%c%d, is used for output, outen=0x%x\n",
-			__func__,  'A' + bank->id,  offset,  val);
-		return -1;
-	}
-
 	return 0;
 }
-EXPORT_SYMBOL_GPL(caninos_gpio_check_dir_by_pinctrl);
+EXPORT_SYMBOL_GPL(caninos_request_extio_group);
 
-static const struct owl_gpio_bank_data s700_banks_data[5] = {
+int caninos_release_extio_group(const int *gpios, int num)
+{
+	return 0;
+}
+EXPORT_SYMBOL_GPL(caninos_release_extio_group);
+
+static const struct caninos_gpio_bank_data s700_banks_data[5] = {
 	/*      outen   inen     dat   intc_pd  intc_mask intc_type intc_ctlr */
 	{ 32, {  0x0,    0x4,    0x8,    0x208,   0x20c,   0x230,   0x204 } },
 	{ 32, {  0xc,    0x10,   0x14,   0x210,   0x214,   0x238,   0x204 } },
@@ -493,7 +467,7 @@ static const struct owl_gpio_bank_data s700_banks_data[5] = {
 };
 
 static const struct of_device_id caninos_gpio_dt_ids[] = {
-	{ .compatible = "actions,s700-gpio", .data = (void *)S700_GPIO, },
+	{ .compatible = "caninos,k7-gpio", .data = (void *)S700_GPIO, },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, caninos_gpio_dt_ids);
@@ -501,10 +475,10 @@ MODULE_DEVICE_TABLE(of, caninos_gpio_dt_ids);
 static int caninos_gpio_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id;
-	const struct owl_gpio_bank_data *pdata;
+	const struct caninos_gpio_bank_data *pdata;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = pdev->dev.of_node;
-	struct owl_gpio_bank *bank;
+	struct caninos_gpio_bank *bank;
 	int ret;
 	
 	of_id = of_match_device(caninos_gpio_dt_ids, &pdev->dev);
@@ -536,7 +510,7 @@ static int caninos_gpio_probe(struct platform_device *pdev)
 	
 	bank->base = of_iomap(dev->of_node, 0);
 	
-	if (IS_ERR(bank->base))
+	if (bank->base == NULL)
 	{
 		dev_err(dev, "failed to map memory");
 		return -ENOENT;
@@ -586,11 +560,10 @@ static struct platform_driver caninos_gpio_driver = {
 	.probe = caninos_gpio_probe,
 };
 
-static int __init caninos_gpio_init(void) {
+static int __init caninos_gpio_init(void)
+{
 	return platform_driver_register(&caninos_gpio_driver);
 }
 
 postcore_initcall(caninos_gpio_init);
-
-MODULE_LICENSE("GPL");
 
