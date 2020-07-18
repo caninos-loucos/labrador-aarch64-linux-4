@@ -258,8 +258,6 @@
 			};
 			uart0_state_gpio: uart0_gpio {
 			};
-			spi1_state_gpio: spi1_gpio {
-			};
 			pwm_state_gpio: pwm_gpio {
 			};
 			
@@ -267,15 +265,27 @@
 			i2c2_state_extio: i2c2_extio {
 				caninos,function = "i2c2";
 			};
-			spi1_state_extio: spi1_extio {
-				caninos,function = "spi1";
-			};
 			uart0_state_extio: uart0_extio {
 				caninos,function = "uart0";
 			};
 			pwm_state_extio: pwm_extio {
 				caninos,function = "pwm";
 			};
+		};
+		
+		pwm: pwm@e01b0000 {
+			compatible = "caninos,k7-pwm";
+			reg = <0 0xe01b0000 0 0x1000>;
+			#pwm-cells = <3>;
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <&pwm_state_gpio>;
+			pinctrl-1 = <&pwm_state_extio>;
+			
+			clocks = <&cmu CLK_PWM3>, <&cmu CLK_LOSC>, <&cmu CLK_HOSC>;
+			clock-names = "pwm3", "losc", "hosc";
+			
+			status = "okay";
 		};
 		
 		usb2h0: usb@e01d0000 {

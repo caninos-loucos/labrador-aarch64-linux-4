@@ -30,7 +30,6 @@
 #define MFP_CTL1     0x44
 #define MFP_CTL2     0x48
 #define MFP_CTL3     0x4C
-
 #define PAD_PULLCTL0 0x60
 #define PAD_PULLCTL1 0x64
 #define PAD_PULLCTL2 0x68
@@ -79,17 +78,11 @@ const struct pinctrl_pin_desc caninos_pins[] = {
 	PINCTRL_PIN(4, "EXTIO_12"),
 };
 
-static unsigned int spi1_pins[]  = { 0, 1, 2, 3 };
 static unsigned int uart0_pins[] = { 2, 3 };
 static unsigned int i2c2_pins[]  = { 0, 1 };
 static unsigned int pwm_pins[]   = { 4 };
 
 static struct caninos_group caninos_groups[] = {
-	{
-		.name = "spi1_grp",
-		.pins = spi1_pins,
-		.num_pins = ARRAY_SIZE(spi1_pins),
-	},
 	{
 		.name = "uart0_grp",
 		.pins = uart0_pins,
@@ -186,28 +179,30 @@ struct caninos_pmx_func {
 	const unsigned num_groups;
 };
 
-static const char * const spi1_groups[]  = { "spi1_grp" };
 static const char * const uart0_groups[] = { "uart0_grp"};
 static const char * const i2c2_groups[]  = { "i2c2_grp" };
 static const char * const pwm_groups[]   = { "pwm_grp"  };
 
+enum
+{
+	FUNCTION_UART0 = 0,
+	FUNCTION_I2C2,
+	FUNCTION_PWM,
+	FUNCTION_LAST,
+};
+
 static const struct caninos_pmx_func caninos_functions[] = {
-	{
-		.name = "spi1",
-		.groups = spi1_groups,
-		.num_groups = ARRAY_SIZE(spi1_groups),
-	},
-	{
+	[FUNCTION_UART0] = {
 		.name = "uart0",
 		.groups = uart0_groups,
 		.num_groups = ARRAY_SIZE(uart0_groups),
 	},
-	{
+	[FUNCTION_I2C2] = {
 		.name = "i2c2",
 		.groups = i2c2_groups,
 		.num_groups = ARRAY_SIZE(i2c2_groups),
 	},
-	{
+	[FUNCTION_PWM] = {
 		.name = "pwm",
 		.groups = pwm_groups,
 		.num_groups = ARRAY_SIZE(pwm_groups),
@@ -233,7 +228,6 @@ static int caninos_pmx_get_fgroups(struct pinctrl_dev *pctldev, unsigned selecto
 	return 0;
 }
 
-
 static int caninos_pmx_request(struct pinctrl_dev *pctldev, unsigned offset)
 {
 	//request a pin from gpio-caninos?
@@ -249,9 +243,36 @@ static int caninos_pmx_free(struct pinctrl_dev *pctldev, unsigned offset)
 	return 0;
 }
 
-static int caninos_pmx_set_mux(struct pinctrl_dev *pctldev, unsigned func_selector, unsigned group_selector)
+static int caninos_pmx_set_mux(struct pinctrl_dev *pctldev,
+                               unsigned func_selector, unsigned group_selector)
 {
-	pr_info("caninos_pmx_set_mux: function=%u group=%u\n",func_selector, group_selector);
+	pr_info("caninos_pmx_set_mux: %u\n",func_selector);
+
+	/* still no need to check group_selector */
+	switch(func_selector)
+	{
+	case FUNCTION_UART0:
+		/* only need to disable gpio */
+		break;
+		
+	case FUNCTION_I2C2:
+		/* only need to disable gpio */
+		break;
+	
+	case FUNCTION_PWM:
+		/* only need to disable gpio */
+		break;
+	
+	default:
+		return -EINVAL;
+	}
+	
+	/* 
+	I2C3
+	Header Pin 19 -> (Pad TWI3_SDATA) TWI3_SDATA -> nothing to do
+	Header Pin 23 -> (Pad TWI3_SCLK)  TWI3_SCLK -> nothing to do
+	*/
+	
 	return 0;
 }
 
@@ -339,24 +360,37 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 	writel(0x2e400000, regs + MFP_CTL1);
 	writel(0x00000600, regs + MFP_CTL2);
 	writel(0x40000008, regs + MFP_CTL3);
-	
+	writel(0x00000000, regs + PAD_PULLCTL0);
+	writel(0x0003e001, regs + PAD_PULLCTL1);
+	writel(0x00000000, regs + PAD_PULLCTL2);
+	writel(0x40401880, regs + PAD_ST0);
+	writel(0x00000140, regs + PAD_ST1);
+	writel(0x00000002, regs + PAD_CTL);
 	writel(0x2aaaaaaa, regs + PAD_DRV0);
 	writel(0xaacf0800, regs + PAD_DRV1);
+	writel(0xa9482008, regs + PAD_DRV2);
 	
-	dev_info(&pdev->dev, "PAD_PULLCTL0: 0x%08x\n", readl(regs + PAD_PULLCTL0));
-	dev_info(&pdev->dev, "PAD_PULLCTL1: 0x%08x\n", readl(regs + PAD_PULLCTL1));
-	dev_info(&pdev->dev, "PAD_PULLCTL2: 0x%08x\n", readl(regs + PAD_PULLCTL2));
-	dev_info(&pdev->dev, "PAD_ST0:      0x%08x\n", readl(regs + PAD_ST0));
-	dev_info(&pdev->dev, "PAD_ST1:      0x%08x\n", readl(regs + PAD_ST1));
-	dev_info(&pdev->dev, "PAD_CTL:      0x%08x\n", readl(regs + PAD_CTL));
-	dev_info(&pdev->dev, "PAD_DRV0:     0x%08x\n", readl(regs + PAD_DRV0));
-	dev_info(&pdev->dev, "PAD_DRV1:     0x%08x\n", readl(regs + PAD_DRV1));
-	dev_info(&pdev->dev, "PAD_DRV2:     0x%08x\n", readl(regs + PAD_DRV2));
+	/*
+	UART0
+	Header Pin  8 -> (Pad UART0_TX) UART0_TX -> mfp3_21_19 -> (000b << 19)
+	Header Pin 10 -> (Pad UART0_RX) UART0_RX -> mfp2_2_0 -> (000b << 0)
+	*/
 	
-	/* i2c2 pull-up, level 1 drive
-	 mmc pull-up level 3
-	 */
-	 
+	/*
+	Never mess with PWM pads -> the CPU/GPU will crash (or even burn)!
+	MFP_CTL1 (011b << 26)
+	KS_IN3  -> PWM1 -> GPU power supply
+	KS_OUT0 -> PWM2 -> CPU power supply
+	KS_OUT1 -> PWM3 -> PWM exported at extio header
+	*/
+	
+	/*
+	Do not enable internal pull-up for the following devices:
+	-> i2c0 already has a 4k7 pull-up resistor at core board V3.1
+	-> i2c1 and i2c2 already have a 2k2 pull-up resistor at core board V3.1
+	-> ethphy already has pull-up/down resistors installed for configuration
+	*/
+	
 	pctl = pinctrl_register(&caninos_desc, &pdev->dev, NULL);
 	
 	if (IS_ERR(pctl))

@@ -122,6 +122,12 @@ config PWM_BRCMSTB
 
 	  To compile this driver as a module, choose M Here: the module
 	  will be called pwm-brcmstb.c.
+	  
+config PWM_CANINOS
+	bool "Caninos Labrador PWM support"
+	depends on ARCH_CANINOS
+	help
+	  PWM driver for Caninos Labrador extio header.
 
 config PWM_CLPS711X
 	tristate "CLPS711X PWM support"

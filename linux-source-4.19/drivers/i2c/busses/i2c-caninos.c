@@ -673,8 +673,6 @@ static int owl_i2c_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 	
-	dev_info(&pdev->dev, "Probe started!\n");
-	
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	
 	if (!dev)
@@ -688,9 +686,14 @@ static int owl_i2c_probe(struct platform_device *pdev)
 		return -ENODEV;
 	
 	dev->base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(dev->base))
+	
+	if (IS_ERR(dev->base)) {
 		return PTR_ERR(dev->base);
+	}
+	
 	dev->phys = res->start;
+	
+	
 
 	dev->irq = platform_get_irq(pdev, 0);
 	if (dev->irq < 0)

@@ -3,7 +3,6 @@
 /dts-v1/;
 
 #include "v3caninos.dtsi"
-//#include "s700_pinctrl.dtsi"
 
 / {
 	/* keep_bootcon console=tty0 loglevel=7*/
