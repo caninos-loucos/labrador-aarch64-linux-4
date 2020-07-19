@@ -708,8 +708,6 @@ static int owl_i2c_probe(struct platform_device *pdev)
 		return PTR_ERR(dev->rst);
 	}
 	
-	reset_control_deassert(dev->rst);
-	
 	dev->pctl = devm_pinctrl_get(&pdev->dev);
 	
 	if (IS_ERR(dev->pctl))
@@ -733,6 +731,16 @@ static int owl_i2c_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "could not get pinctrl extio state\n");
 		return PTR_ERR(dev->extio_state);
 	}
+	
+	ret = pinctrl_select_state(dev->pctl, dev->def_state);
+	
+	if (ret < 0)
+	{
+		dev_err(&pdev->dev, "could not select default pinctrl state\n");
+		return ret;
+	}
+	
+	reset_control_deassert(dev->rst);
 	
 	dev->irq = platform_get_irq(pdev, 0);
 	

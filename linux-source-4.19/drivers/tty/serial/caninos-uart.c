@@ -32,6 +32,7 @@
 #include <linux/reset.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
+#include <linux/pinctrl/consumer.h>
 
 #define UART_PORT_NUM 7
 #define UART_DEV_NAME "ttyS"
@@ -85,6 +86,9 @@ struct caninos_uart_port
 	struct uart_port port;
 	struct clk *clk;
 	struct reset_control *rst;
+	struct pinctrl *pctl;
+	struct pinctrl_state *def_state;
+	struct pinctrl_state *extio_state;
 };
 
 #define to_caninos_uart_port(x) container_of(x, struct caninos_uart_port, port)
@@ -309,6 +313,7 @@ static irqreturn_t caninos_uart_irq(int irq, void *dev_id)
 
 static void caninos_uart_shutdown(struct uart_port *port)
 {
+	struct caninos_uart_port *_port = to_caninos_uart_port(port);
 	unsigned long flags;
 	u32 val;
 	
@@ -323,24 +328,21 @@ static void caninos_uart_shutdown(struct uart_port *port)
 	
 	free_irq(port->irq, port);
 	
-	///
-	
-	/*
-	Release the gpio bank at extio gpio driver
-	*/
+	pinctrl_select_state(_port->pctl, _port->def_state);
 }
 
 static int caninos_uart_startup(struct uart_port *port)
 {
+	struct caninos_uart_port *_port = to_caninos_uart_port(port);
 	unsigned long flags;
 	u32 val;
 	int ret;
 	
-	///
+	ret = pinctrl_select_state(_port->pctl, _port->extio_state);
 	
-	/*
-	Request the gpio bank at extio gpio driver
-	*/
+	if (ret < 0) {
+		return -EAGAIN;
+	}
 	
 	ret = request_irq(port->irq, caninos_uart_irq, IRQF_TRIGGER_HIGH,
 		DRIVER_NAME, port);
@@ -790,18 +792,44 @@ static int caninos_uart_probe(struct platform_device *pdev)
 		pr_err("Could not get uart%d reset control.\n", pdev->id);
 		return PTR_ERR(port->rst);
 	}
-
-	reset_control_assert(port->rst);
+	
+	port->pctl = devm_pinctrl_get(&pdev->dev);
+	
+	if (IS_ERR(port->pctl))
+	{
+		dev_err(&pdev->dev, "devm_pinctrl_get() failed\n");
+		return PTR_ERR(port->pctl);
+	}
+	
+	port->def_state = pinctrl_lookup_state(port->pctl, PINCTRL_STATE_DEFAULT);
+	
+	if (IS_ERR(port->def_state))
+	{
+		dev_err(&pdev->dev, "could not get pinctrl default state\n");
+		return PTR_ERR(port->def_state);
+	}
+	
+	port->extio_state = pinctrl_lookup_state(port->pctl, "extio");
+	
+	if (IS_ERR(port->extio_state))
+	{
+		dev_err(&pdev->dev, "could not get pinctrl extio state\n");
+		return PTR_ERR(port->extio_state);
+	}
+	
+	ret = pinctrl_select_state(port->pctl, port->def_state);
+	
+	if (ret < 0)
+	{
+		dev_err(&pdev->dev, "could not select default pinctrl state\n");
+		return ret;
+	}
 	
 	clk_prepare_enable(port->clk);
 	
 	clk_set_rate(port->clk, 115200 * 8);
 	
-	udelay(500);
-	
 	reset_control_deassert(port->rst);
-	
-	udelay(500);
 	
 	port->port.dev = &pdev->dev;
 	port->port.line = pdev->id;

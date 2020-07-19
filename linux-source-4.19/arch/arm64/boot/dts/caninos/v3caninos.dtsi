@@ -422,6 +422,10 @@
 			reset-names = "uart";
 			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <&uart0_state_gpio>;
+			pinctrl-1 = <&uart0_state_extio>;
 		};
 		
 		uart1: serial@e0122000 {
@@ -431,6 +435,10 @@
 			clock-names = "uart";
 			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <>;
+			pinctrl-1 = <>;
 		};
 		
 		uart2: serial@e0124000 {
@@ -442,6 +450,10 @@
 			reset-names = "uart";
 			interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <>;
+			pinctrl-1 = <>;
 		};
 		
 		uart3: serial@e0126000 {
@@ -453,6 +465,10 @@
 			reset-names = "uart";
 			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <>;
+			pinctrl-1 = <>;
 		};
 		
 		uart4: serial@e0128000 {
@@ -462,6 +478,10 @@
 			clock-names = "uart";
 			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <>;
+			pinctrl-1 = <>;
 		};
 		
 		uart5: serial@e012a000 {
@@ -471,6 +491,10 @@
 			clock-names = "uart";
 			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <>;
+			pinctrl-1 = <>;
 		};
 		
 		uart6: serial@e012c000 {
@@ -480,6 +504,10 @@
 			clock-names = "uart";
 			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <>;
+			pinctrl-1 = <>;
 		};
 		
 		mmc0: mmc@e0210000 {
