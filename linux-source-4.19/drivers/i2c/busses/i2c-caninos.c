@@ -34,6 +34,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/reset.h>
+#include <linux/pinctrl/consumer.h>
 
 /* debug stuff */
 #define OWL_I2C_DBG_LEVEL_OFF		0
@@ -165,9 +166,13 @@ struct owl_i2c_dev {
 	int			irq;
 	int			clk_freq;
 	enum i2c_freq_mode	freq_mode;
-	struct clk		*clk;
+	
+	struct clk *clk;
 	struct reset_control *rst;
-
+	struct pinctrl *pctl;
+	struct pinctrl_state *def_state;
+	struct pinctrl_state *extio_state;
+	
 	struct i2c_msg		*curr_msg;
 	unsigned int		msg_ptr;
 	struct completion	cmd_complete;
@@ -611,18 +616,17 @@ static int owl_i2c_do_transfer(struct owl_i2c_dev *dev,
 
 static int caninos_i2c_request_gpios(struct owl_i2c_dev *dev)
 {
-	/*
-	Request the gpio bank at extio gpio driver
-	should return EAGAIN on error
-	*/
+	int ret = pinctrl_select_state(dev->pctl, dev->extio_state);
+	
+	if (ret < 0) {
+		return -EAGAIN;
+	}
 	return 0;
 }
 
 static void caninos_i2c_release_gpios(struct owl_i2c_dev *dev)
 {
-	/*
-	Release the gpio bank at extio gpio driver
-	*/
+	pinctrl_select_state(dev->pctl, dev->def_state);
 }
 
 static int owl_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
@@ -677,15 +681,18 @@ static int owl_i2c_probe(struct platform_device *pdev)
 	
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	
-	if (!dev)
+	if (!dev) {
 		return -ENOMEM;
+	}
 	
 	init_completion(&dev->cmd_complete);
 	dev->dev = &pdev->dev;
 	
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
+	
+	if (!res) {
 		return -ENODEV;
+	}
 	
 	dev->base = devm_ioremap_resource(&pdev->dev, res);
 	
@@ -702,6 +709,30 @@ static int owl_i2c_probe(struct platform_device *pdev)
 	}
 	
 	reset_control_deassert(dev->rst);
+	
+	dev->pctl = devm_pinctrl_get(&pdev->dev);
+	
+	if (IS_ERR(dev->pctl))
+	{
+		dev_err(&pdev->dev, "devm_pinctrl_get() failed\n");
+		return PTR_ERR(dev->pctl);
+	}
+	
+	dev->def_state = pinctrl_lookup_state(dev->pctl, PINCTRL_STATE_DEFAULT);
+	
+	if (IS_ERR(dev->def_state))
+	{
+		dev_err(&pdev->dev, "could not get pinctrl default state\n");
+		return PTR_ERR(dev->def_state);
+	}
+	
+	dev->extio_state = pinctrl_lookup_state(dev->pctl, "extio");
+	
+	if (IS_ERR(dev->extio_state))
+	{
+		dev_err(&pdev->dev, "could not get pinctrl extio state\n");
+		return PTR_ERR(dev->extio_state);
+	}
 	
 	dev->irq = platform_get_irq(pdev, 0);
 	
