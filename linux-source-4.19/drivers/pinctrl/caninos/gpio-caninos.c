@@ -445,18 +445,6 @@ static int owl_gpio_irq_setup(struct caninos_gpio_bank *bank)
 	return 0;
 }
 
-int caninos_request_extio_group(const int *gpios, int num)
-{
-	return 0;
-}
-EXPORT_SYMBOL_GPL(caninos_request_extio_group);
-
-int caninos_release_extio_group(const int *gpios, int num)
-{
-	return 0;
-}
-EXPORT_SYMBOL_GPL(caninos_release_extio_group);
-
 static const struct caninos_gpio_bank_data s700_banks_data[5] = {
 	/*      outen   inen     dat   intc_pd  intc_mask intc_type intc_ctlr */
 	{ 32, {  0x0,    0x4,    0x8,    0x208,   0x20c,   0x230,   0x204 } },

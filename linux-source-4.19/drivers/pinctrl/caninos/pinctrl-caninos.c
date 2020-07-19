@@ -40,17 +40,12 @@
 #define PAD_DRV1     0x84
 #define PAD_DRV2     0x88
 
-
-
 #define GPIOA(x) (x)
 #define GPIOB(x) (32+(x))
 #define GPIOC(x) (64+(x))
 #define GPIOD(x) (96+(x))
 #define GPIOE(x) (128+(x))
 
-/* from gpio-caninos.c */
-extern int caninos_request_extio_group(const int *gpios, int num);
-extern int caninos_release_extio_group(const int *gpios, int num);
 
 void __iomem *regs = NULL;
 
@@ -327,6 +322,10 @@ static struct pinctrl_desc caninos_desc = {
 	.confops = &caninos_pconf_ops,
 	.owner = THIS_MODULE,
 };
+
+
+
+
 
 static int caninos_pinctrl_probe(struct platform_device *pdev)
 {
