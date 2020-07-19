@@ -534,6 +534,9 @@
 			clock-frequency = <400000>;
 			status = "okay";
 			
+			resets = <&rst RST_TWI0>;
+			reset-names = "twi";
+			
 			pinctrl-names = "default", "extio";
 			pinctrl-0 = <>;
 			pinctrl-1 = <>;
@@ -572,6 +575,9 @@
 			clock-frequency = <400000>;
 			status = "okay";
 			
+			resets = <&rst RST_TWI1>;
+			reset-names = "twi";
+			
 			pinctrl-names = "default", "extio";
 			pinctrl-0 = <>;
 			pinctrl-1 = <>;
@@ -590,6 +596,9 @@
 			clock-frequency = <400000>;
 			status = "okay";
 			
+			resets = <&rst RST_TWI2>;
+			reset-names = "twi";
+			
 			pinctrl-names = "default", "extio";
 			pinctrl-0 = <&i2c2_state_gpio>;
 			pinctrl-1 = <&i2c2_state_extio>;
@@ -607,6 +616,9 @@
 			i2c_num = <3>;
 			clock-frequency = <400000>;
 			status = "disabled";
+			
+			resets = <&rst RST_TWI3>;
+			reset-names = "twi";
 			
 			pinctrl-names = "default", "extio";
 			pinctrl-0 = <>;

@@ -33,6 +33,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/reset.h>
 
 /* debug stuff */
 #define OWL_I2C_DBG_LEVEL_OFF		0
@@ -165,6 +166,7 @@ struct owl_i2c_dev {
 	int			clk_freq;
 	enum i2c_freq_mode	freq_mode;
 	struct clk		*clk;
+	struct reset_control *rst;
 
 	struct i2c_msg		*curr_msg;
 	unsigned int		msg_ptr;
@@ -693,11 +695,19 @@ static int owl_i2c_probe(struct platform_device *pdev)
 	
 	dev->phys = res->start;
 	
+	dev->rst = devm_reset_control_get(&pdev->dev, NULL);
 	
-
+	if (IS_ERR(dev->rst)) {
+		return PTR_ERR(dev->rst);
+	}
+	
+	reset_control_deassert(dev->rst);
+	
 	dev->irq = platform_get_irq(pdev, 0);
-	if (dev->irq < 0)
+	
+	if (dev->irq < 0) {
 		return dev->irq;
+	}
 
 	ret = devm_request_irq(&pdev->dev, dev->irq, owl_i2c_interrupt, 0,
 			 dev_name(dev->dev), dev);

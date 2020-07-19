@@ -29,213 +29,76 @@
 #define DRIVER_NAME "caninos-reset"
 #define DRIVER_DESC "Caninos Labrador Reset Controller Driver"
 
-#define S700_DEVRST0 0x00
-#define S700_DEVRST1 0x04
+#define K7_DEVRST0 0x00
+#define K7_DEVRST1 0x04
 
-struct caninos_rcu_reset_reg_data
-{
-	u32 assert_offset;
-	u32 assert_clear_mask;
-	u32 assert_set_mask;
-	
-	u32 deassert_offset;
-	u32 deassert_clear_mask;
-	u32 deassert_set_mask;
+struct caninos_rcu_reset_reg_data {
+	u32 offset;
+	u32 deassert;
+	u32 assert;
+	u32 mask;
 };
 
+#define CANINOS_RST_REG_DATA(_off,_deassert,_assert,_mask) \
+	{ .offset = _off, .deassert = _deassert, .assert = _assert, .mask = _mask }
+
 static struct caninos_rcu_reset_reg_data k7_reg_data[] = {
-	[RST_UART0] = {
-		.assert_offset       = S700_DEVRST1,
-		.assert_clear_mask   = BIT(8),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST1,
-		.deassert_clear_mask = BIT(8),
-		.deassert_set_mask   = BIT(8),
-	},
-	[RST_UART1] = {
-		.assert_offset       = S700_DEVRST1,
-		.assert_clear_mask   = BIT(9),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST1,
-		.deassert_clear_mask = BIT(9),
-		.deassert_set_mask   = BIT(9),
-	},
-	[RST_UART2] = {
-		.assert_offset       = S700_DEVRST1,
-		.assert_clear_mask   = BIT(10),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST1,
-		.deassert_clear_mask = BIT(10),
-		.deassert_set_mask   = BIT(10),
-	},
-	[RST_UART3] = {
-		.assert_offset       = S700_DEVRST1,
-		.assert_clear_mask   = BIT(11),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST1,
-		.deassert_clear_mask = BIT(11),
-		.deassert_set_mask   = BIT(11),
-	},
-	[RST_UART4] = {
-		.assert_offset       = S700_DEVRST1,
-		.assert_clear_mask   = BIT(12),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST1,
-		.deassert_clear_mask = BIT(12),
-		.deassert_set_mask   = BIT(12),
-	},
-	[RST_UART5] = {
-		.assert_offset       = S700_DEVRST1,
-		.assert_clear_mask   = BIT(13),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST1,
-		.deassert_clear_mask = BIT(13),
-		.deassert_set_mask   = BIT(13),
-	},
-	[RST_UART6] = {
-		.assert_offset       = S700_DEVRST1,
-		.assert_clear_mask   = BIT(14),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST1,
-		.deassert_clear_mask = BIT(14),
-		.deassert_set_mask   = BIT(14),
-	},
-	[RST_SDC0] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(22),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(22),
-		.deassert_set_mask   = BIT(22),
-	},
-	[RST_SDC1] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(23),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(23),
-		.deassert_set_mask   = BIT(23),
-	},
-	[RST_SDC2] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(24),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(24),
-		.deassert_set_mask   = BIT(24),
-	},
-	[RST_HDCP2] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(6),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(6),
-		.deassert_set_mask   = BIT(6),
-	},
-	[RST_USBH0] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(26),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(26),
-		.deassert_set_mask   = BIT(26),
-	},
-	[RST_USBH1] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(27),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(27),
-		.deassert_set_mask   = BIT(27),
-	},
-	[RST_PCM1] = {
-		.assert_offset       = S700_DEVRST1,
-		.assert_clear_mask   = BIT(31),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST1,
-		.deassert_clear_mask = BIT(31),
-		.deassert_set_mask   = BIT(31),
-	},
-	[RST_PCM0] = {
-		.assert_offset       = S700_DEVRST1,
-		.assert_clear_mask   = BIT(30),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST1,
-		.deassert_clear_mask = BIT(30),
-		.deassert_set_mask   = BIT(30),
-	},
-	[RST_AUDIO] = {
-		.assert_offset       = S700_DEVRST1,
-		.assert_clear_mask   = BIT(29),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST1,
-		.deassert_clear_mask = BIT(29),
-		.deassert_set_mask   = BIT(29),
-	},
-	[RST_ETHERNET] = {
-		.assert_offset       = S700_DEVRST1,
-		.assert_clear_mask   = BIT(23),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST1,
-		.deassert_clear_mask = BIT(23),
-		.deassert_set_mask   = BIT(23),
-	},
-	[RST_VDE] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(10),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(10),
-		.deassert_set_mask   = BIT(10),
-	},
-	[RST_VCE] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(11),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(11),
-		.deassert_set_mask   = BIT(11),
-	},
-	[RST_GPU3D] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(8),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(8),
-		.deassert_set_mask   = BIT(8),
-	},
-	[RST_TVOUT] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(3),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(3),
-		.deassert_set_mask   = BIT(3),
-	},
-	[RST_HDMI] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(5),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(5),
-		.deassert_set_mask   = BIT(5),
-	},
-	[RST_DE] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(0),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(0),
-		.deassert_set_mask   = BIT(0),
-	},
-	[RST_USB3] = {
-		.assert_offset       = S700_DEVRST0,
-		.assert_clear_mask   = BIT(25),
-		.assert_set_mask     = 0,
-		.deassert_offset     = S700_DEVRST0,
-		.deassert_clear_mask = BIT(25),
-		.deassert_set_mask   = BIT(25),
-	},
+
+	[RST_UART0] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(8), 0x0, BIT(8)),
+	
+	[RST_UART1] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(9), 0x0, BIT(9)),
+	
+	[RST_UART2] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(10), 0x0, BIT(10)),
+	
+	[RST_UART3] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(11), 0x0, BIT(11)),
+	
+	[RST_UART4] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(12), 0x0, BIT(12)),
+	
+	[RST_UART5] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(13), 0x0, BIT(13)),
+	
+	[RST_UART6] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(14), 0x0, BIT(14)),
+	
+	[RST_SDC0] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(22), 0x0, BIT(22)),
+	
+	[RST_SDC1] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(23), 0x0, BIT(23)),
+	
+	[RST_SDC2] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(24), 0x0, BIT(24)),
+	
+	[RST_HDCP2] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(6), 0x0, BIT(6)),
+	
+	[RST_USBH0] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(26), 0x0, BIT(26)),
+	
+	[RST_USBH1] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(27), 0x0, BIT(27)),
+	
+	[RST_PCM1] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(31), 0x0, BIT(31)),
+	
+	[RST_PCM0] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(30), 0x0, BIT(30)),
+	
+	[RST_AUDIO] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(29), 0x0, BIT(29)),
+	
+	[RST_ETHERNET] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(23), 0x0, BIT(23)),
+	
+	[RST_VDE] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(10), 0x0, BIT(10)),
+	
+	[RST_VCE] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(11), 0x0, BIT(11)),
+	
+	[RST_GPU3D] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(8), 0x0, BIT(8)),
+	
+	[RST_TVOUT] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(3), 0x0, BIT(3)),
+	
+	[RST_HDMI] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(5), 0x0, BIT(5)),
+	
+	[RST_DE] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(0), 0x0, BIT(0)),
+	
+	[RST_USB3] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(25), 0x0, BIT(25)),
+	
+	[RST_TWI0] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(0), 0x0, BIT(0)),
+	
+	[RST_TWI1] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(1), 0x0, BIT(1)),
+	
+	[RST_TWI2] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(2), 0x0, BIT(2)),
+	
+	[RST_TWI3] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(3), 0x0, BIT(3)),
 };
 
 struct caninos_rcu_reset_priv
@@ -247,98 +110,83 @@ struct caninos_rcu_reset_priv
 	spinlock_t lock;
 };
 
-static struct caninos_rcu_reset_priv *to_caninos_rcu_reset_priv(struct reset_controller_dev *rcdev)
+static struct caninos_rcu_reset_priv *to_caninos_rcu_reset_priv
+	(struct reset_controller_dev *rcdev)
 {
 	return container_of(rcdev, struct caninos_rcu_reset_priv, rcdev);
 }
 
-static int caninos_rcu_reset_status(struct reset_controller_dev *rcdev, unsigned long id)
+static int caninos_rcu_reset_status(struct reset_controller_dev *rcdev,
+                                    unsigned long id)
 {
 	struct caninos_rcu_reset_priv *priv = to_caninos_rcu_reset_priv(rcdev);
+	u32 val, deassert_val, assert_val;
 	unsigned long flags;
-	int ret;
-	u32 val;
 	
 	spin_lock_irqsave(&priv->lock, flags);
-	
-	val = readl(priv->cmu_base + priv->data[id].assert_offset);
-	
-	val &= ~(priv->data[id].assert_clear_mask);
-	
-	if (val == priv->data[id].assert_set_mask) {
-		ret = 1;
-	}
-	else
-	{
-		val = readl(priv->cmu_base + priv->data[id].deassert_offset);
-	
-		val &= ~(priv->data[id].deassert_clear_mask);
-	
-		if (val == priv->data[id].deassert_set_mask) {
-			ret = 0;
-		}
-		else {
-			ret = -EINVAL;
-		}
-	}
-	
+	val = readl(priv->cmu_base + priv->data[id].offset);
 	spin_unlock_irqrestore(&priv->lock, flags);
-	return ret;
+	
+	val &= priv->data[id].mask;
+	assert_val = priv->data[id].assert & priv->data[id].mask;
+	deassert_val = priv->data[id].deassert & priv->data[id].mask;
+	
+	if (val == assert_val) {
+		return 1;
+	}
+	else if (val == deassert_val) {
+		return 0;
+	}
+	return -EINVAL;
 }
 
-static int caninos_rcu_reset_update(struct reset_controller_dev *rcdev, unsigned long id, bool assert)
+static int caninos_rcu_reset_update(struct reset_controller_dev *rcdev,
+                                    unsigned long id, bool assert)
 {
 	struct caninos_rcu_reset_priv *priv = to_caninos_rcu_reset_priv(rcdev);
 	unsigned long flags;
-	u32 val;
-	
-	dev_info(priv->dev, "reset id=%lu assert=%d", id, assert);
+	u32 val, new_val;
 	
 	spin_lock_irqsave(&priv->lock, flags);
-	
-	if (assert)
-	{
-		val = readl(priv->cmu_base + priv->data[id].assert_offset);
-		
-		val &= ~(priv->data[id].assert_clear_mask);
-		val |= (priv->data[id].assert_set_mask);
-		
-		writel(val, priv->cmu_base + priv->data[id].assert_offset);
-	}
-	else
-	{
-		val = readl(priv->cmu_base + priv->data[id].deassert_offset);
-		
-		val &= ~(priv->data[id].deassert_clear_mask);
-		val |= (priv->data[id].deassert_set_mask);
-		
-		writel(val, priv->cmu_base + priv->data[id].deassert_offset);
-	}
-	
-	spin_unlock_irqrestore(&priv->lock, flags);
+	val = readl(priv->cmu_base + priv->data[id].offset);
+	new_val = val & ~(priv->data[id].mask);
 	
 	if (assert) {
-		udelay(10);
+		new_val |= priv->data[id].assert & priv->data[id].mask;
+	}
+	else {
+		new_val |= priv->data[id].deassert & priv->data[id].mask;
 	}
 	
+	if (val != new_val) {
+		writel(new_val, priv->cmu_base + priv->data[id].offset);
+	}
+	
+	val = readl(priv->cmu_base + priv->data[id].offset);
+	spin_unlock_irqrestore(&priv->lock, flags);
+	
+	if (val != new_val) {
+		return -EINVAL;
+	}
 	return 0;
 }
 
-static int caninos_rcu_reset_assert(struct reset_controller_dev *rcdev, unsigned long id)
+static int caninos_rcu_reset_assert(struct reset_controller_dev *rcdev,
+                                    unsigned long id)
 {
 	return caninos_rcu_reset_update(rcdev, id, true);
 }
 
-static int caninos_rcu_reset_deassert(struct reset_controller_dev *rcdev, unsigned long id)
+static int caninos_rcu_reset_deassert(struct reset_controller_dev *rcdev,
+                                      unsigned long id)
 {
 	return caninos_rcu_reset_update(rcdev, id, false);
 }
 
-static int caninos_rcu_reset_reset(struct reset_controller_dev *rcdev, unsigned long id)
+static int caninos_rcu_reset_reset(struct reset_controller_dev *rcdev,
+                                   unsigned long id)
 {
-	int ret;
-	
-	ret = caninos_rcu_reset_assert(rcdev, id);
+	int ret = caninos_rcu_reset_assert(rcdev, id);
 	
 	if (ret) {
 		return ret;
