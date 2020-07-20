@@ -1,5 +1,12 @@
 
+#define GPIO_PER_BANK  (32)
+#define GPIO_BIT(gpio) (1<<(gpio))
 
+#define GPIOA(x) (x)
+#define GPIOB(x) (32+(x))
+#define GPIOC(x) (64+(x))
+#define GPIOD(x) (96+(x))
+#define GPIOE(x) (128+(x))
 
 const struct pinctrl_pin_desc caninos_pins[] = {
 	PINCTRL_PIN(0, "DUMMY0"),            // GPIOA0
@@ -139,6 +146,4 @@ const struct pinctrl_pin_desc caninos_pins[] = {
 	PINCTRL_PIN(134, "D4_ETH_RXD2"),     // GPIOE6
 	PINCTRL_PIN(135, "D3_ETH_RXD3"),     // GPIOE7
 };
-
-
 

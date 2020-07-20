@@ -1,6 +1,3 @@
-config GPIO_CANINOS
-	bool
-
 config PINMUX_CANINOS
 	bool
 
@@ -12,7 +9,6 @@ config PINCTRL_CANINOS
 	select GPIOLIB
 	select GPIOLIB_IRQCHIP
 	select OF_GPIO
-	select GPIO_CANINOS
 	select PINMUX_CANINOS
 	help
 	  Say yes here to support the gpio/pin control module on
