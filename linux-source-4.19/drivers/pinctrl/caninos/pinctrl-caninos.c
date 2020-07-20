@@ -634,13 +634,10 @@ static int caninos_gpio_bank_setup(struct caninos_gpio_bank *bank)
 	chip->direction_input = owl_gpio_direction_input;
 	chip->direction_output = owl_gpio_direction_output;
 	chip->to_irq = owl_gpio_to_irq;
-	chip->owner = THIS_MODULE;
 	chip->parent = &bank->pdev->dev;
 	chip->label = dev_name(chip->parent);
 	chip->of_node = chip->parent->of_node;
 	chip->owner = THIS_MODULE;
-	
-	// TODO: Add init_valid_mask implementation.
 
 	return 0;
 }
@@ -652,7 +649,7 @@ static int caninos_gpio_bank_setup(struct caninos_gpio_bank *bank)
 static struct lock_class_key gpio_lock_class;
 static struct lock_class_key gpio_request_class;
 
-static int owl_gpio_irq_setup(struct caninos_gpio_bank *bank)
+static int caninos_gpio_irq_setup(struct caninos_gpio_bank *bank)
 {
 	struct gpio_chip *chip = &bank->gpio_chip;
 	int irq, i;
@@ -733,6 +730,7 @@ struct caninos_pinctrl
 	raw_spinlock_t lock;
 	struct device *dev;
 	struct pinctrl_dev *pinctrl;
+	struct caninos_gpio_bank banks[5];
 };
 
 static const struct caninos_gpio_bank_data banks_data[5] = {
@@ -749,15 +747,6 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 	struct caninos_pinctrl *data;
 	struct resource *res;
 	int ret;
-	
-	/*
-	if (ngpio_chips_enabled < info->nactive_banks) {
-		dev_warn(&pdev->dev,
-			 "All GPIO chips are not registered yet (%d/%d)\n",
-			 ngpio_chips_enabled, info->nactive_banks);
-		devm_kfree(&pdev->dev, info);
-		return -EPROBE_DEFER;
-	}*/
 	
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	
@@ -849,58 +838,71 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 
 static int caninos_gpio_probe(struct platform_device *pdev)
 {
-	const struct caninos_gpio_bank_data *pdata;
-	struct device *dev = &pdev->dev;
-	struct device_node *np = pdev->dev.of_node;
+	struct platform_device *pinctrl_pdev;
+	struct caninos_pinctrl *data = NULL;
+	struct device_node *pinctrl_np;
 	struct caninos_gpio_bank *bank;
-	int ret;
+	int ret, id;
 	
-	bank = devm_kzalloc(dev, sizeof(*bank), GFP_KERNEL);
+	pinctrl_np = of_parse_phandle(pdev->dev.of_node, "gpio-ranges", 0);
 	
-	if (bank == NULL) {
-		return -ENOMEM;
-	}
-	
-	bank->id = of_alias_get_id(np, "gpio");
-	
-	if (bank->id < 0) {
-		return bank->id;
-	}
-	
-	
-	dev_info(dev, "GPIO%c probe", 'A' + bank->id);
-	
-	pdata = &banks_data[bank->id];
-	
-	bank->base = of_iomap(dev->of_node, 0);
-	
-	if (bank->base == NULL)
+	if (pinctrl_np)
 	{
-		dev_err(dev, "failed to map memory");
+		pinctrl_pdev = of_find_device_by_node(pinctrl_np);
+		
+		if (pinctrl_pdev) {
+			data = platform_get_drvdata(pinctrl_pdev);
+		}
+		
+		of_node_put(pinctrl_np);
+	}
+	
+	if (data == NULL)
+	{
+		dev_err(&pdev->dev, "pinctrl is not ready\n");
+		return -EPROBE_DEFER;
+	}
+	
+	id = of_alias_get_id(pdev->dev.of_node, "gpio");
+	
+	if (id < 0) {
+		return id;
+	}
+	
+	bank = &data->banks[id];
+	bank->id = id;
+	
+	dev_info(&pdev->dev, "GPIO%c probe", 'A' + id);
+	
+	bank->base = of_iomap(pdev->dev.of_node, 0);
+	
+	if (!bank->base)
+	{
+		dev_err(&pdev->dev, "failed to map memory");
 		return -ENOENT;
 	}
 	
-	bank->irq = irq_of_parse_and_map(np, 0);
+	bank->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
 	
 	if (bank->irq < 0)
 	{
-		dev_err(dev, "failed to get IRQ");
+		dev_err(&pdev->dev, "failed to get IRQ");
 		return -ENOENT;
 	}
 	
-	bank->nr_gpios = pdata->nr_gpios;
-	bank->regs = &pdata->regs;
+	bank->nr_gpios = banks_data[id].nr_gpios;
+	bank->regs = &banks_data[id].regs;
 	bank->pdev = pdev;
 	
 	spin_lock_init(&bank->lock);
 	caninos_gpio_bank_setup(bank);
 	platform_set_drvdata(pdev, bank);
 	
-	ret = owl_gpio_irq_setup(bank);
+	ret = caninos_gpio_irq_setup(bank);
 	
 	if (ret < 0)
 	{
-		dev_err(dev, "failed to setup irq, ret %d\n", ret);
+		dev_err(&pdev->dev, "failed to setup irq, ret %d\n", ret);
 		return ret;
 	}
 	
@@ -936,8 +938,8 @@ static struct platform_driver caninos_gpio_driver = {
 };
 
 static struct platform_driver * const drivers[] = {
-	&caninos_gpio_driver,
 	&caninos_pinctrl_driver,
+	&caninos_gpio_driver,
 };
 
 static int __init caninos_pinctrl_init(void)
