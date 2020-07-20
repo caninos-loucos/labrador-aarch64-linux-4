@@ -1,0 +1,20 @@
+/*
+	UART0
+	Header Pin  8 -> (Pad UART0_TX) UART0_TX -> mfp3_21_19 -> (000b << 19)
+	Header Pin 10 -> (Pad UART0_RX) UART0_RX -> mfp2_2_0 -> (000b << 0)
+	*/
+	
+	/*
+	Never mess with PWM pads -> the CPU/GPU will crash (or even burn)!
+	MFP_CTL1 (011b << 26)
+	KS_IN3  -> PWM1 -> GPU power supply
+	KS_OUT0 -> PWM2 -> CPU power supply
+	KS_OUT1 -> PWM3 -> PWM exported at extio header
+	*/
+	
+	/*
+	Do not enable internal pull-up for the following devices:
+	-> i2c0 already has a 4k7 pull-up resistor at core board V3.1
+	-> i2c1 and i2c2 already have a 2k2 pull-up resistor at core board V3.1
+	-> ethphy already has pull-up/down resistors installed for configuration
+	*/

@@ -1,2 +1,2 @@
-obj-$(CONFIG_PINMUX_CANINOS) 	+= pinctrl-caninos.o
+obj-$(CONFIG_PINCTRL_CANINOS) += pinctrl-caninos.o
 

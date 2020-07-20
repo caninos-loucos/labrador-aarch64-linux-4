@@ -1,12 +1,44 @@
 
-#define GPIO_PER_BANK  (32)
-#define GPIO_BIT(gpio) (1<<(gpio))
+#define GPIO_PER_BANK (32)
+#define GPIO_BIT(gpio) (0x1 << (gpio))
+
+#define GPIO_BANK_START(bank) ((bank) * GPIO_PER_BANK)
 
 #define GPIOA(x) (x)
-#define GPIOB(x) (32+(x))
-#define GPIOC(x) (64+(x))
-#define GPIOD(x) (96+(x))
-#define GPIOE(x) (128+(x))
+#define GPIOB(x) (32 + (x))
+#define GPIOC(x) (64 + (x))
+#define GPIOD(x) (96 + (x))
+#define GPIOE(x) (128 + (x))
+
+struct caninos_group {
+	const char *name;
+	unsigned *pins;
+	unsigned num_pins;
+};
+
+struct caninos_pmx_func {
+	const char *name;
+	const char * const *groups;
+	unsigned num_groups;
+};
+
+struct caninos_pinctrl
+{
+	void __iomem *base;
+	struct clk *clk;
+	raw_spinlock_t lock;
+	struct device *dev;
+	struct pinctrl_dev *pinctrl;
+};
+
+struct caninos_gpio_bank
+{
+	struct gpio_chip gpio_chip;
+};
+
+static unsigned int uart0_pins[] = { GPIOC(27), GPIOC(26) };
+static unsigned int i2c2_pins[]  = { GPIOE(3), GPIOE(2) };
+static unsigned int pwm_pins[]   = { GPIOB(8) };
 
 const struct pinctrl_pin_desc caninos_pins[] = {
 	PINCTRL_PIN(0, "DUMMY0"),            // GPIOA0

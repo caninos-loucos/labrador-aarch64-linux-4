@@ -1,15 +1,10 @@
-config PINMUX_CANINOS
-	bool
-
 config PINCTRL_CANINOS
 	bool "Caninos Labrador pin controller driver"
 	depends on ARCH_CANINOS
 	select PINMUX
-	select PINCONF
-	select GPIOLIB
+	select GENERIC_PINCONF
 	select GPIOLIB_IRQCHIP
 	select OF_GPIO
-	select PINMUX_CANINOS
 	help
 	  Say yes here to support the gpio/pin control module on
 	  Caninos Labrador SBC.
