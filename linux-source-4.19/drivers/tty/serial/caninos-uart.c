@@ -328,7 +328,9 @@ static void caninos_uart_shutdown(struct uart_port *port)
 	
 	free_irq(port->irq, port);
 	
-	pinctrl_select_state(_port->pctl, _port->def_state);
+	if (_port->extio_state) {
+		pinctrl_select_state(_port->pctl, _port->def_state);
+	}
 }
 
 static int caninos_uart_startup(struct uart_port *port)
@@ -338,10 +340,13 @@ static int caninos_uart_startup(struct uart_port *port)
 	u32 val;
 	int ret;
 	
-	ret = pinctrl_select_state(_port->pctl, _port->extio_state);
+	if (_port->extio_state)
+	{
+		ret = pinctrl_select_state(_port->pctl, _port->extio_state);
 	
-	if (ret < 0) {
-		return -EAGAIN;
+		if (ret < 0) {
+			return -EAGAIN;
+		}
 	}
 	
 	ret = request_irq(port->irq, caninos_uart_irq, IRQF_TRIGGER_HIGH,
@@ -811,10 +816,8 @@ static int caninos_uart_probe(struct platform_device *pdev)
 	
 	port->extio_state = pinctrl_lookup_state(port->pctl, "extio");
 	
-	if (IS_ERR(port->extio_state))
-	{
-		dev_err(&pdev->dev, "could not get pinctrl extio state\n");
-		return PTR_ERR(port->extio_state);
+	if (IS_ERR(port->extio_state)) {
+		port->extio_state = NULL; // it is optional
 	}
 	
 	ret = pinctrl_select_state(port->pctl, port->def_state);

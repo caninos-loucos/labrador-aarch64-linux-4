@@ -343,46 +343,6 @@
 			status = "okay";
 		};
 		
-		/*
-		usb2_phy: usb2phy@e040ce00 {
-			compatible = "actions,s700-usb2phy";
-			reg = <0 0xe040ce00 0 0x4>;
-			phy_type = <1>;		// 1: PHY_R; 2: PHY_C
-		};
-
-		usb3_phy: usb3phy@e040cd00 {
-			compatible = "actions,s700-usb3phy";
-			reg = <0 0xe040cd00 0 0x100>;
-			phy_type = <1>;		// 1: PHY_R; 2: PHY_C
-			fix_vbus_reset = <1>;
-		};
-		
-		usbdrd3 {
-			compatible = "caninos,k7-dwc3";
-			clocks = <&cmu CLK_USB3_480MPLL0>, <&cmu CLK_USB3_480MPHY0>,
-			         <&cmu CLK_USB3_5GPHY>, <&cmu CLK_USB3_CCE>;
-			clock-names = "usb3_480mpll0", "usb3_480mphy0", "usb3_5gphy",
-			              "usb3_cce";
-			resets	= <&rst RST_USB3>;
-			reset-names = "usb3";
-			power-domains = <&sps PD_USB3>;
-			status = "okay";
-			
-			#address-cells = <2>;
-			#size-cells = <2>;
-			ranges;
-			
-			dwc3@e0400000 {
-				compatible = "snps,dwc3";
-				reg = <0 0xe0400000 0 0xcd00>;
-				interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>;
-				//maximum-speed = "super-speed";
-				//dr_mode = "host";
-				usb-phy = <&usb2_phy>, <&usb3_phy>;
-			};
-		};
-		*/
-		
 		leds {
 		    compatible = "gpio-leds";
 		    
@@ -458,9 +418,8 @@
 			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 			
-			pinctrl-names = "default", "extio";
+			pinctrl-names = "default";
 			pinctrl-0 = <>;
-			pinctrl-1 = <>;
 		};
 		
 		uart2: serial@e0124000 {
@@ -473,9 +432,8 @@
 			interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
 			
-			pinctrl-names = "default", "extio";
+			pinctrl-names = "default";
 			pinctrl-0 = <>;
-			pinctrl-1 = <>;
 		};
 		
 		uart3: serial@e0126000 {
@@ -488,9 +446,8 @@
 			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
 			
-			pinctrl-names = "default", "extio";
+			pinctrl-names = "default";
 			pinctrl-0 = <>;
-			pinctrl-1 = <>;
 		};
 		
 		uart4: serial@e0128000 {
@@ -501,9 +458,8 @@
 			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 			
-			pinctrl-names = "default", "extio";
+			pinctrl-names = "default";
 			pinctrl-0 = <>;
-			pinctrl-1 = <>;
 		};
 		
 		uart5: serial@e012a000 {
@@ -514,9 +470,8 @@
 			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 			
-			pinctrl-names = "default", "extio";
+			pinctrl-names = "default";
 			pinctrl-0 = <>;
-			pinctrl-1 = <>;
 		};
 		
 		uart6: serial@e012c000 {
@@ -527,9 +482,8 @@
 			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 			
-			pinctrl-names = "default", "extio";
+			pinctrl-names = "default";
 			pinctrl-0 = <>;
-			pinctrl-1 = <>;
 		};
 		
 		mmc0: mmc@e0210000 {
@@ -587,9 +541,8 @@
 			resets = <&rst RST_TWI0>;
 			reset-names = "twi";
 			
-			pinctrl-names = "default", "extio";
+			pinctrl-names = "default";
 			pinctrl-0 = <>;
-			pinctrl-1 = <>;
 			
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -628,9 +581,8 @@
 			resets = <&rst RST_TWI1>;
 			reset-names = "twi";
 			
-			pinctrl-names = "default", "extio";
+			pinctrl-names = "default";
 			pinctrl-0 = <>;
-			pinctrl-1 = <>;
 			
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -670,9 +622,8 @@
 			resets = <&rst RST_TWI3>;
 			reset-names = "twi";
 			
-			pinctrl-names = "default", "extio";
+			pinctrl-names = "default";
 			pinctrl-0 = <>;
-			pinctrl-1 = <>;
 			
 			#address-cells = <1>;
 			#size-cells = <0>;

@@ -614,32 +614,18 @@ static int owl_i2c_do_transfer(struct owl_i2c_dev *dev,
 	return ret;
 }
 
-static int caninos_i2c_request_gpios(struct owl_i2c_dev *dev)
-{
-	int ret = pinctrl_select_state(dev->pctl, dev->extio_state);
-	
-	if (ret < 0) {
-		return -EAGAIN;
-	}
-	return 0;
-}
-
-static void caninos_i2c_release_gpios(struct owl_i2c_dev *dev)
-{
-	pinctrl_select_state(dev->pctl, dev->def_state);
-}
-
 static int owl_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 {
 	struct owl_i2c_dev *dev = i2c_get_adapdata(adap);
 	int ret;
 	
-	ret = caninos_i2c_request_gpios(dev);
-	
-	if (ret < 0)
+	if (dev->extio_state)
 	{
-		i2c_warn(dev, "could not request gpios\n");
-		return ret;
+		ret = pinctrl_select_state(dev->pctl, dev->extio_state);
+		
+		if (ret < 0) {
+			return -EAGAIN;
+		}
 	}
 	
 	owl_i2c_hwinit(dev);
@@ -650,13 +636,21 @@ static int owl_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 	if (ret < 0)
 	{
 		i2c_warn(dev, "bus busy before transfer\n");
-		caninos_i2c_release_gpios(dev);
+		
+		if (dev->extio_state) {
+			pinctrl_select_state(dev->pctl, dev->def_state);
+		}
+		
 		return ret;
 	}
 	
 	/* Do transfer */
 	ret = owl_i2c_do_transfer(dev, msgs, num);
-	caninos_i2c_release_gpios(dev);
+	
+	if (dev->extio_state) {
+		pinctrl_select_state(dev->pctl, dev->def_state);
+	}
+	
 	return (ret < 0) ? ret : num;
 }
 
@@ -726,10 +720,8 @@ static int owl_i2c_probe(struct platform_device *pdev)
 	
 	dev->extio_state = pinctrl_lookup_state(dev->pctl, "extio");
 	
-	if (IS_ERR(dev->extio_state))
-	{
-		dev_err(&pdev->dev, "could not get pinctrl extio state\n");
-		return PTR_ERR(dev->extio_state);
+	if (IS_ERR(dev->extio_state)) {
+		dev->extio_state = NULL; // it is optional
 	}
 	
 	ret = pinctrl_select_state(dev->pctl, dev->def_state);
