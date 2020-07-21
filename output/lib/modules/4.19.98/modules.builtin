@@ -247,6 +247,7 @@ kernel/drivers/leds/trigger/ledtrig-activity.ko
 kernel/drivers/leds/trigger/ledtrig-default-on.ko
 kernel/drivers/leds/trigger/ledtrig-transient.ko
 kernel/drivers/leds/trigger/ledtrig-camera.ko
+kernel/drivers/leds/trigger/ledtrig-netdev.ko
 kernel/drivers/media/media.ko
 kernel/drivers/media/common/videobuf2/videobuf2-common.ko
 kernel/drivers/media/common/videobuf2/videobuf2-v4l2.ko

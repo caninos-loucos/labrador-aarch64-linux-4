@@ -12,7 +12,7 @@
 
 struct caninos_group {
 	const char *name;
-	unsigned *pins;
+	const unsigned *pins;
 	unsigned num_pins;
 };
 
@@ -26,21 +26,23 @@ struct caninos_pinctrl
 {
 	void __iomem *base;
 	struct clk *clk;
-	raw_spinlock_t lock;
 	struct device *dev;
 	struct pinctrl_dev *pinctrl;
+	spinlock_t lock;
 };
 
 struct caninos_gpio_bank
 {
+	void __iomem *base;
 	struct gpio_chip gpio_chip;
+	unsigned long outen;
+	unsigned long inen;
+	unsigned long dat;
+	unsigned long valid_mask;
+	spinlock_t lock;
 };
 
-static unsigned int uart0_pins[] = { GPIOC(27), GPIOC(26) };
-static unsigned int i2c2_pins[]  = { GPIOE(3), GPIOE(2) };
-static unsigned int pwm_pins[]   = { GPIOB(8) };
-
-const struct pinctrl_pin_desc caninos_pins[] = {
+const static struct pinctrl_pin_desc caninos_pins[] = {
 	PINCTRL_PIN(0, "DUMMY0"),            // GPIOA0
 	PINCTRL_PIN(1, "DUMMY1"),            // GPIOA1
 	PINCTRL_PIN(2, "DUMMY2"),            // GPIOA2
@@ -178,4 +180,54 @@ const struct pinctrl_pin_desc caninos_pins[] = {
 	PINCTRL_PIN(134, "D4_ETH_RXD2"),     // GPIOE6
 	PINCTRL_PIN(135, "D3_ETH_RXD3"),     // GPIOE7
 };
+
+const static unsigned int uart0_extio_pins[] = { GPIOC(27), GPIOC(26) };
+const static unsigned int i2c2_extio_pins[]  = { GPIOE(3), GPIOE(2) };
+const static unsigned int pwm_extio_pins[]   = { GPIOB(8) };
+
+const static unsigned int uart0_dummy_pins[] = { GPIOA(0), GPIOA(1) };
+const static unsigned int i2c2_dummy_pins[]  = { GPIOA(2), GPIOA(3) };
+const static unsigned int pwm_dummy_pins[]   = { GPIOA(4) };
+
+const static struct caninos_group caninos_groups[] = {
+	{
+		.name = "uart0_extio_grp",
+		.pins = uart0_extio_pins,
+		.num_pins = ARRAY_SIZE(uart0_extio_pins),
+	},
+	{
+		.name = "i2c2_extio_grp",
+		.pins = i2c2_extio_pins,
+		.num_pins = ARRAY_SIZE(i2c2_extio_pins),
+	},
+	{
+		.name = "pwm_extio_grp",
+		.pins = pwm_extio_pins,
+		.num_pins = ARRAY_SIZE(pwm_extio_pins),
+	},
+	{
+		.name = "uart0_dummy_grp",
+		.pins = uart0_dummy_pins,
+		.num_pins = ARRAY_SIZE(uart0_dummy_pins),
+	},
+	{
+		.name = "i2c2_dummy_grp",
+		.pins = i2c2_dummy_pins,
+		.num_pins = ARRAY_SIZE(i2c2_dummy_pins),
+	},
+	{
+		.name = "pwm_dummy_grp",
+		.pins = pwm_dummy_pins,
+		.num_pins = ARRAY_SIZE(pwm_dummy_pins),
+	},
+};
+
+const static char * const uart0_groups[] =
+{ "uart0_extio_grp", "uart0_dummy_grp" };
+
+const static char * const i2c2_groups[] =
+{ "i2c2_extio_grp", "i2c2_dummy_grp" };
+
+const static char * const pwm_groups[] = 
+{ "pwm_extio_grp", "pwm_dummy_grp" };
 

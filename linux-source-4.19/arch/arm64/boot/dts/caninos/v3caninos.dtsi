@@ -206,32 +206,33 @@
 			
 			i2c2_state_gpio: i2c2_gpio {
 				function = "i2c2";
-				group = "i2c2_dummy_grp";
+				groups = "i2c2_dummy_grp";
 			};
 			i2c2_state_extio: i2c2_extio {
 				function = "i2c2";
-				group = "i2c2_extio_grp";
+				groups = "i2c2_extio_grp";
 			};
 			uart0_state_gpio: uart0_gpio {
 				function = "uart0";
-				group = "uart0_dummy_grp";
+				groups = "uart0_dummy_grp";
 			};
 			uart0_state_extio: uart0_extio {
 				function = "uart0";
-				group = "uart0_extio_grp";
+				groups = "uart0_extio_grp";
 			};
 			pwm_state_gpio: pwm_gpio {
 				function = "pwm";
-				group = "pwm_dummy_grp";
+				groups = "pwm_dummy_grp";
 			};
 			pwm_state_extio: pwm_extio {
 				function = "pwm";
-				group = "pwm_extio_grp";
+				groups = "pwm_extio_grp";
 			};
 		};
 		
 		gpioa: gpioa@e01b0000 {
 			compatible = "caninos,k7-gpio";
+			reg = <0 0xe01b0000 0 0x1000>;
 			//interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
 			caninos,gpio-bank = <0>;
 			gpio-ranges = <&pinctrl 0 0 32>;
@@ -244,9 +245,10 @@
 		
 		gpiob: gpiob@e01b0000 {
 			compatible = "caninos,k7-gpio";
+			reg = <0 0xe01b0000 0 0x1000>;
 			//interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
 			caninos,gpio-bank = <1>;
-			gpio-ranges = <&pinctrl 32 32 32>;
+			gpio-ranges = <&pinctrl 0 32 32>;
 			gpio-controller;
 			//interrupt-controller;
 			status = "okay";
@@ -256,9 +258,10 @@
 		
 		gpioc: gpioc@e01b0000 {
 			compatible = "caninos,k7-gpio";
+			reg = <0 0xe01b0000 0 0x1000>;
 			//interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 			caninos,gpio-bank = <2>;
-			gpio-ranges = <&pinctrl 64 64 32>;
+			gpio-ranges = <&pinctrl 0 64 32>;
 			gpio-controller;
 			//interrupt-controller;
 			status = "okay";
@@ -268,9 +271,10 @@
 		
 		gpiod: gpiod@e01b0000 {
 			compatible = "caninos,k7-gpio";
+			reg = <0 0xe01b0000 0 0x1000>;
 			//interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			caninos,gpio-bank = <3>;
-			gpio-ranges = <&pinctrl 96 96 32>;
+			gpio-ranges = <&pinctrl 0 96 32>;
 			gpio-controller;
 			//interrupt-controller;
 			status = "okay";
@@ -280,9 +284,10 @@
 		
 		gpioe: gpioe@e01b0000 {
 			compatible = "caninos,k7-gpio";
+			reg = <0 0xe01b0000 0 0x1000>;
 			//interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 			caninos,gpio-bank = <4>;
-			gpio-ranges = <&pinctrl 128 128 8>;
+			gpio-ranges = <&pinctrl 0 128 8>;
 			gpio-controller;
 			//interrupt-controller;
 			status = "okay";
