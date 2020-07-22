@@ -65,12 +65,12 @@
 			no-map;
 		};
 		
-		/* reserve 512MB for cma */
+		/* reserve 512MB for shared cma pool */
 		cma_reserved: linux,cma {
-            compatible = "shared-dma-pool";
-            reusable;
+			compatible = "shared-dma-pool";
+			reusable;
 			reg = <0x0 0x20000000 0x0 0x20000000>;
-            linux,cma-default;
+			linux,cma-default;
 		};
 	};
 	
@@ -157,18 +157,19 @@
 			#address-cells = <0>;
 			interrupt-controller;
 			reg = <0x0 0xe00f1000 0x0 0x1000>,
-				  <0x0 0xe00f2000 0x0 0x2000>,
-				  <0x0 0xe00f4000 0x0 0x2000>,
-				  <0x0 0xe00f6000 0x0 0x2000>;
-			interrupts = <GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_HIGH)>;
+			      <0x0 0xe00f2000 0x0 0x2000>,
+			      <0x0 0xe00f4000 0x0 0x2000>,
+			      <0x0 0xe00f6000 0x0 0x2000>;
+			interrupts =
+				<GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_HIGH)>;
 		};
 		
 		sirq: interrupt-controller@e01b0000 {
 			compatible = "caninos,k7-sirq";
 			reg = <0 0xe01b0000 0 0x1000>;
 			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>,
-				         <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>,
-				         <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
+			             <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>,
+			             <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-controller;
 			#interrupt-cells = <1>;
 			status = "okay";
@@ -185,9 +186,9 @@
 			compatible = "caninos,k7-dma";
 			reg = <0 0xe0230000 0 0x1000>;
 			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
-					     <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
-					     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
-					     <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
+			             <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
+			             <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
+			             <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
 			#dma-cells = <1>;
 			dma-channels = <10>; /* physical dma channels */
 			dma-requests = <46>; /* virtual dma channels */			
@@ -315,8 +316,8 @@
 			reg = <0 0xe01d0000 0 0x1000>;
 			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&cmu CLK_USB2H0_PLLEN>,
-				     <&cmu CLK_USB2H0_PHY>,
-				     <&cmu CLK_USB2H0_CCE>;
+			         <&cmu CLK_USB2H0_PHY>,
+			         <&cmu CLK_USB2H0_CCE>;
 			clock-names = "usbh0_pllen", "usbh0_phy", "usbh0_cce";
 			resets = <&rst RST_USBH0>;
 			reset-names = "usb2h0";
@@ -328,8 +329,8 @@
 			reg = <0 0xe01d8000 0 0x1000>;
 			interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&cmu CLK_USB2H1_PLLEN>,
-				     <&cmu CLK_USB2H1_PHY>,
-				     <&cmu CLK_USB2H1_CCE>;
+			         <&cmu CLK_USB2H1_PHY>,
+			         <&cmu CLK_USB2H1_CCE>;
 			clock-names = "usbh1_pllen", "usbh1_phy", "usbh1_cce";
 			resets = <&rst RST_USBH1>;
 			reset-names = "usb2h1";
@@ -344,22 +345,22 @@
 		};
 		
 		leds {
-		    compatible = "gpio-leds";
-		    
-		    led@1 {
-                label = "led1"; //LVDS_RXOC_P - GPIOB12
-                gpios = <&gpiob 12 GPIO_ACTIVE_HIGH>;
-                linux,default-trigger = "default-on";
-                default-state = "ON";
-            };
-            
-		    led@2 {
-                label = "led2"; //LCD0_D17 - GPIOB31
-                gpios = <&gpiob 31 GPIO_ACTIVE_HIGH>;
-                linux,default-trigger = "heartbeat";
-                default-state = "ON";
-            };
-        };
+			compatible = "gpio-leds";
+			
+			led@1 {
+				label = "led1"; //LVDS_RXOC_P - GPIOB12
+				gpios = <&gpiob 12 GPIO_ACTIVE_HIGH>;
+				linux,default-trigger = "default-on";
+				default-state = "ON";
+			};
+			
+			led@2 {
+				label = "led2"; //LCD0_D17 - GPIOB31
+				gpios = <&gpiob 31 GPIO_ACTIVE_HIGH>;
+				linux,default-trigger = "heartbeat";
+				default-state = "ON";
+			};
+		};
 		
 		drm: video {
 			compatible = "caninos,k7-drm";
@@ -617,7 +618,7 @@
 			clock-names = "i2c3";
 			i2c_num = <3>;
 			clock-frequency = <400000>;
-			status = "disabled";
+			status = "okay";
 			
 			resets = <&rst RST_TWI3>;
 			reset-names = "twi";

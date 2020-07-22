@@ -2,19 +2,23 @@
 Linux 4 kernel source code for "Caninos Labrador v3.0".
 
 ## Release Notes
-Current (17-07-2020) WARNING: Incomplete!
+Current (17-07-2020)
+
 Note: Code being updated during the day as features are being consolidated and 
 tested. If you need a stable version, download the one before 17-07-2020.
+
 1) Added hardware based PWM driver
-2) Added bit banging SPI driver
+2) Added bit banging SPI driver (NOT READY)
 3) Added dynamic GPIO/Device function muxing at external header
 4) New GPIO and Pinctrl drivers (written from scratch to remove deprecated APIs)
 5) New Reset driver with better performance
-6) Corrected PMIC issues related to system shutdown/restart
-7) Added HDMI resolution change capability
-8) General code clean-up and optimization
+6) Increased PADs drive strength
+7) Corrected PMIC issues related to system shutdown/restart (NOT READY)
+8) Added HDMI resolution change capability (NOT READY)
+9) General code clean-up and optimization
 
 First Release (12-05-2020)
+
 1) Kernel version updated from 4.19.37 to 4.19.98
 2) Added base board user configurable led support
 3) New fully functional and complete caninos-clk driver (written from scratch)
@@ -24,8 +28,8 @@ First Release (12-05-2020)
 
 ## About
 This repository contains the source code of Caninos Labrador's 64bits linux
+kernel. Boards newer than "Labrador Core v3.0" should work fine with this
 kernel.
-Boards newer than "Labrador Core v3.0" should work fine with this kernel.
 
 ## Usage
 Prior to compilation, make sure you have the following libraries and/or
