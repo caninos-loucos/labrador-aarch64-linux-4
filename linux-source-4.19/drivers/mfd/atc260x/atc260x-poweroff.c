@@ -22,6 +22,43 @@
 
 static struct atc260x_dev *pmic = NULL;
 
+static void atc260x_poweroff_setup(void)
+{
+	int value;
+	
+	// set ATC2603C_PMU_SYS_CTL0 value
+	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL0);
+	
+	if (value != 0xD04B) {
+		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0xD04B);
+	}
+	
+	// set ATC2603C_PMU_SYS_CTL1 value
+	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL1);
+	
+	value &= 0x1F;
+	if (value != 0xE) {
+		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xE);
+	}
+	
+	// disable on/off interrupts and clear the pending ones
+	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL2);
+	if (value >= 0)
+	{
+		value |= BIT(14) | BIT(13);
+		value &= ~BIT(12);
+		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, value);
+	}
+	
+	// set ATC2603C_PMU_SYS_CTL2 value
+	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL2);
+	
+	value &= 0x1FFF;
+	if (value != 0x480) {
+		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x480);
+	}
+}
+
 static void atc260x_poweroff(void)
 {
 	//
@@ -41,6 +78,8 @@ static int atc2603c_platform_probe(struct platform_device *pdev)
 	if (!pmic) {
 		return -EINVAL;
 	}
+	
+	atc260x_poweroff_setup();
 	
 	// Still not implemented
 	//pm_power_off = atc260x_poweroff;
