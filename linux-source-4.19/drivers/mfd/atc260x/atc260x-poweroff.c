@@ -26,19 +26,22 @@ static void atc260x_poweroff_setup(void)
 {
 	int value;
 	
+	// ONOFF enable short press wake up ATC2603C_PMU_SYS_CTL0 (BIT12).
+	// ONOFF enable long press shutdown ATC2603C_PMU_SYS_CTL5 (BIT10).
+	 
 	// set ATC2603C_PMU_SYS_CTL0 value
 	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL0);
 	
-	if (value != 0xD04B) {
-		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0xD04B);
+	if (value != 0xF04B) {
+		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0xF04B);
 	}
 	
 	// set ATC2603C_PMU_SYS_CTL1 value
 	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL1);
 	
 	value &= 0x1F;
-	if (value != 0xE) {
-		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xE);
+	if (value != 0xF) {
+		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xF);
 	}
 	
 	// disable on/off interrupts and clear the pending ones
@@ -54,14 +57,30 @@ static void atc260x_poweroff_setup(void)
 	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL2);
 	
 	value &= 0x1FFF;
-	if (value != 0x480) {
-		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x480);
+	if (value != 0x680) {
+		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x680);
+	}
+	
+	// set ATC2603C_PMU_SYS_CTL3 value
+	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL3);
+	
+	value &= 0xFFFC;
+	if (value != 0x4080) {
+		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL3, 0x4080);
+	}
+	
+	// set ATC2603C_PMU_SYS_CTL5 value
+	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL5);
+	
+	if (value != 0x580) {
+		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x580);
 	}
 }
 
 static void atc260x_poweroff(void)
 {
-	//
+	pr_info("Hello!! system poweroff\n");
+	while(1);
 }
 
 static void atc260x_restart(enum reboot_mode reboot_mode, const char *cmd)
@@ -82,7 +101,7 @@ static int atc2603c_platform_probe(struct platform_device *pdev)
 	atc260x_poweroff_setup();
 	
 	// Still not implemented
-	//pm_power_off = atc260x_poweroff;
+	pm_power_off = atc260x_poweroff;
 	//arm_pm_restart = atc260x_restart;
 	
 	return 0;
