@@ -22,70 +22,46 @@
 
 static struct atc260x_dev *pmic = NULL;
 
-static void atc260x_poweroff_setup(void)
+static int atc260x_poweroff_setup(void)
 {
-	int value;
-	
-	// ONOFF enable short press wake up ATC2603C_PMU_SYS_CTL0 (BIT12).
-	// ONOFF enable long press shutdown ATC2603C_PMU_SYS_CTL5 (BIT10).
-	 
 	// set ATC2603C_PMU_SYS_CTL0 value
-	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL0);
-	
-	if (value != 0xF04B) {
-		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0xF04B);
-	}
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0x304B);
 	
 	// set ATC2603C_PMU_SYS_CTL1 value
-	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL1);
-	
-	value &= 0x1F;
-	if (value != 0xF) {
-		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xF);
-	}
-	
-	// disable on/off interrupts and clear the pending ones
-	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL2);
-	if (value >= 0)
-	{
-		value |= BIT(14) | BIT(13);
-		value &= ~BIT(12);
-		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, value);
-	}
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xF);
 	
 	// set ATC2603C_PMU_SYS_CTL2 value
-	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL2);
-	
-	value &= 0x1FFF;
-	if (value != 0x680) {
-		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x680);
-	}
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x680);
 	
 	// set ATC2603C_PMU_SYS_CTL3 value
-	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL3);
-	
-	value &= 0xFFFC;
-	if (value != 0x4080) {
-		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL3, 0x4080);
-	}
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL3, 0x80);
 	
 	// set ATC2603C_PMU_SYS_CTL5 value
-	value = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL5);
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x400);
 	
-	if (value != 0x580) {
-		atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x580);
-	}
+	return 0;
 }
 
 static void atc260x_poweroff(void)
 {
-	pr_info("Hello!! system poweroff\n");
+	int ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xE);
+	
+	if (ret < 0) {
+		pr_err("System poweroff failed.\n");
+	}
+	
 	while(1);
 }
 
 static void atc260x_restart(enum reboot_mode reboot_mode, const char *cmd)
 {
-	//
+	int ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0x344B);
+	
+	if (ret < 0) {
+		pr_err("System restart failed.\n");
+	}
+	
+	while(1);
 }
 
 static int atc2603c_platform_probe(struct platform_device *pdev)
@@ -99,11 +75,8 @@ static int atc2603c_platform_probe(struct platform_device *pdev)
 	}
 	
 	atc260x_poweroff_setup();
-	
-	// Still not implemented
 	pm_power_off = atc260x_poweroff;
-	//arm_pm_restart = atc260x_restart;
-	
+	arm_pm_restart = atc260x_restart;
 	return 0;
 }
 
