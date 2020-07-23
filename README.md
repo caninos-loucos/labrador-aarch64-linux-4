@@ -5,13 +5,13 @@ Linux 4 kernel source code for "Caninos Labrador v3.0".
 ### Current (17-07-2020)
 
 1) Added hardware based PWM driver
-2) Added bit banging SPI driver (NOT READY)
+2) <strike>Added bit banging SPI driver (NOT READY)</strike>
 3) Added dynamic GPIO/Device function muxing at external header
 4) New GPIO and Pinctrl drivers (written from scratch to remove deprecated APIs)
 5) New Reset driver with better performance
 6) Increased PADs drive strength
-7) Corrected PMIC issues related to system shutdown/restart (NOT READY)
-8) Added HDMI resolution change capability (NOT READY)
+7) Corrected PMIC issues related to system shutdown/restart
+8) <strike>Added HDMI resolution change capability (NOT READY)</strike>
 9) General code clean-up and optimization
 
 >Note: Code being updated during the day as features are being consolidated and 

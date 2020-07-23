@@ -31,20 +31,24 @@ static int atc260x_poweroff_setup(void)
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xF);
 	
 	// set ATC2603C_PMU_SYS_CTL2 value
-	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x680);
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x6680);
 	
 	// set ATC2603C_PMU_SYS_CTL3 value
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL3, 0x80);
 	
 	// set ATC2603C_PMU_SYS_CTL5 value
-	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x400);
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x180);
 	
 	return 0;
 }
 
 static void atc260x_poweroff(void)
 {
-	int ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xE);
+	int ret;
+	
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x6680);
+	
+	ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xE);
 	
 	if (ret < 0) {
 		pr_err("System poweroff failed.\n");
@@ -55,7 +59,11 @@ static void atc260x_poweroff(void)
 
 static void atc260x_restart(enum reboot_mode reboot_mode, const char *cmd)
 {
-	int ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0x344B);
+	int ret;
+	
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x6680);
+
+	ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0x344B);
 	
 	if (ret < 0) {
 		pr_err("System restart failed.\n");
