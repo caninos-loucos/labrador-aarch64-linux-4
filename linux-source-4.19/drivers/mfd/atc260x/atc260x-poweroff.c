@@ -37,7 +37,7 @@ static int atc260x_poweroff_setup(void)
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL3, 0x80);
 	
 	// set ATC2603C_PMU_SYS_CTL5 value
-	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x180);
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x0);
 	
 	return 0;
 }
