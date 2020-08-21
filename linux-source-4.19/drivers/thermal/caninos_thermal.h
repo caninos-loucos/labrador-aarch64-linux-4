@@ -20,6 +20,10 @@
 #include <linux/platform_device.h>
 #include <linux/thermal.h>
 
-
+struct caninos_tmu_data
+{
+	void __iomem *base;
+	struct clk *tmu_clk;
+};
 
 #endif /* __CANINOS_THERMAL_H */

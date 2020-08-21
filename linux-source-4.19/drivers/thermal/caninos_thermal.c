@@ -18,31 +18,145 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_address.h>
 
 #include "caninos_thermal.h"
 
-static long caninos_tsensdata_to_mcelsius(unsigned int tsens_data)
+static int caninos_tsensdata_to_mcelsius(unsigned int tsens_data)
 {
 	long long temp1, temp2;
 	
 	temp1 = tsens_data + 10;
 	
-	temp2 = (temp1 * temp1);
+	temp2 = temp1 * temp1;
 	
 	temp1 = (11513 * temp1) - 4471272;
 	
 	temp2 = (56534 * temp2) / 10000;
 	
-	return (long)((temp1 + temp2) / 10);
+	return (int)((temp1 + temp2) / 10);
 }
+
+static int caninos_bind(struct thermal_zone_device *thermal,
+                        struct thermal_cooling_device *cdev)
+{
+	return 0;
+}
+
+static int caninos_unbind(struct thermal_zone_device *thermal,
+                          struct thermal_cooling_device *cdev)
+{
+	return 0;
+}
+
+static int caninos_get_temp(struct thermal_zone_device *thermal, int *temp)
+{
+	return 0;
+}
+
+static int caninos_get_trend(struct thermal_zone_device *thermal, int trip,
+                             enum thermal_trend *trend)
+{
+	return 0;
+}
+
+static int caninos_get_mode(struct thermal_zone_device *thermal,
+                            enum thermal_device_mode *mode)
+{
+	return 0;
+}
+
+static int caninos_set_mode(struct thermal_zone_device *thermal,
+                            enum thermal_device_mode mode)
+{
+	return 0;
+}
+
+static int caninos_get_trip_type(struct thermal_zone_device *thermal, int trip,
+                                 enum thermal_trip_type *type)
+{
+	return 0;
+}
+
+static int caninos_get_trip_temp(struct thermal_zone_device *thermal, int trip,
+                                 int *temp)
+{
+	return 0;
+}
+
+static int caninos_set_trip_temp(struct thermal_zone_device *thermal, int trip,
+                                 int temp)
+{
+	return 0;
+}
+
+static int caninos_get_trip_hyst(struct thermal_zone_device *thermal, int trip,
+                                 int *temp)
+{
+	return 0;
+}
+
+static int caninos_get_crit_temp(struct thermal_zone_device *thermal, int *temp)
+{
+	return 0;
+}
+
+static struct thermal_zone_device_ops caninos_thermal_ops = {
+	.bind = caninos_bind,
+	.unbind = caninos_unbind,
+	.get_temp = caninos_get_temp,
+	.get_trend = caninos_get_trend,
+	.get_mode = caninos_get_mode,
+	.set_mode = caninos_set_mode,
+	.get_trip_type = caninos_get_trip_type,
+	.get_trip_temp = caninos_get_trip_temp,
+	.set_trip_temp = caninos_set_trip_temp,
+	.get_trip_hyst = caninos_get_trip_hyst,
+	.get_crit_temp = caninos_get_crit_temp,
+};
 
 static int caninos_tmu_probe(struct platform_device *pdev)
 {
+	struct caninos_tmu_data *data;
+	
+	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
+	
+	if (!data)
+	{
+		dev_err(&pdev->dev, "could not allocate driver structure\n");
+		return -ENOMEM;
+	}
+	
+	data->tmu_clk = devm_clk_get(&pdev->dev, "thermal_sensor");
+	
+	if (IS_ERR(data->tmu_clk))
+	{
+		dev_err(&pdev->dev, "could not get device clock\n");
+		return PTR_ERR(data->tmu_clk);
+	}
+	
+	data->base = of_iomap(pdev->dev.of_node, 0);
+	
+	if (IS_ERR(data->base))
+	{
+		dev_err(&pdev->dev, "could not map device registers\n");
+		return PTR_ERR(data->base);
+	}
+	
+	platform_set_drvdata(pdev, data);
+	
 	return 0;
 }
 
 static int caninos_tmu_remove(struct platform_device *pdev)
 {
+	struct caninos_tmu_data *data = platform_get_drvdata(pdev);
+	
+	if(data)
+	{
+		iounmap(data->base);
+	}
+	
 	return 0;
 }
 
