@@ -630,6 +630,14 @@
 			#size-cells = <0>;
 		};
 		
+		thermal@e01b00f0 {
+			compatible = "caninos,k7-tmu";
+			reg = <0x0 0xe01b00f0 0x0 0x4>;
+			clocks = <&cmu CLK_THERMAL_SENSOR>;
+			clock-names = "thermal_sensor";
+			status = "okay";
+		};
+		
 		sound@e0166000 {
 			compatible = "caninos,sndcard";
 			reg = <0x0 0xe0166000 0x0 0x34>;

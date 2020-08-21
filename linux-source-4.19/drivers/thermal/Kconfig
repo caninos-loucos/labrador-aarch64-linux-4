@@ -415,6 +415,13 @@ config MTK_THERMAL
 	  Enable this option if you want to have support for thermal management
 	  controller present in Mediatek SoCs
 
+config CANINOS_THERMAL
+	bool "Temperature sensor driver for Caninos Labrador SBCs"
+	depends on ARCH_CANINOS || COMPILE_TEST
+	default y
+	help
+	  Enable this option to support thermal sensors on Caninos Labrador SBCs.
+
 menu "Broadcom thermal drivers"
 depends on ARCH_BCM || ARCH_BRCMSTB || ARCH_BCM2835 || COMPILE_TEST
 source "drivers/thermal/broadcom/Kconfig"
