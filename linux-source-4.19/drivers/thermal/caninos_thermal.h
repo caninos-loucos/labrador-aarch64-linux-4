@@ -20,10 +20,34 @@
 #include <linux/platform_device.h>
 #include <linux/thermal.h>
 
+#define CANINOS_TMU_ACTIVE_INTERVAL (1000)
+#define CANINOS_TMU_IDLE_INTERVAL   (3000)
+
+enum caninos_tmu_sensor_type
+{
+	CANINOS_TMU_CPU          = 0,
+	CANINOS_TMU_GPU          = 1,
+	CANINOS_TMU_CORELOGIC    = 2,
+	CANINOS_TMU_SENSOR_COUNT = 3,
+};
+
+struct caninos_tmu_sensor
+{
+	struct thermal_zone_device *zone;
+	struct device *dev;
+	int temperature;
+	int id;
+};
+
 struct caninos_tmu_data
 {
 	void __iomem *base;
 	struct clk *tmu_clk;
+	
+	struct delayed_work work;
+	struct mutex lock;
+	
+	struct caninos_tmu_sensor sensor[CANINOS_TMU_SENSOR_COUNT];
 };
 
 #endif /* __CANINOS_THERMAL_H */
