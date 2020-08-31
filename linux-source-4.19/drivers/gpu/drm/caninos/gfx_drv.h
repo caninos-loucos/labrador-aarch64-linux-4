@@ -24,11 +24,6 @@
 #define DE_PATH_FCR(n) (DE_PATH_BASE + (n) * 0x100 + 0x004)
 #define DE_PATH_FCR_BIT (0)
 
-enum caninos_output_type {
-    CANINOS_HDMI_OUTPUT = 0,
-    CANINOS_CVBS_OUTPUT,
-};
-
 struct caninos_gfx
 {
     struct drm_connector connector;
@@ -48,12 +43,9 @@ struct caninos_gfx
     struct reset_control *cvbs_rst;
     struct reset_control *hdmi_rst;
     struct reset_control *de_rst;
-    
-    enum caninos_output_type output_type;
 };
 
-extern int caninos_gfx_pipe_init(struct drm_device *drm,
-                                 enum caninos_output_type output_type);
+extern int caninos_gfx_pipe_init(struct drm_device *drm);
                                  
 extern irqreturn_t caninos_gfx_irq_handler(int irq, void *data);
 

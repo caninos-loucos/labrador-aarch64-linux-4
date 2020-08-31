@@ -140,7 +140,7 @@ static int caninos_gfx_load(struct drm_device *drm)
 		return PTR_ERR(priv->hdmi_rst);
 	}
 	
-	ret = caninos_gfx_pipe_init(drm, CANINOS_HDMI_OUTPUT);
+	ret = caninos_gfx_pipe_init(drm);
 	
 	if (ret < 0) {
 	    dev_err(drm->dev, "Cannot setup display pipe\n");

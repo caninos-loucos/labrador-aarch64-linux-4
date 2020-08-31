@@ -94,31 +94,30 @@ static enum drm_mode_status caninos_crtc_mode_valid(struct drm_crtc *crtc,
     int w = mode->hdisplay, h = mode->vdisplay;
     int vrefresh = drm_mode_vrefresh(mode);
     
-    struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-    
-    //struct drm_device *drm = crtc->dev;
-    //dev_info(drm->dev, "is mode valid: %dx%d-%dHz\n", w, h, vrefresh);
-    
-    if (pipe->output_type == CANINOS_HDMI_OUTPUT)
-    {
-        if (w != 1920) {
-            return MODE_BAD_HVALUE;
-        }
-        if (h != 1080) {
-            return MODE_BAD_VVALUE;
-        }
-        if (vrefresh != 60) {
-            return MODE_BAD;
-        }
+    if ((w == 640) && (h == 480) && (vrefresh == 60)) {
+    	return MODE_OK;
     }
-    
-    return MODE_OK;
+    if ((w == 720) && (h == 480) && (vrefresh == 60)) {
+    	return MODE_OK;
+    }
+    if ((w == 720) && (h == 576) && (vrefresh == 50)) {
+    	return MODE_OK;
+    }
+    if ((w == 1280) && (h == 720) && ((vrefresh == 60) || (vrefresh == 50))) {
+    	return MODE_OK;
+    }
+    if ((w == 1920) && (h == 1080) && ((vrefresh == 60) || (vrefresh == 50))) {
+    	return MODE_OK;
+    }
+    return MODE_BAD;
 }
 
 static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
     //struct drm_device *drm = crtc->dev;
     //dev_info(drm->dev, "set mode nofb\n");
+    
+    
 }
 
 irqreturn_t caninos_gfx_irq_handler(int irq, void *data)
@@ -276,8 +275,7 @@ static const uint32_t caninos_formats[] = {
 	DRM_FORMAT_XRGB8888,
 };
 
-int caninos_gfx_pipe_init(struct drm_device *drm,
-                          enum caninos_output_type output_type)
+int caninos_gfx_pipe_init(struct drm_device *drm)
 {
     struct caninos_gfx *priv = drm->dev_private;
     
@@ -287,24 +285,12 @@ int caninos_gfx_pipe_init(struct drm_device *drm,
 	struct drm_crtc *crtc = &priv->crtc;
 	int ret;
     
-    priv->output_type = output_type;
-    
     drm_mode_config_init(drm);
     
-    if (output_type == CANINOS_HDMI_OUTPUT)
-    {
-        drm->mode_config.min_width = 640;
-        drm->mode_config.min_height = 480;
-        drm->mode_config.max_width = 1920;
-        drm->mode_config.max_height = 1080;
-    }
-    else
-    {
-        drm->mode_config.min_width = 720;
-        drm->mode_config.min_height = 480;
-        drm->mode_config.max_width = 720;
-        drm->mode_config.max_height = 576;
-    }
+    drm->mode_config.min_width = 640;
+    drm->mode_config.min_height = 480;
+    drm->mode_config.max_width = 1920;
+    drm->mode_config.max_height = 1080;
     
     drm->mode_config.funcs = &caninos_mode_config_funcs;
     
@@ -314,17 +300,9 @@ int caninos_gfx_pipe_init(struct drm_device *drm,
         return ret;
     }
     
-    if (output_type == CANINOS_HDMI_OUTPUT)
-    {
-        drm_connector_init(drm, connector, &caninos_connector_funcs,
-                           DRM_MODE_CONNECTOR_HDMIA);
-    }
-    else
-    {
-        drm_connector_init(drm, connector, &caninos_connector_funcs,
-                           DRM_MODE_CONNECTOR_Composite);
-    }
-
+	drm_connector_init(drm, connector, &caninos_connector_funcs,
+	                   DRM_MODE_CONNECTOR_HDMIA);
+	
     drm_connector_helper_add(connector, &caninos_connector_helper_funcs);
     
     drm_plane_helper_add(plane, &caninos_plane_helper_funcs);
