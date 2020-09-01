@@ -113,13 +113,7 @@ int hdmi_gen_avi_infoframe(struct hdmi_ip *ip)
 	}
 
 	/* PB4--Video Id */
-	if (true &&		/* DisplayFormat == 0, TODO */
-	    (ip->vid == VID3840x2160p_24 ||
-	     ip->vid == VID3840x2160p_25 ||
-	     ip->vid == VID3840x2160p_30 ||
-	     ip->vid == VID4096x2160p_24))
-		pkt[7] = 0;
-	else
+	
 		pkt[7] = ip->vid;
 
 	/* PB5--Pixel repeat time */
@@ -262,45 +256,8 @@ int hdmi_gen_vs_infoframe(struct hdmi_ip *ip)
 	pkt[6] = 0x00;
 
 
-	/*
-	 * pkt[7]-pkt[9] is changed by genganan 2015/2/5
-	 * PB4: HDMI_Video_Format:000--no additional;
-	 *	001--extended resolution(4k*2k@24/25/30/24SMPTE);010--3D format
-	 */
-	if (ip->vid == VID3840x2160p_24 ||
-	    ip->vid == VID3840x2160p_25 ||
-	    ip->vid == VID3840x2160p_30 ||
-	    ip->vid == VID4096x2160p_24) {
-		switch (ip->vid) {
-		case VID3840x2160p_24:
-			pkt[7] = 0x1 << 5;
-			pkt[8] = 0x3;
-			pkt[9] = 0x0;
-			break;
-
-		case VID3840x2160p_25:
-			pkt[7] = 0x1 << 5;
-			pkt[8] = 0x2;
-			pkt[9] = 0x0;
-			break;
-
-		case VID3840x2160p_30:
-			pkt[7] = 0x1 << 5;
-			pkt[8] = 0x1;
-			pkt[9] = 0x0;
-			break;
-
-		case VID4096x2160p_24:
-			pkt[7] = 0x1 << 5;
-			pkt[8] = 0x4;
-			pkt[9] = 0x0;
-			break;
-
-		default:
-			break;
-		}
-
-	} else if (ip->settings.mode_3d != 0) {
+	if (ip->settings.mode_3d != 0)
+	{
 		pkt[7] = 0x2 << 5;	/* 3D format */
 
 		switch (ip->settings.mode_3d) {

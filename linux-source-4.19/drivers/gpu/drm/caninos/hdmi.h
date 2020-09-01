@@ -93,18 +93,8 @@ enum hdmi_vid_table {
 	VID1440x576P_50_4VS3 = 29,
 	VID1920x1080P_50_16VS9 = 31,
 	VID1920x1080P_24_16VS9,
-	VID3840x2160p_24 = 93,
-	VID3840x2160p_25,
-	VID3840x2160p_30,
-	VID4096x2160p_24 = 98,
-	VID4096x2160p_25,
-	VID4096x2160p_30,
+
 	
-	/* some specail VID */
-	VID1280x1024p_60 = 124,
-	VID2560x1024p_60 = 125,
-	VID2560x1024p_75 = 126,
-	VID3840x1080p_60 = 127,
 };
 
 enum hdmi_packet_type {
@@ -123,17 +113,26 @@ struct hdmi_ip_ops
 {
 	int  (*init)(struct hdmi_ip *ip);
 	void (*exit)(struct hdmi_ip *ip);
-	bool (*is_power_on)(struct hdmi_ip *ip);
+	
+	void (*power_off)(struct hdmi_ip *ip);
+	int (*power_on)(struct hdmi_ip *ip);
+	
 	void (*hpd_enable)(struct hdmi_ip *ip);
 	void (*hpd_disable)(struct hdmi_ip *ip);
 	bool (*hpd_is_pending)(struct hdmi_ip *ip);
 	void (*hpd_clear_pending)(struct hdmi_ip *ip);
+	
 	bool (*cable_status)(struct hdmi_ip *ip);
+	
 	int  (*video_enable)(struct hdmi_ip *ip);
 	void (*video_disable)(struct hdmi_ip *ip);
 	bool (*is_video_enabled)(struct hdmi_ip *ip);
+	
 	int  (*packet_generate)(struct hdmi_ip *ip, uint32_t no, uint8_t *pkt);
 	int  (*packet_send)(struct hdmi_ip *ip, uint32_t no, int period);
+	
+	int  (*audio_enable)(struct hdmi_ip *ip);
+	int  (*audio_disable)(struct hdmi_ip *ip);
 };
 
 struct hdmi_ip_settings
@@ -152,8 +151,6 @@ struct hdmi_ip_settings
 
 struct hdmi_ip_hwdiff
 {
-	
-	
 	int	hp_start;
 	int	hp_end;
 	int	vp_start;
@@ -188,7 +185,6 @@ struct hdmi_ip
 	bool repeat;
 	
 	/* used for registers setting */
-	
 	uint32_t pll_val;
 	uint32_t pll_debug0_val;
 	uint32_t pll_debug1_val;
@@ -202,7 +198,6 @@ struct hdmi_ip
 	
 	/* used for hardware specific configurations */
 	const struct hdmi_ip_hwdiff *hwdiff;
-	
 };
 
 struct hdmi_ip_init_data

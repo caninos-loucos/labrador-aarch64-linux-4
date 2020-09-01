@@ -209,76 +209,67 @@ static void ip_video_disable(struct hdmi_ip *ip)
 	hdmi_ip_writel(ip, HDMI_TX_2, val);
 }
 
-static int ip_video_enable(struct hdmi_ip *ip)
+static int ip_update_reg_values(struct hdmi_ip *ip)
 {
-	uint32_t val, mode, val_hp, val_vp;
-	bool vsync_pol, hsync_pol;
-	int preline;
-	
 	ip->pll_val = 0;
 	
 	/* bit31 = 0, debug mode disable, default value if it is not set */
-	
 	ip->pll_debug0_val = 0;
 	ip->pll_debug1_val = 0;
 	
 	ip->tx_1 = 0;
 	ip->tx_2 = 0;
 	
-	/*
-	now only support 24bit, normal 2D or Side-by-Side Half 3D
-	or Top-and-Bottom 3D, Frame 3D, 30bit, 36bit
-	*/
+	switch (ip->vid)
 	{
-		switch (ip->vid)
-		{
-		case VID640x480P_60_4VS3:
-			ip->pll_val = 0x00000008; /* 25.2MHz */
-			ip->tx_1 = 0x819c2984;
-			ip->tx_2 = 0x18f80f39;
-			break;
+	case VID640x480P_60_4VS3:
+		ip->pll_val = 0x00000008;	/* 25.2MHz */
+		ip->tx_1 = 0x819c2984;
+		ip->tx_2 = 0x18f80f39;
+		break;
+	
+	case VID720x576P_50_4VS3:
+	case VID720x480P_60_4VS3:
+		ip->pll_val = 0x00010008;	/* 27MHz */
+		ip->tx_1 = 0x819c2984;
+		ip->tx_2 = 0x18f80f39;
+		break;
 
-		case VID720x576P_50_4VS3:
-		case VID720x480P_60_4VS3:
-			ip->pll_val = 0x00010008; /* 27MHz */
-			ip->tx_1 = 0x819c2984;
-			ip->tx_2 = 0x18f80f39;
-			break;
+	case VID1280x720P_60_16VS9:
+	case VID1280x720P_50_16VS9:
+		ip->pll_val = 0x00040008;	/* 74.25MHz */
+		ip->tx_1 = 0x81982984;
+		ip->tx_2 = 0x18f80f39;
+		break;
 
-		case VID1280x720P_60_16VS9:
-		case VID1280x720P_50_16VS9:
-			ip->pll_val = 0x00040008; /* 74.25MHz */
-			ip->tx_1 = 0x81982984;
-			ip->tx_2 = 0x18f80f39;
-			break;
+	case VID1920x1080P_60_16VS9:
+	case VID1920x1080P_50_16VS9:
+		ip->pll_val = 0x00060008;	/* 148.5MHz */
+		ip->tx_1 = 0x81942988;
+		ip->tx_2 = 0x18fe0f39;
+		break;
 
-		case VID1920x1080P_60_16VS9:
-		case VID1920x1080P_50_16VS9:
-			ip->pll_val = 0x00060008; /* 148.5MHz */
-			ip->tx_1 = 0x81942988;
-			ip->tx_2 = 0x18fe0f39;
-			break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
 
-		case VID3840x2160p_30:
-		case VID3840x1080p_60:
-		case VID4096x2160p_30:
-			ip->pll_val = 0x00070008; /* 297MHz */
-			ip->tx_1 = 0x819029de;
-			ip->tx_2 = 0x18fe0f39;
-			break;
-
-		default:
-			return -1;
-		}
+static int ip_video_enable(struct hdmi_ip *ip)
+{
+	uint32_t val, mode, val_hp, val_vp;
+	bool vsync_pol, hsync_pol;
+	int preline;
+	
+	int ret;
+	
+	ret = ip_update_reg_values(ip);
+	
+	if (ret < 0) {
+		return ret;
 	}
 	
-	/* wait 5ms */
-	udelay(5000);
-	
-	/*
-	do not enable HDMI lane util video enable
-	*/
-	
+	/* do not enable HDMI lane util video enable */
 	val = ip->tx_2 & (~((0xf << 8) | (1 << 17)));
 	hdmi_ip_writel(ip, HDMI_TX_2, val);
 	
@@ -325,24 +316,22 @@ static int ip_video_enable(struct hdmi_ip *ip)
 	udelay(1000);
 	
 	/* do TDMS clock calibration */
+	val = hdmi_ip_readl(ip, CEC_DDC_HPD);
+		
+	/* 0 to 1, start calibration */
+	val = REG_SET_VAL(val, 0, 20, 20);
+	hdmi_ip_writel(ip, CEC_DDC_HPD, val);
+		
+	udelay(10);
+		
+	val = REG_SET_VAL(val, 1, 20, 20);
+	hdmi_ip_writel(ip, CEC_DDC_HPD, val);
+		
+	while (1)
 	{
 		val = hdmi_ip_readl(ip, CEC_DDC_HPD);
-		
-		/* 0 to 1, start calibration */
-		val = REG_SET_VAL(val, 0, 20, 20);
-		hdmi_ip_writel(ip, CEC_DDC_HPD, val);
-		
-		udelay(10);
-		
-		val = REG_SET_VAL(val, 1, 20, 20);
-		hdmi_ip_writel(ip, CEC_DDC_HPD, val);
-		
-		while (1)
-		{
-			val = hdmi_ip_readl(ip, CEC_DDC_HPD);
-			if ((val >> 24) & 0x1) {
-				break;
-			}
+		if ((val >> 24) & 0x1) {
+			break;
 		}
 	}
 	
@@ -473,7 +462,6 @@ static int ip_video_enable(struct hdmi_ip *ip)
 		break;
 
 	case VID1920x1080P_60_16VS9:
-	case VID3840x1080p_60:
 		val = 0x1105;
 		break;
 
@@ -614,7 +602,7 @@ static void ip_hpd_disable(struct hdmi_ip *ip)
 
 static void ip_exit(struct hdmi_ip *ip)
 {
-	//hdmic clk disable
+	return;
 }
 
 static int ip_init(struct hdmi_ip *ip)
@@ -629,25 +617,73 @@ static int ip_init(struct hdmi_ip *ip)
 	ip->settings.prelines = 0;
 	ip->settings.channel_invert = 0;
 	ip->settings.bit_invert = 0;
+	return 0;
+}
+
+static int ip_power_on(struct hdmi_ip *ip)
+{
+	int ret = 0;
 	
-	//reset and enable hdmic clock
+	if (!ip_is_video_enabled(ip))
+		reset_control_assert(ip->hdmi_rst);
+
+	clk_prepare_enable(ip->hdmi_dev_clk);
 	
+	mdelay(1);
+	
+	if (!ip_is_video_enabled(ip))
+	{
+		reset_control_deassert(ip->hdmi_rst);
+		mdelay(1);
+	}
+	
+	return ret;
+}
+
+static void ip_power_off(struct hdmi_ip *ip)
+{
+	reset_control_assert(ip->hdmi_rst);
+	clk_disable_unprepare(ip->hdmi_dev_clk);
+}
+
+static int ip_audio_enable(struct hdmi_ip *ip)
+{
+	u32 val = hdmi_ip_readl(ip, HDMI_ICR);
+	val |= (1 << 25);
+	hdmi_ip_writel(ip, HDMI_ICR, val);
+	return 0;
+}
+
+static int ip_audio_disable(struct hdmi_ip *ip)
+{
+	u32 val = hdmi_ip_readl(ip, HDMI_ICR);
+	val &= ~(1 << 25);
+	hdmi_ip_writel(ip, HDMI_ICR, val);
 	return 0;
 }
 
 static const struct hdmi_ip_ops ip_sx00_ops = {
 	.init = ip_init,
 	.exit = ip_exit,
+	
+	.power_on = ip_power_on,
+	.power_off = ip_power_off,
+	
 	.hpd_enable = ip_hpd_enable,
 	.hpd_disable = ip_hpd_disable,
 	.hpd_is_pending = ip_hpd_is_pending,
 	.hpd_clear_pending = ip_hpd_clear_pending,
 	.cable_status = ip_cable_status,
+	
 	.video_enable = ip_video_enable,
 	.video_disable = ip_video_disable,
 	.is_video_enabled = ip_is_video_enabled,
+	
 	.packet_generate = ip_packet_generate,
 	.packet_send = ip_packet_send,
+	
+	.audio_enable = ip_audio_enable,
+	.audio_disable = ip_audio_disable,
 };
 
 static struct hdmi_ip g_ip;
