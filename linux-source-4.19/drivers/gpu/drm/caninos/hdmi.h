@@ -114,9 +114,6 @@ struct hdmi_ip_ops
 	int  (*init)(struct hdmi_ip *ip);
 	void (*exit)(struct hdmi_ip *ip);
 	
-	void (*power_off)(struct hdmi_ip *ip);
-	int (*power_on)(struct hdmi_ip *ip);
-	
 	void (*hpd_enable)(struct hdmi_ip *ip);
 	void (*hpd_disable)(struct hdmi_ip *ip);
 	bool (*hpd_is_pending)(struct hdmi_ip *ip);
@@ -199,16 +196,6 @@ struct hdmi_ip
 	/* used for hardware specific configurations */
 	const struct hdmi_ip_hwdiff *hwdiff;
 };
-
-struct hdmi_ip_init_data
-{
-	void __iomem *base;
-	void __iomem *cmu_base;
-	struct reset_control *hdmi_rst;
-	struct clk *hdmi_dev_clk;
-};
-
-extern struct hdmi_ip* hdmic_init(struct hdmi_ip_init_data *data);
 
 #endif
 

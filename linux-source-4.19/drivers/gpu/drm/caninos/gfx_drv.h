@@ -33,15 +33,12 @@ struct caninos_gfx
     
     void __iomem *base;
     void __iomem *cvbs_base;
-    void __iomem *hdmi_base;
     void __iomem *cmu_base;
     
     struct clk *clk, *parent_clk;
     struct clk *tvout_clk, *cvbspll_clk;
-    struct clk *hdmi_dev_clk;
     
     struct reset_control *cvbs_rst;
-    struct reset_control *hdmi_rst;
     struct reset_control *de_rst;
 };
 

@@ -85,13 +85,6 @@ static int caninos_gfx_load(struct drm_device *drm)
 		return PTR_ERR(priv->cmu_base);
 	}
 	
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "hdmi");
-	priv->hdmi_base = devm_ioremap_resource(drm->dev, res);
-	
-	if (IS_ERR(priv->hdmi_base)) {
-		return PTR_ERR(priv->hdmi_base);
-	}
-	
 	priv->tvout_clk = devm_clk_get(drm->dev, "tvout");
 	
 	if (IS_ERR(priv->tvout_clk)) {
@@ -101,12 +94,6 @@ static int caninos_gfx_load(struct drm_device *drm)
 	priv->cvbspll_clk = devm_clk_get(drm->dev, "cvbs_pll");
 	
 	if (IS_ERR(priv->cvbspll_clk)) {
-		return -EINVAL;
-	}
-	
-	priv->hdmi_dev_clk = devm_clk_get(drm->dev, "hdmi");
-	
-	if (IS_ERR(priv->hdmi_dev_clk)) {
 		return -EINVAL;
 	}
 	
@@ -132,12 +119,6 @@ static int caninos_gfx_load(struct drm_device *drm)
 	
 	if (IS_ERR(priv->cvbs_rst)) {
 		return PTR_ERR(priv->cvbs_rst);
-	}
-	
-	priv->hdmi_rst = devm_reset_control_get(drm->dev, "hdmi");
-	
-	if (IS_ERR(priv->hdmi_rst)) {
-		return PTR_ERR(priv->hdmi_rst);
 	}
 	
 	ret = caninos_gfx_pipe_init(drm);

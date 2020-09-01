@@ -1,7 +1,11 @@
-#include <linux/types.h>
+
 #include <linux/delay.h>
-#include <asm/io.h>
-#include <asm/string.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/dma-mapping.h>
+
 #include "hdmi.h"
 #include "ip-sx00.h"
 
@@ -604,24 +608,15 @@ static void ip_hpd_disable(struct hdmi_ip *ip)
 	hdmi_ip_writel(ip, HDMI_CR, val);
 }
 
-static void ip_exit(struct hdmi_ip *ip)
+static void ip_power_off(struct hdmi_ip *ip)
 {
-	return;
+	reset_control_assert(ip->hdmi_rst);
+	clk_disable_unprepare(ip->hdmi_dev_clk);
 }
 
-static int ip_init(struct hdmi_ip *ip)
+static void ip_exit(struct hdmi_ip *ip)
 {
-	ip->settings.hdmi_src = DE;
-	ip->settings.vitd_color = 0xff0000;
-	ip->settings.pixel_encoding = RGB444;
-	ip->settings.color_xvycc = 0;
-	ip->settings.deep_color = color_mode_24bit;
-	ip->settings.hdmi_mode = HDMI_HDMI;
-	ip->settings.mode_3d = HDMI_2D;
-	ip->settings.prelines = 0;
-	ip->settings.channel_invert = 0;
-	ip->settings.bit_invert = 0;
-	return 0;
+	ip_power_off(ip);
 }
 
 static int ip_power_on(struct hdmi_ip *ip)
@@ -644,10 +639,20 @@ static int ip_power_on(struct hdmi_ip *ip)
 	return ret;
 }
 
-static void ip_power_off(struct hdmi_ip *ip)
+static int ip_init(struct hdmi_ip *ip)
 {
-	reset_control_assert(ip->hdmi_rst);
-	clk_disable_unprepare(ip->hdmi_dev_clk);
+	ip->settings.hdmi_src = DE;
+	ip->settings.vitd_color = 0xff0000;
+	ip->settings.pixel_encoding = RGB444;
+	ip->settings.color_xvycc = 0;
+	ip->settings.deep_color = color_mode_24bit;
+	ip->settings.hdmi_mode = HDMI_HDMI;
+	ip->settings.mode_3d = HDMI_2D;
+	ip->settings.prelines = 0;
+	ip->settings.channel_invert = 0;
+	ip->settings.bit_invert = 0;
+	
+	return ip_power_on(ip);
 }
 
 static int ip_audio_enable(struct hdmi_ip *ip)
@@ -670,9 +675,6 @@ static const struct hdmi_ip_ops ip_sx00_ops = {
 	.init = ip_init,
 	.exit = ip_exit,
 	
-	.power_on = ip_power_on,
-	.power_off = ip_power_off,
-	
 	.hpd_enable = ip_hpd_enable,
 	.hpd_disable = ip_hpd_disable,
 	.hpd_is_pending = ip_hpd_is_pending,
@@ -690,8 +692,6 @@ static const struct hdmi_ip_ops ip_sx00_ops = {
 	.audio_disable = ip_audio_disable,
 };
 
-static struct hdmi_ip g_ip;
-
 static const struct hdmi_ip_hwdiff ip_sx00 = {
 	.hp_start = 16,
 	.hp_end	= 28,
@@ -706,20 +706,92 @@ static const struct hdmi_ip_hwdiff ip_sx00 = {
 	.pll_debug1_reg	= 0xF4,
 };
 
-struct hdmi_ip* hdmic_init(struct hdmi_ip_init_data *data)
+static int caninos_hdmi_ip_probe(struct platform_device *pdev)
 {
-	g_ip.base         = data->base;
-	g_ip.cmu_base     = data->cmu_base;
-	g_ip.hdmi_rst     = data->hdmi_rst;
-	g_ip.hdmi_dev_clk = data->hdmi_dev_clk;
-	g_ip.hwdiff       = &ip_sx00;
-	g_ip.ops          = &ip_sx00_ops;
+	struct resource *res;
+	struct hdmi_ip *ip;
+    int ret;
+    
+    ip = devm_kzalloc(&pdev->dev, sizeof(*ip), GFP_KERNEL);
+
+    if (!ip) {
+        return -ENOMEM;
+    }
+    
+    ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+    
+    if (ret)
+    {
+        dev_err(&pdev->dev, "failed to set DMA mask: %d\n", ret);
+        return ret;
+    }
+    
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cmu");
+	ip->cmu_base = devm_ioremap_resource(&pdev->dev, res);
 	
-	/* HDMI IP init */
-	if (g_ip.ops->init(&g_ip)) {
-		return NULL;
+	if (IS_ERR(ip->cmu_base)) {
+		return PTR_ERR(ip->cmu_base);
 	}
 	
-	return &g_ip;
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "hdmi");
+	ip->base = devm_ioremap_resource(&pdev->dev, res);
+	
+	if (IS_ERR(ip->base)) {
+		return PTR_ERR(ip->base);
+	}
+	
+	ip->hdmi_dev_clk = devm_clk_get(&pdev->dev, "hdmi");
+	
+	if (IS_ERR(ip->hdmi_dev_clk)) {
+		return -EINVAL;
+	}
+	
+	ip->hdmi_rst = devm_reset_control_get(&pdev->dev, "hdmi");
+	
+	if (IS_ERR(ip->hdmi_rst)) {
+		return PTR_ERR(ip->hdmi_rst);
+	}
+	
+	ip->hwdiff = &ip_sx00;
+	ip->ops = &ip_sx00_ops;
+	
+	ret = ip->ops->init(ip);
+	
+	if (ret) {
+		return ret;
+	}
+	
+	platform_set_drvdata(pdev, ip);
+	return 0;
 }
+
+static int caninos_hdmi_ip_remove(struct platform_device *pdev)
+{
+	struct hdmi_ip *ip = platform_get_drvdata(pdev);
+	ip->ops->exit(ip);
+	return 0;
+}
+
+static const struct of_device_id caninos_hdmi_ip_match[] = {
+	{ .compatible = "caninos,k7-hdmi" },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(of, caninos_hdmi_ip_match);
+
+static struct platform_driver caninos_hdmi_ip_driver = {
+	.probe = caninos_hdmi_ip_probe,
+	.remove = caninos_hdmi_ip_remove,
+	.driver = {
+		.name = "caninos-hdmi",
+		.of_match_table = caninos_hdmi_ip_match,
+		.owner = THIS_MODULE,
+	},
+};
+
+module_platform_driver(caninos_hdmi_ip_driver);
+
+MODULE_AUTHOR("Edgar Bernardi Righi <edgar.righi@lsitec.org.br>");
+MODULE_DESCRIPTION("Caninos HDMI IP Driver");
+MODULE_LICENSE("GPL v2");
 
