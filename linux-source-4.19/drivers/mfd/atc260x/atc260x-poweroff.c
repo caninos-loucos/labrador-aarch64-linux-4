@@ -16,11 +16,64 @@
 #include <linux/module.h>
 #include <linux/pm.h>
 #include <linux/of_device.h>
+#include <linux/input.h>
 #include <asm/system_misc.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/atc260x/atc260x.h>
 
 static struct atc260x_dev *pmic = NULL;
+
+static struct input_dev *baseboard_keys_dev = NULL;
+
+/* 
+add worker to poll keys
+
+input_report_key(baseboard_keys_dev, KEY_POWER, 1)
+input_sync(baseboard_keys_dev);
+input_report_key(baseboard_keys_dev, KEY_POWER, 0)
+input_sync(baseboard_keys_dev);
+
+*/
+
+static int atc260x_create_input_device(void)
+{
+	int ret;
+	
+	baseboard_keys_dev = input_allocate_device();
+	
+	if (!baseboard_keys_dev) {
+		return -ENOMEM;
+	}
+	
+	/* power key */
+	input_set_capability(baseboard_keys_dev, EV_KEY, KEY_POWER);
+	
+	/* reboot key */
+	input_set_capability(baseboard_keys_dev, EV_KEY, KEY_LOGOFF);
+	
+	/* general purpose user configurable key */
+	input_set_capability(baseboard_keys_dev, EV_KEY, KEY_PROG1);
+	
+	ret = input_register_device(baseboard_keys_dev);
+	
+	if (ret)
+	{
+		input_free_device(baseboard_keys_dev);
+		baseboard_keys_dev = NULL;
+		return ret;
+	}
+	
+	return 0;
+}
+
+static void atc260x_destroy_input_device(void)
+{
+	if (baseboard_keys_dev)
+	{
+		input_unregister_device(baseboard_keys_dev);
+		baseboard_keys_dev = NULL;
+	}
+}
 
 static int atc260x_poweroff_setup(void)
 {
@@ -85,11 +138,14 @@ static int atc2603c_platform_probe(struct platform_device *pdev)
 	atc260x_poweroff_setup();
 	pm_power_off = atc260x_poweroff;
 	arm_pm_restart = atc260x_restart;
+	
+	atc260x_create_input_device();
 	return 0;
 }
 
 static int atc2603c_platform_remove(struct platform_device *pdev)
 {
+	atc260x_destroy_input_device();
 	return 0;
 }
 
