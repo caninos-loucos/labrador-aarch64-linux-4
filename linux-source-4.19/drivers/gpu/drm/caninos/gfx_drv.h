@@ -13,6 +13,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+ 
+#include "hdmi.h"
 
 #define DE_IRQENABLE (0x0000)
 #define DE_IRQSTATUS (0x0004)
@@ -40,6 +42,8 @@ struct caninos_gfx
     
     struct reset_control *cvbs_rst;
     struct reset_control *de_rst;
+    
+    struct hdmi_ip_ops *hdmi_ip;
 };
 
 extern int caninos_gfx_pipe_init(struct drm_device *drm);

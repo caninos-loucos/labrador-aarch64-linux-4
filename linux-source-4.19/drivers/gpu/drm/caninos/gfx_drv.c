@@ -41,7 +41,7 @@
 
 #include "gfx_drv.h"
 
-static int caninos_gfx_load(struct drm_device *drm)
+static int caninos_gfx_load(struct drm_device *drm, struct hdmi_ip_ops *hdmi_ip)
 {
     struct platform_device *pdev = to_platform_device(drm->dev);
     struct caninos_gfx *priv;
@@ -55,6 +55,7 @@ static int caninos_gfx_load(struct drm_device *drm)
     }
     
     drm->dev_private = priv;
+    priv->hdmi_ip = hdmi_ip;
     
     ret = dma_set_mask_and_coherent(drm->dev, DMA_BIT_MASK(32));
     
@@ -146,7 +147,6 @@ static void caninos_gfx_unload(struct drm_device *drm)
 {
 	drm_kms_helper_poll_fini(drm);
 	drm_mode_config_cleanup(drm);
-
 	drm->dev_private = NULL;
 }
 
@@ -184,21 +184,51 @@ static const struct of_device_id caninos_gfx_match[] = {
 
 static int caninos_gfx_probe(struct platform_device *pdev)
 {
+	struct hdmi_ip_ops *hdmi_ip = NULL;
+	struct platform_device *hdmi_pdev;
+	struct device_node *hdmi_np;
 	struct drm_device *drm;
 	int ret;
-
+	
+	hdmi_np = of_parse_phandle(pdev->dev.of_node, "hdmi-phy", 0);
+	
+	if (!hdmi_np)
+	{
+		dev_err(&pdev->dev, "could not get hdmi-phy node\n");
+		return -ENXIO;
+	}
+	
+	hdmi_pdev = of_find_device_by_node(hdmi_np);
+	
+	if (hdmi_pdev) {
+		hdmi_ip = platform_get_drvdata(hdmi_pdev);
+	}
+	
+	of_node_put(hdmi_np);
+	
+	if (!hdmi_pdev || !hdmi_ip)
+	{
+		dev_err(&pdev->dev, "hdmi-phy is not ready\n");
+		return -EPROBE_DEFER;
+	}
+	
 	drm = drm_dev_alloc(&caninos_gfx_driver, &pdev->dev);
 	
-    if (IS_ERR(drm))
+    if (IS_ERR(drm)) {
 		return PTR_ERR(drm);
-
-	ret = caninos_gfx_load(drm);
-	if (ret)
+	}
+	
+	ret = caninos_gfx_load(drm, hdmi_ip);
+	
+	if (ret) {
 		goto err_free;
+	}
 
 	ret = drm_dev_register(drm, 0);
-	if (ret)
+	
+	if (ret) {
 		goto err_unload;
+	}
 
 	return 0;
 
@@ -206,7 +236,6 @@ err_unload:
 	caninos_gfx_unload(drm);
 err_free:
 	drm_dev_put(drm);
-
 	return ret;
 }
 

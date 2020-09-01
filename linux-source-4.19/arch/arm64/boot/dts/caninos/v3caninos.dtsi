@@ -362,6 +362,22 @@
 			};
 		};
 		
+		hdmi: hdmi@e02c0000 {
+			compatible = "caninos,k7-hdmi";
+			
+			reg = <0x0 0xe02c0000 0x0 0x1f0>,
+			      <0x0 0xe0168000 0x0 0x100>;
+			reg-names = "hdmi", "cmu";
+			
+			clocks = <&cmu CLK_HDMI_DEV>;
+			clock-names = "hdmi";
+			
+			resets = <&rst RST_HDMI>;
+			reset-names = "hdmi";
+			
+			status = "okay";
+		};
+		
 		drm: video {
 			compatible = "caninos,k7-drm";
 			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
@@ -384,6 +400,8 @@
 			
 			resets = <&rst RST_TVOUT>, <&rst RST_DE>;
 			reset-names = "tvout", "de";
+			
+			hdmi-phy = <&hdmi>;
 		};
 		
 		timer: timer@e024c000 {
@@ -633,22 +651,6 @@
 			reg = <0x0 0xe01b00f0 0x0 0x4>;
 			clocks = <&cmu CLK_THERMAL_SENSOR>;
 			clock-names = "thermal_sensor";
-			status = "okay";
-		};
-		
-		hdmi@e02c0000 {
-			compatible = "caninos,k7-hdmi";
-			
-			reg = <0x0 0xe02c0000 0x0 0x1f0>,
-			      <0x0 0xe0168000 0x0 0x100>;
-			reg-names = "hdmi", "cmu";
-			
-			clocks = <&cmu CLK_HDMI_DEV>;
-			clock-names = "hdmi";
-			
-			resets = <&rst RST_HDMI>;
-			reset-names = "hdmi";
-			
 			status = "okay";
 		};
 		

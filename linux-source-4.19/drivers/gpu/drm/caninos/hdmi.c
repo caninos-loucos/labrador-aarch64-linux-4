@@ -623,8 +623,9 @@ static int ip_power_on(struct hdmi_ip *ip)
 {
 	int ret = 0;
 	
-	if (!ip_is_video_enabled(ip))
+	if (!ip_is_video_enabled(ip)) {
 		reset_control_assert(ip->hdmi_rst);
+	}
 
 	clk_prepare_enable(ip->hdmi_dev_clk);
 	

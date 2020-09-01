@@ -92,7 +92,7 @@ static void atc260x_destroy_input_device(void)
 }
 
 static int atc260x_poweroff_setup(void)
-{
+{	
 	// set ATC2603C_PMU_SYS_CTL0 value
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0x304B);
 	
@@ -106,7 +106,7 @@ static int atc260x_poweroff_setup(void)
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL3, 0x80);
 	
 	// set ATC2603C_PMU_SYS_CTL5 value
-	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x0);
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x400);
 	
 	return 0;
 }
