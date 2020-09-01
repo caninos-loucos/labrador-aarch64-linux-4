@@ -21,9 +21,11 @@
 #include <linux/mfd/core.h>
 #include <linux/mfd/atc260x/atc260x.h>
 
-static struct atc260x_dev *pmic = NULL;
+#define CANINOS_KEY_POLLING_DELAY_MS (100)
 
+static struct atc260x_dev *pmic = NULL;
 static struct input_dev *baseboard_keys_dev = NULL;
+static struct delayed_work key_polling_work;
 
 /* 
 add worker to poll keys
@@ -33,10 +35,21 @@ input_sync(baseboard_keys_dev);
 input_report_key(baseboard_keys_dev, KEY_POWER, 0)
 input_sync(baseboard_keys_dev);
 
+usleep_range(1500, 2000);
 */
+
+static void caninos_key_polling_worker(struct work_struct *work)
+{
+	const unsigned long delay = msecs_to_jiffies(CANINOS_KEY_POLLING_DELAY_MS);
+	
+	//
+	
+	queue_delayed_work(system_long_wq, &key_polling_work, delay);
+}
 
 static int atc260x_create_input_device(void)
 {
+	const unsigned long delay = msecs_to_jiffies(CANINOS_KEY_POLLING_DELAY_MS);
 	int ret;
 	
 	baseboard_keys_dev = input_allocate_device();
@@ -63,6 +76,8 @@ static int atc260x_create_input_device(void)
 		return ret;
 	}
 	
+	INIT_DELAYED_WORK(&key_polling_work, caninos_key_polling_worker);
+	queue_delayed_work(system_long_wq, &key_polling_work, delay);
 	return 0;
 }
 
@@ -70,6 +85,7 @@ static void atc260x_destroy_input_device(void)
 {
 	if (baseboard_keys_dev)
 	{
+		cancel_delayed_work_sync(&key_polling_work);
 		input_unregister_device(baseboard_keys_dev);
 		baseboard_keys_dev = NULL;
 	}
@@ -104,10 +120,12 @@ static void atc260x_poweroff(void)
 	ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xE);
 	
 	if (ret < 0) {
-		pr_err("System poweroff failed.\n");
+		pr_err("system poweroff failed.\n");
 	}
 	
-	while(1);
+	for(;;) { /* must never return */
+		cpu_relax();
+	}
 }
 
 static void atc260x_restart(enum reboot_mode reboot_mode, const char *cmd)
@@ -119,10 +137,12 @@ static void atc260x_restart(enum reboot_mode reboot_mode, const char *cmd)
 	ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0x344B);
 	
 	if (ret < 0) {
-		pr_err("System restart failed.\n");
+		pr_err("system restart failed.\n");
 	}
 	
-	while(1);
+	for(;;) { /* must never return */
+		cpu_relax();
+	}
 }
 
 static int atc2603c_platform_probe(struct platform_device *pdev)

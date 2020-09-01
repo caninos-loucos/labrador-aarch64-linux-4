@@ -259,7 +259,7 @@ static int ip_video_enable(struct hdmi_ip *ip)
 {
 	uint32_t val, mode, val_hp, val_vp;
 	bool vsync_pol, hsync_pol;
-	int preline;
+	int preline, retry;
 	
 	int ret;
 	
@@ -326,13 +326,17 @@ static int ip_video_enable(struct hdmi_ip *ip)
 		
 	val = REG_SET_VAL(val, 1, 20, 20);
 	hdmi_ip_writel(ip, CEC_DDC_HPD, val);
-		
-	while (1)
+	
+	for (retry = 100; retry > 0; retry--)
 	{
 		val = hdmi_ip_readl(ip, CEC_DDC_HPD);
+		
 		if ((val >> 24) & 0x1) {
 			break;
 		}
+		
+		retry--;
+		udelay(1);
 	}
 	
 	/* wait 10ms */
