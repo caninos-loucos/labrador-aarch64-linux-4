@@ -28,22 +28,47 @@ static struct input_dev *baseboard_keys_dev = NULL;
 static struct delayed_work key_polling_work;
 
 /* 
-add worker to poll keys
-
-input_report_key(baseboard_keys_dev, KEY_POWER, 1)
-input_sync(baseboard_keys_dev);
-input_report_key(baseboard_keys_dev, KEY_POWER, 0)
-input_sync(baseboard_keys_dev);
-
 usleep_range(1500, 2000);
 */
 
 static void caninos_key_polling_worker(struct work_struct *work)
 {
 	const unsigned long delay = msecs_to_jiffies(CANINOS_KEY_POLLING_DELAY_MS);
+	int ret;
 	
-	//
+	ret = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL2);
 	
+	if (ret < 0) {
+		goto quit_worker;
+	}
+	
+	/* ONOFF short press */
+	if (ret & BIT(14))
+	{
+		ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, ret);
+		
+		if (ret >= 0)
+		{
+			input_report_key(baseboard_keys_dev, KEY_POWER, 1);
+			input_sync(baseboard_keys_dev);
+			input_report_key(baseboard_keys_dev, KEY_POWER, 0);
+			input_sync(baseboard_keys_dev);
+		}
+	}
+	
+	/* ONOFF long press */
+	if (ret & BIT(13))
+	{
+		ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, ret);
+		
+		if (ret >= 0)
+		{
+			/* do a hard shutdown */
+			//pr_info("ONOFF long press!!\n");
+		}
+	}
+	
+quit_worker:
 	queue_delayed_work(system_long_wq, &key_polling_work, delay);
 }
 
@@ -52,17 +77,53 @@ static int atc260x_create_input_device(void)
 	const unsigned long delay = msecs_to_jiffies(CANINOS_KEY_POLLING_DELAY_MS);
 	int ret;
 	
+	ret = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL2);
+	
+	if (ret < 0) {
+		return ret;
+	}
+	
+	/* clear pending key interrupts */
+	ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, ret | 0x6000);
+	
+	if (ret < 0) {
+		return ret;
+	}
+	
+	ret = atc260x_reg_read(pmic, ATC2603C_PMU_SYS_CTL2);
+	
+	if (ret < 0) {
+		return ret;
+	}
+	
+	/* enable ONOFF interrupts */
+	ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, ret | 0x1000);
+	
+	if (ret < 0) {
+		return ret;
+	}
+	
 	baseboard_keys_dev = input_allocate_device();
 	
 	if (!baseboard_keys_dev) {
 		return -ENOMEM;
 	}
 	
+	/*
+	This driver uses the Event Interface (Documentation/input/input.txt)
+	A user should read the file /dev/input/eventX in C, Python, ...
+	For every key press the following binary structure will be returned:
+	
+	struct input_event {
+		struct timeval time;
+		unsigned short type;
+		unsigned short code;
+		unsigned int value;
+	};
+	*/
+	
 	/* power key */
 	input_set_capability(baseboard_keys_dev, EV_KEY, KEY_POWER);
-	
-	/* reboot key */
-	input_set_capability(baseboard_keys_dev, EV_KEY, KEY_LOGOFF);
 	
 	/* general purpose user configurable key */
 	input_set_capability(baseboard_keys_dev, EV_KEY, KEY_PROG1);
@@ -92,7 +153,7 @@ static void atc260x_destroy_input_device(void)
 }
 
 static int atc260x_poweroff_setup(void)
-{	
+{
 	// set ATC2603C_PMU_SYS_CTL0 value
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0x304B);
 	
@@ -106,7 +167,7 @@ static int atc260x_poweroff_setup(void)
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL3, 0x80);
 	
 	// set ATC2603C_PMU_SYS_CTL5 value
-	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x400);
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x00);
 	
 	return 0;
 }
@@ -148,6 +209,7 @@ static void atc260x_restart(enum reboot_mode reboot_mode, const char *cmd)
 static int atc2603c_platform_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	int ret;
 	
 	pmic = dev_get_drvdata(dev->parent);
 	
@@ -159,7 +221,12 @@ static int atc2603c_platform_probe(struct platform_device *pdev)
 	pm_power_off = atc260x_poweroff;
 	arm_pm_restart = atc260x_restart;
 	
-	atc260x_create_input_device();
+	ret = atc260x_create_input_device();
+	
+	if (ret) {
+		dev_err(dev, "could not create baseboard input device.\n");
+	}
+	
 	return 0;
 }
 

@@ -176,6 +176,14 @@ static int caninos_tmu_probe(struct platform_device *pdev)
 	unsigned long delay;
 	int ret, i;
 	
+	/*
+	Sample Usage:
+	-> cat /sys/class/thermal/thermal_zone0/type
+	cpu-temp
+	-> cat /sys/class/thermal/thermal_zone0/temp
+	430146
+	*/
+	
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	
 	if (!data)
@@ -206,6 +214,8 @@ static int caninos_tmu_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&data->work, caninos_thermal_polling_worker);
 	mutex_init(&data->lock);
 	
+	platform_set_drvdata(pdev, data);
+	
 	for (i = 0; i < CANINOS_TMU_SENSOR_COUNT; i++)
 	{
 		data->sensor[i].id = i;
@@ -225,7 +235,6 @@ static int caninos_tmu_probe(struct platform_device *pdev)
 		}
 	}
 	
-	platform_set_drvdata(pdev, data);
 	delay = msecs_to_jiffies(CANINOS_TMU_ACTIVE_INTERVAL);
 	queue_delayed_work(system_freezable_wq, &data->work, delay);
 	return 0;
@@ -237,6 +246,7 @@ err:
 	iounmap(data->base);
 	mutex_destroy(&data->lock);
 	clk_disable_unprepare(data->tmu_clk);
+	platform_set_drvdata(pdev, NULL);
 	return ret;
 }
 

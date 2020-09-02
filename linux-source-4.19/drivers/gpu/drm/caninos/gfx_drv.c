@@ -66,21 +66,21 @@ static int caninos_gfx_load(struct drm_device *drm, struct hdmi_ip_ops *hdmi_ip)
     }
     
     res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "de");
-    priv->base = devm_ioremap_resource(drm->dev, res);
+    priv->base = devm_ioremap(drm->dev, res->start, resource_size(res));
     
     if (IS_ERR(priv->base)) {
         return PTR_ERR(priv->base);
     }
     
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cvbs");
-	priv->cvbs_base = devm_ioremap_resource(drm->dev, res);
+	priv->cvbs_base = devm_ioremap(drm->dev, res->start, resource_size(res));
 	
 	if (IS_ERR(priv->cvbs_base)) {
 		return PTR_ERR(priv->cvbs_base);
 	}
 	
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cmu");
-	priv->cmu_base = devm_ioremap_resource(drm->dev, res);
+	priv->cmu_base = devm_ioremap(drm->dev, res->start, resource_size(res));
 	
 	if (IS_ERR(priv->cmu_base)) {
 		return PTR_ERR(priv->cmu_base);

@@ -728,14 +728,14 @@ static int caninos_hdmi_ip_probe(struct platform_device *pdev)
     }
     
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cmu");
-	ip->cmu_base = devm_ioremap_resource(&pdev->dev, res);
+	ip->cmu_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	
 	if (IS_ERR(ip->cmu_base)) {
 		return PTR_ERR(ip->cmu_base);
 	}
 	
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "hdmi");
-	ip->base = devm_ioremap_resource(&pdev->dev, res);
+	ip->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	
 	if (IS_ERR(ip->base)) {
 		return PTR_ERR(ip->base);
