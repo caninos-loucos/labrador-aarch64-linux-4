@@ -580,6 +580,7 @@
 				
 				atc260x_poweroff: atc260x-poweroff {
 					compatible = "actions,atc2603c-poweroff";
+					userkey-gpios = <&gpiob 9 GPIO_ACTIVE_LOW>;
 					status = "okay";
 				};
 			};

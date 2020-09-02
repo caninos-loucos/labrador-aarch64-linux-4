@@ -16,6 +16,8 @@
 #include <linux/module.h>
 #include <linux/pm.h>
 #include <linux/of_device.h>
+#include <linux/of_gpio.h>
+#include <linux/delay.h>
 #include <linux/input.h>
 #include <asm/system_misc.h>
 #include <linux/mfd/core.h>
@@ -26,10 +28,44 @@
 static struct atc260x_dev *pmic = NULL;
 static struct input_dev *baseboard_keys_dev = NULL;
 static struct delayed_work key_polling_work;
+static int userkey_gpio = -1; /* negative gpio number is always invalid */
+static bool userkey_active_low = false;
+static void atc260x_poweroff(void);
 
-/* 
-usleep_range(1500, 2000);
-*/
+static int caninos_userkey_gpio_get_value(void)
+{
+	int debounce = 5;
+	int value;
+	
+	if (gpio_is_valid(userkey_gpio)) {
+		return -EINVAL;
+	}
+	
+	for (;;)
+	{
+		value = gpio_get_value(userkey_gpio);
+		
+		if (value < 0) {
+			return -EINVAL;
+		}
+		else if (value > 0) {
+			value = (userkey_active_low) ? 0 : 1;
+		}
+		else {
+			value = (userkey_active_low) ? 1 : 0;
+		}
+		
+		debounce--;
+		
+		if (debounce > 0) {
+			usleep_range(1000, 1500);
+		}
+		else {
+			break;
+		}
+	}
+	return value;
+}
 
 static void caninos_key_polling_worker(struct work_struct *work)
 {
@@ -63,13 +99,41 @@ static void caninos_key_polling_worker(struct work_struct *work)
 		
 		if (ret >= 0)
 		{
-			/* do a hard shutdown */
-			//pr_info("ONOFF long press!!\n");
+			/* do a hard shutdown (never returns!)*/
+			atc260x_poweroff();
 		}
+	}
+	
+	ret = caninos_userkey_gpio_get_value();
+	
+	if (ret >= 0)
+	{
+		input_report_key(baseboard_keys_dev, KEY_PROG1, ret);
+		input_sync(baseboard_keys_dev);
 	}
 	
 quit_worker:
 	queue_delayed_work(system_long_wq, &key_polling_work, delay);
+}
+
+static void caninos_userkey_gpio_probe_and_request(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	enum of_gpio_flags flags;
+	
+	userkey_gpio = of_get_named_gpio_flags(np, "userkey-gpios", 0, &flags);
+	
+	if (gpio_is_valid(userkey_gpio))
+	{
+		if (devm_gpio_request(dev, userkey_gpio, "userkey_gpio")) {
+			userkey_gpio = -1;
+		}
+		else
+		{
+			gpio_direction_input(userkey_gpio);
+			userkey_active_low = (flags == OF_GPIO_ACTIVE_LOW);
+		}
+	}
 }
 
 static int atc260x_create_input_device(void)
@@ -218,8 +282,11 @@ static int atc2603c_platform_probe(struct platform_device *pdev)
 	}
 	
 	atc260x_poweroff_setup();
+	
 	pm_power_off = atc260x_poweroff;
 	arm_pm_restart = atc260x_restart;
+	
+	caninos_userkey_gpio_probe_and_request(dev);
 	
 	ret = atc260x_create_input_device();
 	
