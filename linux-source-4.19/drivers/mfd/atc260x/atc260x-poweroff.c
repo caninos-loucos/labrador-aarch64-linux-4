@@ -106,9 +106,11 @@ static void caninos_key_polling_worker(struct work_struct *work)
 	
 	ret = caninos_userkey_gpio_get_value();
 	
-	if (ret >= 0)
+	if (ret > 0)
 	{
-		input_report_key(baseboard_keys_dev, KEY_PROG1, ret);
+		input_report_key(baseboard_keys_dev, KEY_PROG1, 1);
+		input_sync(baseboard_keys_dev);
+		input_report_key(baseboard_keys_dev, KEY_PROG1, 0);
 		input_sync(baseboard_keys_dev);
 	}
 	

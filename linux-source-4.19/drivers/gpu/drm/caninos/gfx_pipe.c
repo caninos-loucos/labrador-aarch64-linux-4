@@ -69,10 +69,10 @@ static int caninos_connector_get_modes(struct drm_connector *connector)
 static void caninos_crtc_enable(struct drm_crtc *crtc, 
                                 struct drm_crtc_state *old_state)
 {
-    //struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+    struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
     
-    //struct drm_device *drm = crtc->dev;
-    //dev_info(drm->dev, "crtc enable.\n");
+    struct drm_device *drm = crtc->dev;
+    dev_info(drm->dev, "crtc enable.\n");
     
     drm_crtc_vblank_on(crtc);
 }
@@ -80,10 +80,10 @@ static void caninos_crtc_enable(struct drm_crtc *crtc,
 static void caninos_crtc_disable(struct drm_crtc *crtc,
                                  struct drm_crtc_state *old_state)
 {
-    //struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+    struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
     
-    //struct drm_device *drm = crtc->dev;
-    //dev_info(drm->dev, "crtc disable.\n");
+    struct drm_device *drm = crtc->dev;
+    dev_info(drm->dev, "crtc disable.\n");
     
     drm_crtc_vblank_off(crtc);
 }
@@ -112,12 +112,21 @@ static enum drm_mode_status caninos_crtc_mode_valid(struct drm_crtc *crtc,
     return MODE_BAD;
 }
 
+/*
+set mode nofb
+crtc enable
+*/
+
 static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
-    //struct drm_device *drm = crtc->dev;
-    //dev_info(drm->dev, "set mode nofb\n");
+    struct drm_device *drm = crtc->dev;
+    
+    struct drm_display_mode *mode = &crtc->state->adjusted_mode;
     
     
+    
+    
+    dev_info(drm->dev, "set mode nofb\n");
 }
 
 irqreturn_t caninos_gfx_irq_handler(int irq, void *data)
@@ -335,8 +344,4 @@ int caninos_gfx_pipe_init(struct drm_device *drm)
     
     return drm_connector_attach_encoder(connector, encoder);
 }
-
-//https://elixir.bootlin.com/linux/v4.19.120/source/drivers/gpu/drm/drm_simple_kms_helper.c#L254
-//
-
 
