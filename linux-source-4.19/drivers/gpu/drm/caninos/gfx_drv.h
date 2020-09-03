@@ -18,13 +18,23 @@
 
 #define DE_IRQENABLE (0x0000)
 #define DE_IRQSTATUS (0x0004)
+#define DE_MMU_EN    (0x0008)
+#define DE_MMU_BASE  (0x000c)
 #define DE_ML_BASE   (0x0400)
 #define DE_PATH_BASE (0x0100)
 
-#define DE_SL_FB(x, y) (DE_ML_BASE + (x) * 0x200 + 0x02c + (y) * 0x80)
+#define DE_ML_CFG(x) (DE_ML_BASE + (x) * 0x200 + 0x0000)
+
+#define DE_SL_STR(x, y) (DE_ML_BASE + (x) * 0x200 + 0x044 + (y) * 0x80)
+#define DE_SL_FB(x, y)  (DE_ML_BASE + (x) * 0x200 + 0x02c + (y) * 0x80)
+#define DE_SL_CFG(x, y) (DE_ML_BASE + (x) * 0x200 + 0x020 + (y) * 0x80)
 
 #define DE_PATH_FCR(n) (DE_PATH_BASE + (n) * 0x100 + 0x004)
 #define DE_PATH_FCR_BIT (0)
+
+#define DE_SL_CFG_FMT_BEGIN_BIT (0)
+#define DE_SL_CFG_FMT_END_BIT (4)
+#define DE_ML_ROT180_BIT (20)
 
 struct caninos_gfx
 {

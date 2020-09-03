@@ -25,6 +25,12 @@
 
 #include "gfx_drv.h"
 
+#define REG_MASK(start, end) (((1 << ((start) - (end) + 1)) - 1) << (end))
+#define REG_VAL(val, start, end) (((val) << (end)) & REG_MASK(start, end))
+#define REG_GET_VAL(val, start, end) (((val) & REG_MASK(start, end)) >> (end))
+#define REG_SET_VAL(orig, val, start, end) (((orig) & ~REG_MASK(start, end))\
+						 | REG_VAL(val, start, end))
+
 static int caninos_crtc_enable_vblank(struct drm_crtc *crtc)
 {
     struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
@@ -47,6 +53,96 @@ static void caninos_crtc_disable_vblank(struct drm_crtc *crtc)
 
     // Clear pending irq
     writel(0x1, pipe->base + DE_IRQSTATUS);
+}
+
+static void caninos_de_mmu_enable(struct drm_crtc *crtc, bool enable)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	val = readl(pipe->base + DE_MMU_EN) & ~BIT(0);
+	
+	if (enable) {
+		val |= BIT(0);
+	}
+	
+	writel(val, pipe->base + DE_MMU_EN);
+}
+
+static void caninos_video_fb_addr_set(struct drm_crtc *crtc, u32 paddr)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	writel(paddr, pipe->base + DE_SL_FB(0, 0));
+}
+
+static void caninos_video_pitch_set(struct drm_crtc *crtc, u32 pitch)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	writel(pitch, pipe->base + DE_SL_STR(0, 0));
+}
+
+static int caninos_drm_color_mode_to_hw_mode(u32 color_mode)
+{
+	int hw_format = 0;
+	
+	switch (color_mode)
+	{
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_XRGB8888:
+		hw_format = 0;
+		break;
+		
+	case DRM_FORMAT_ABGR8888: 
+	case DRM_FORMAT_XBGR8888:
+		hw_format = 1;
+		break;
+		
+	case DRM_FORMAT_RGBA8888:
+	case DRM_FORMAT_RGBX8888:
+		hw_format = 2;
+		break;
+		
+	case DRM_FORMAT_BGRA8888:
+	case DRM_FORMAT_BGRX8888:
+		hw_format = 3;
+		break;
+	}
+	return hw_format;
+}
+
+static void caninos_video_format_set(struct drm_crtc *crtc, u32 color_mode)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	int hw_format = 0;
+	u32 val;
+	
+	hw_format = caninos_drm_color_mode_to_hw_mode(color_mode);
+	
+	val = readl(pipe->base + DE_SL_CFG(0, 0));
+	
+	val = REG_SET_VAL(val, hw_format, DE_SL_CFG_FMT_END_BIT,
+	                  DE_SL_CFG_FMT_BEGIN_BIT);
+	
+	writel(val, pipe->base + DE_SL_CFG(0, 0));
+	
+	val = readl(pipe->base + DE_ML_CFG(0));
+	
+	val = REG_SET_VAL(val, 0x0, 29, 28);
+	
+	writel(val, pipe->base + DE_ML_CFG(0));
+}
+
+static void caninos_video_rotate_set(struct drm_crtc *crtc, bool rotate)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	val = readl(pipe->base + DE_ML_CFG(0));
+
+	val = REG_SET_VAL(val, (rotate ? 0 : 1), 
+	                  DE_ML_ROT180_BIT, DE_ML_ROT180_BIT);
+	
+	writel(val, pipe->base + DE_ML_CFG(0));
 }
 
 static int caninos_connector_get_modes(struct drm_connector *connector)
