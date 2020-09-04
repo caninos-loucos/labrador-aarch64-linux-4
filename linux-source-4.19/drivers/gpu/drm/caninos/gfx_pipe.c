@@ -145,6 +145,40 @@ static void caninos_video_rotate_set(struct drm_crtc *crtc, bool rotate)
 	writel(val, pipe->base + DE_ML_CFG(0));
 }
 
+static int caninos_video_crop_set(struct drm_crtc *crtc,
+                                  u32 sl_width, u32 sl_height,
+                                  u32 ml_width, u32 ml_height)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	/* ml -> macro layer */
+	
+	if ((sl_width > DE_PATH_SIZE_WIDTH) || (sl_height > DE_PATH_SIZE_HEIGHT)) {
+		return -EINVAL;
+	}
+	
+	if ((ml_width > DE_PATH_SIZE_WIDTH) || (ml_height > DE_PATH_SIZE_HEIGHT)) {
+		return -EINVAL;
+	}
+	
+	val = REG_VAL(sl_height - 1, DE_PATH_SIZE_HEIGHT_END_BIT,
+	              DE_PATH_SIZE_HEIGHT_BEGIN_BIT) | 
+	      REG_VAL(sl_width - 1, DE_PATH_SIZE_WIDTH_END_BIT,
+	              DE_PATH_SIZE_WIDTH_BEGIN_BIT);
+	
+	writel(val, pipe->base + DE_SL_CROPSIZE(0, 0));
+
+	val = REG_VAL(ml_height - 1, DE_PATH_SIZE_HEIGHT_END_BIT,
+	              DE_PATH_SIZE_HEIGHT_BEGIN_BIT) | 
+	      REG_VAL(ml_width - 1, DE_PATH_SIZE_WIDTH_END_BIT,
+	              DE_PATH_SIZE_WIDTH_BEGIN_BIT);
+	
+	writel(val, pipe->base + DE_ML_ISIZE(0));
+}
+
+
+
 static int caninos_connector_get_modes(struct drm_connector *connector)
 {
     struct drm_device *drm = connector->dev;

@@ -29,12 +29,25 @@
 #define DE_SL_FB(x, y)  (DE_ML_BASE + (x) * 0x200 + 0x02c + (y) * 0x80)
 #define DE_SL_CFG(x, y) (DE_ML_BASE + (x) * 0x200 + 0x020 + (y) * 0x80)
 
+#define DE_PATH_SIZE(n) (DE_PATH_BASE + (n) * 0x100 + 0x010)
 #define DE_PATH_FCR(n) (DE_PATH_BASE + (n) * 0x100 + 0x004)
+
 #define DE_PATH_FCR_BIT (0)
+
+#define DE_PATH_SIZE_WIDTH (0x1 << 12)
+#define DE_PATH_SIZE_HEIGHT (0x1 << 12)
+#define DE_PATH_SIZE_WIDTH_BEGIN_BIT (0)
+#define DE_PATH_SIZE_WIDTH_END_BIT (11)
+#define DE_PATH_SIZE_HEIGHT_BEGIN_BIT (16)
+#define DE_PATH_SIZE_HEIGHT_END_BIT (27)
 
 #define DE_SL_CFG_FMT_BEGIN_BIT (0)
 #define DE_SL_CFG_FMT_END_BIT (4)
 #define DE_ML_ROT180_BIT (20)
+
+#define DE_ML_ISIZE(x) (DE_ML_BASE + (x) * 0x200 + 0x0004)
+
+#define DE_SL_CROPSIZE(x, y) (DE_ML_BASE + (x) * 0x200 + 0x048 + (y) * 0x80)
 
 struct caninos_gfx
 {
