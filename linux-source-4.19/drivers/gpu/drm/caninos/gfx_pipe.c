@@ -132,12 +132,6 @@ static void caninos_video_format_set(struct drm_crtc *crtc, u32 color_mode)
 	                  DE_SL_CFG_FMT_BEGIN_BIT);
 	
 	writel(val, pipe->base + DE_SL_CFG(0, 0));
-	
-	val = readl(pipe->base + DE_ML_CFG(0));
-	
-	val = REG_SET_VAL(val, 0x0, 29, 28);
-	
-	writel(val, pipe->base + DE_ML_CFG(0));
 }
 
 static void caninos_video_rotate_set(struct drm_crtc *crtc, bool rotate)
@@ -147,7 +141,7 @@ static void caninos_video_rotate_set(struct drm_crtc *crtc, bool rotate)
 	
 	val = readl(pipe->base + DE_ML_CFG(0));
 
-	val = REG_SET_VAL(val, (rotate ? 0 : 1), 
+	val = REG_SET_VAL(val, (rotate ? 1 : 0), 
 	                  DE_ML_ROT180_BIT, DE_ML_ROT180_BIT);
 	
 	writel(val, pipe->base + DE_ML_CFG(0));
@@ -216,7 +210,7 @@ static void caninos_video_display_set(struct drm_crtc *crtc,
 	
 	writel(val, pipe->base + DE_SCALER_OSZIE(0));
 }
-
+/*
 static void caninos_video_set_scal_coef(struct drm_crtc *crtc,
                                         u32 scaler_id, u32 scale_mode)
 {
@@ -286,7 +280,7 @@ static void caninos_video_scaling_set(struct drm_crtc *crtc,
 	
 	caninos_video_set_scal_coef(crtc, scaler_id, scale_mode);
 }
-
+*/
 enum caninos_blending_type
 {
 	CANINOS_BLENDING_NONE = 0,
@@ -323,21 +317,21 @@ static void caninos_video_alpha_set(struct drm_crtc *crtc,
 	}
 	writel(val, pipe->base + DE_SL_CFG(0, 0));
 }
-
+/*
 static void caninos_video_csc_set(struct drm_crtc *crtc,
                                   u32 brightness, u32 contrast, u32 saturation)
 {
 	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
 	u32 val;
 	
-	/* 0~200-->0~255 */
+	// 0~200-->0~255
 	brightness = (brightness * 255 + 100) / 200;
 	
 	if (brightness > 255) {
 		brightness = 255;
 	}
 	
-	/* 0~200-->0~14 */
+	// 0~200-->0~14
 	contrast = (contrast * 14 + 100) / 200;
 	
 	if (contrast > 14) {
@@ -356,7 +350,7 @@ static void caninos_video_csc_set(struct drm_crtc *crtc,
 	val = REG_SET_VAL(val, contrast, 3, 0);
 	writel(val, pipe->base + DE_ML_CSC(0));
 };
-
+*/
 static void caninos_de_path_enable(struct drm_crtc *crtc, bool enable)
 {
 	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
@@ -393,11 +387,11 @@ static void caninos_de_video_apply_info(struct drm_crtc *crtc,
 	
 	caninos_video_display_set(crtc, 0, 0, 0, 0, width, height);
 	
-	caninos_video_scaling_set(crtc, width, height, width, height);
+	//caninos_video_scaling_set(crtc, width, height, width, height);
 	
 	caninos_video_alpha_set(crtc, CANINOS_BLENDING_NONE, 0x0);
 	
-	caninos_video_csc_set(crtc, 255, 14, 14);
+	//caninos_video_csc_set(crtc, 255, 14, 14);
 }
 
 static int caninos_connector_get_modes(struct drm_connector *connector)
