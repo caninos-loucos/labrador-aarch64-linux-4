@@ -55,28 +55,6 @@ static void caninos_crtc_disable_vblank(struct drm_crtc *crtc)
     writel(0x1, pipe->base + DE_IRQSTATUS);
 }
 
-/*
-static void caninos_de_mmu_enable(struct drm_crtc *crtc, bool enable)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	u32 val;
-	
-	val = readl(pipe->base + DE_MMU_EN) & ~BIT(0);
-	
-	if (enable) {
-		val |= BIT(0);
-	}
-	
-	writel(val, pipe->base + DE_MMU_EN);
-}
-
-static void caninos_de_mmu_config(struct drm_crtc *crtc, u32 base_addr)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	writel(base_addr, pipe->base + DE_MMU_BASE);
-}
-*/
-
 static void caninos_video_fb_addr_set(struct drm_crtc *crtc, u32 paddr)
 {
 	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
@@ -210,77 +188,7 @@ static void caninos_video_display_set(struct drm_crtc *crtc,
 	
 	writel(val, pipe->base + DE_SCALER_OSZIE(0));
 }
-/*
-static void caninos_video_set_scal_coef(struct drm_crtc *crtc,
-                                        u32 scaler_id, u32 scale_mode)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	
-	switch (scale_mode)
-	{
-	case DE_SCLCOEF_ZOOMIN:
-		writel(0x00004000, pipe->base + DE_SCALER_SCOEF0(scaler_id));
-		writel(0xFF073EFC, pipe->base + DE_SCALER_SCOEF1(scaler_id));
-		writel(0xFE1038FA, pipe->base + DE_SCALER_SCOEF2(scaler_id));
-		writel(0xFC1B30F9, pipe->base + DE_SCALER_SCOEF3(scaler_id));
-		writel(0xFA2626FA, pipe->base + DE_SCALER_SCOEF4(scaler_id));
-		writel(0xF9301BFC, pipe->base + DE_SCALER_SCOEF5(scaler_id));
-		writel(0xFA3810FE, pipe->base + DE_SCALER_SCOEF6(scaler_id));
-		writel(0xFC3E07FF, pipe->base + DE_SCALER_SCOEF7(scaler_id));
-		break;
-		
-	case DE_SCLCOEF_HALF_ZOOMOUT:
-		writel(0x00004000, pipe->base + DE_SCALER_SCOEF0(scaler_id));
-		writel(0x00083800, pipe->base + DE_SCALER_SCOEF1(scaler_id));
-		writel(0x00103000, pipe->base + DE_SCALER_SCOEF2(scaler_id));
-		writel(0x00182800, pipe->base + DE_SCALER_SCOEF3(scaler_id));
-		writel(0x00202000, pipe->base + DE_SCALER_SCOEF4(scaler_id));
-		writel(0x00281800, pipe->base + DE_SCALER_SCOEF5(scaler_id));
-		writel(0x00301000, pipe->base + DE_SCALER_SCOEF6(scaler_id));
-		writel(0x00380800, pipe->base + DE_SCALER_SCOEF7(scaler_id));
-		break;
-		
-	case DE_SCLCOEF_SMALLER_ZOOMOUT:
-		writel(0x00102010, pipe->base + DE_SCALER_SCOEF0(scaler_id));
-		writel(0x02121E0E, pipe->base + DE_SCALER_SCOEF1(scaler_id));
-		writel(0x04141C0C, pipe->base + DE_SCALER_SCOEF2(scaler_id));
-		writel(0x06161A0A, pipe->base + DE_SCALER_SCOEF3(scaler_id));
-		writel(0x08181808, pipe->base + DE_SCALER_SCOEF4(scaler_id));
-		writel(0x0A1A1606, pipe->base + DE_SCALER_SCOEF5(scaler_id));
-		writel(0x0C1C1404, pipe->base + DE_SCALER_SCOEF6(scaler_id));
-		writel(0x0E1E1202, pipe->base + DE_SCALER_SCOEF7(scaler_id));
-		break;
-	}
-}
 
-static void caninos_video_scaling_set(struct drm_crtc *crtc,
-                                      u32 width, u32 height,
-                                      u32 out_width, u32 out_height)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	u32 w_factor, h_factor, factor, scale_mode, scaler_id = 0;
-	
-	w_factor = (width * 8192 + out_width - 1) / out_width;
-	h_factor = (height * 8192 + out_height - 1) / out_height;
-	
-	writel(w_factor & 0xFFFF, pipe->base + DE_SCALER_HSR(scaler_id));
-	writel(h_factor & 0xFFFF, pipe->base + DE_SCALER_VSR(scaler_id));
-	
-	factor = (width * height * 10) / (out_width * out_height);
-	
-	if (factor <= 10) {
-		scale_mode = DE_SCLCOEF_ZOOMIN;
-	}
-	else if (factor <= 20) {
-		scale_mode = DE_SCLCOEF_HALF_ZOOMOUT;
-	}
-	else if (factor > 20) {
-		scale_mode = DE_SCLCOEF_SMALLER_ZOOMOUT;
-	}
-	
-	caninos_video_set_scal_coef(crtc, scaler_id, scale_mode);
-}
-*/
 enum caninos_blending_type
 {
 	CANINOS_BLENDING_NONE = 0,
@@ -317,40 +225,7 @@ static void caninos_video_alpha_set(struct drm_crtc *crtc,
 	}
 	writel(val, pipe->base + DE_SL_CFG(0, 0));
 }
-/*
-static void caninos_video_csc_set(struct drm_crtc *crtc,
-                                  u32 brightness, u32 contrast, u32 saturation)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	u32 val;
-	
-	// 0~200-->0~255
-	brightness = (brightness * 255 + 100) / 200;
-	
-	if (brightness > 255) {
-		brightness = 255;
-	}
-	
-	// 0~200-->0~14
-	contrast = (contrast * 14 + 100) / 200;
-	
-	if (contrast > 14) {
-		contrast = 14;
-	}
-	
-	saturation = (saturation * 14 + 100) / 200;
-	
-	if (saturation > 14) {
-		saturation = 14;
-	}
-	
-	val = readl(pipe->base + DE_ML_CSC(0));
-	val = REG_SET_VAL(val, brightness, 15, 8);
-	val = REG_SET_VAL(val, saturation, 7, 4);
-	val = REG_SET_VAL(val, contrast, 3, 0);
-	writel(val, pipe->base + DE_ML_CSC(0));
-};
-*/
+
 static void caninos_de_path_enable(struct drm_crtc *crtc, bool enable)
 {
 	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
@@ -374,9 +249,7 @@ static void caninos_de_path_set_go(struct drm_crtc *crtc)
 
 static void caninos_de_video_apply_info(struct drm_crtc *crtc,
                                         int width, int height)
-{
-	//caninos_de_mmu_enable(crtc, true);
-	
+{	
 	caninos_video_pitch_set(crtc, width * 4);
 	
 	caninos_video_format_set(crtc, DRM_FORMAT_XRGB8888);
@@ -387,11 +260,7 @@ static void caninos_de_video_apply_info(struct drm_crtc *crtc,
 	
 	caninos_video_display_set(crtc, 0, 0, 0, 0, width, height);
 	
-	//caninos_video_scaling_set(crtc, width, height, width, height);
-	
 	caninos_video_alpha_set(crtc, CANINOS_BLENDING_NONE, 0x0);
-	
-	//caninos_video_csc_set(crtc, 255, 14, 14);
 }
 
 static int caninos_connector_get_modes(struct drm_connector *connector)
