@@ -207,6 +207,9 @@ kernel/drivers/gpio/gpio-syscon.ko
 kernel/drivers/gpu/drm/drm_kms_helper.ko
 kernel/drivers/gpu/drm/drm.ko
 kernel/drivers/gpu/drm/drm_panel_orientation_quirks.ko
+kernel/drivers/gpu/drm/lima/lima.ko
+kernel/drivers/gpu/drm/scheduler/gpu-sched.ko
+kernel/drivers/gpu/drm/ttm/ttm.ko
 kernel/drivers/hid/hid.ko
 kernel/drivers/hid/uhid.ko
 kernel/drivers/hid/hid-generic.ko

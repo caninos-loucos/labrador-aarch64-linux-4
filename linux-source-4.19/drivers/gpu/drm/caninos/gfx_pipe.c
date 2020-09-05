@@ -31,6 +31,27 @@
 #define REG_SET_VAL(orig, val, start, end) (((orig) & ~REG_MASK(start, end))\
 						 | REG_VAL(val, start, end))
 
+#define RECOMMENDED_PRELINE_TIME (60)
+
+int caninos_de_calculate_preline(struct videomode *mode)
+{
+    int preline_num;
+    
+    preline_num = mode->xres + mode->hfp + mode->hbp + mode->hsw;
+    preline_num *= mode->pixclock;
+    
+    if (preline_num != 0)
+    {
+        preline_num = RECOMMENDED_PRELINE_TIME * 1000000 + preline_num / 2;
+        preline_num /= preline_num;
+    }
+	
+    preline_num -= mode->vfp;
+    preline_num = (preline_num <= 0 ? 1 : preline_num);
+    
+    return preline_num;
+}
+
 static int caninos_crtc_enable_vblank(struct drm_crtc *crtc)
 {
     struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
@@ -251,15 +272,10 @@ static void caninos_de_video_apply_info(struct drm_crtc *crtc,
                                         int width, int height)
 {	
 	caninos_video_pitch_set(crtc, width * 4);
-	
 	caninos_video_format_set(crtc, DRM_FORMAT_XRGB8888);
-	
 	caninos_video_rotate_set(crtc, false);
-	
 	caninos_video_crop_set(crtc, width, height, width, height);
-	
 	caninos_video_display_set(crtc, 0, 0, 0, 0, width, height);
-	
 	caninos_video_alpha_set(crtc, CANINOS_BLENDING_NONE, 0x0);
 }
 
@@ -283,22 +299,14 @@ static int caninos_connector_get_modes(struct drm_connector *connector)
 static void caninos_crtc_enable(struct drm_crtc *crtc, 
                                 struct drm_crtc_state *old_state)
 {
-    //struct drm_device *drm = crtc->dev;
-    //dev_info(drm->dev, "crtc enable.\n");
-    
     caninos_de_path_enable(crtc, true);
-    
     drm_crtc_vblank_on(crtc);
 }
 
 static void caninos_crtc_disable(struct drm_crtc *crtc,
                                  struct drm_crtc_state *old_state)
 {
-	//struct drm_device *drm = crtc->dev;
-    //dev_info(drm->dev, "crtc disable.\n");
-    
     caninos_de_path_enable(crtc, false);
-    
     drm_crtc_vblank_off(crtc);
 }
 
@@ -328,11 +336,9 @@ static enum drm_mode_status caninos_crtc_mode_valid(struct drm_crtc *crtc,
 
 static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
-    //struct drm_device *drm = crtc->dev;
     struct drm_display_mode *mode = &crtc->state->adjusted_mode;
     int width = mode->hdisplay, height = mode->vdisplay;
     caninos_de_video_apply_info(crtc, width, height);
-    //dev_info(drm->dev, "set mode nofb\n");
 }
 
 irqreturn_t caninos_gfx_irq_handler(int irq, void *data)
