@@ -3,18 +3,27 @@ Linux 4 kernel source code for "Caninos Labrador v3.0".
 
 ## Release Notes
 
-### Next (31-08-2020)
-1) Added HDMI screen resolution switching feature in the KMS driver
-2) Added driver for HDMI audio playback
-3) Added thermal sensor driver for GPU, CPU and CoreLogic
-4) Added driver for user configurable baseboard buttons
-5) Added driver for GPU power regulator
-6) Enabled Mali 450 GPU driver
+### Next (18-12-2020)
+1) Add driver for HDMI audio playback (planned)
+2) Enable HDMI-CEC functionality at HDMI-IP driver (planned)
+3) Add driver for TFT LCD displays using DSI interface (planned)
+4) Add driver for GPU power regulator (under development)
+5) Enable Mali 450 GPU driver (under development)
+6) New driver for Video Decode Engine (planned)
 
 >Note: Code being updated during the day as features are being consolidated and 
-tested. If you need a stable version, download the one before 20-08-2020.
+tested. If you need a stable version, download the one before 05-09-2020.
 
-### Current (17-07-2020)
+### Current Release (05-09-2020)
+1) Added HDMI screen resolution switching feature in the KMS driver
+2) New HDMI-IP driver (HDMI-CEC functionality not activated)
+3) New Display Engine driver (only basic 2D functions implemented)
+4) Added thermal sensor driver for GPU, CPU and CoreLogic
+5) Added driver for user configurable baseboard buttons
+6) Added Mali 450 GPU driver
+7) Corrected minor bugs
+
+### Second Release (24-07-2020)
 
 1) Added hardware based PWM driver
 2) Added dynamic GPIO/Device function muxing at external header
@@ -24,7 +33,7 @@ tested. If you need a stable version, download the one before 20-08-2020.
 6) Corrected PMIC issues related to system shutdown/restart
 7) General code clean-up and optimization
 
-### First Release (12-05-2020)
+### First Release (15-05-2020)
 
 1) Kernel version updated from 4.19.37 to 4.19.98
 2) Added base board user configurable led support
@@ -49,6 +58,12 @@ tools installed on your machine:
 6) Bison and Flex development libraries
 7) NCurses development libraries
 8) LibSSL development libraries
+
+```
+$ sudo apt-get update
+$ sudo apt-get install build-essential binutils gcc-aarch64-linux-gnu make git
+$ sudo apt-get install bison flex libncurses-dev libssl-dev
+```
 
 After installing these tools, clone this repository in your computer.
 Then, go to it's main directory and execute it's makefile.
