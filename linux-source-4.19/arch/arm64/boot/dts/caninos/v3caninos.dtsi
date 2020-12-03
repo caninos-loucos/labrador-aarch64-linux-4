@@ -6,6 +6,7 @@
 #include <dt-bindings/reset/caninos-rst.h>
 #include <dt-bindings/dma/caninos-dma.h>
 #include <dt-bindings/power/caninos-power.h>
+#include <dt-bindings/clock/caninos-gpuclk.h>
 
 / {
 	compatible = "caninos,k7";
@@ -150,6 +151,15 @@
 			#clock-cells = <1>;
 			status = "okay";
 		};
+        
+        gpucmu: clock-controller {
+            compatible = "caninos,k7-gpu-cmu";
+            clocks = <&cmu CLK_DEV>, <&cmu CLK_GPU3D>,
+                     <&cmu CLK_HOSC>, <&cmu CLK_PWM1>;
+            clock-names = "parent", "core", "hosc", "pwm1";
+            #clock-cells = <1>;
+            status = "okay";
+        };
 		
 		gic: interrupt-controller@e00f1000 {
 			compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
@@ -669,6 +679,33 @@
 			dma-names = "tx","rx";
 			status = "okay";
 		};
+
+        gpu: gpu@e0340000 {
+            compatible = "arm,mali-450";
+            reg = <0x0 0xe0340000 0x0 0x30000>;
+
+            interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+                         <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+                         <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+                         <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+                         <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+                         <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+                         <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+                         <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+                         <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+                         <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+                         <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
+            
+			interrupt-names = "gp", "gpmmu", "pp", "pp0", "ppmmu0",
+                              "pp1", "ppmmu1", "pp2", "ppmmu2", "pp3", "ppmmu3";
+            
+            clocks = <&gpucmu CLK_GPU_BUS>, <&gpucmu CLK_GPU_CORE>;
+            clock-names = "bus", "core";
+            
+            resets = <&rst RST_GPU3D>;
+            
+            status = "okay";
+        };
 		
 		ethernet@e0220000 {
 			compatible = "caninos,k7-gmac", "snps,dwmac";
