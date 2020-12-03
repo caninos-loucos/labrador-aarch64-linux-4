@@ -93,14 +93,15 @@ struct caninos_gpu_cmu {
 	struct clk *parent, *core, *pwm, *hosc;
 };
 
-static struct clk_hw_onecell_data *clk_data;
+static struct clk_onecell_data *clk_data;
 static struct caninos_gpu_cmu *priv_data;
 
 void __init k7_gpu_clk_init(struct device_node *np)
 {
     unsigned long bus_rate, core_rate;
     void __iomem *sps_base, *pwm_base;
-    struct clk_hw **hws;
+    struct clk **clk_table;
+    struct clk *clk;
     int ret, i;
 	
     priv_data = kzalloc(sizeof(*priv_data), GFP_KERNEL);
@@ -182,7 +183,7 @@ void __init k7_gpu_clk_init(struct device_node *np)
     pwm_setup(pwm_base, 14, 64);
     
     // wait for the voltage to become stable
-    usleep_range(10000, 15000);
+    udelay(10000);
 
     // disable voltage isolation
     ret = gpu_isolation_disable(sps_base);
@@ -203,25 +204,44 @@ void __init k7_gpu_clk_init(struct device_node *np)
     bus_rate = clk_get_rate(priv_data->parent);
     core_rate = clk_get_rate(priv_data->core);
     
-	clk_data = kzalloc(struct_size(clk_data, hws, CLK_GPU_NR), GFP_KERNEL);
-	
-	if (!clk_data) {
+    clk_data = kzalloc(sizeof(*clk_data), GFP_KERNEL);
+    
+    if (!clk_data)
+    {
+        return;
+    }
+    
+    clk_table = kcalloc(CLK_GPU_NR, sizeof(struct clk*), GFP_KERNEL);
+    
+	if (!clk_table)
+	{
 		return;
 	}
 	
-	hws = clk_data->hws;
-
 	for (i = 0; i < CLK_GPU_NR; ++i) {
-		hws[i] = ERR_PTR(-ENOENT);
+		clk_table[i] = ERR_PTR(-ENOENT);
 	}
 	
-	hws[CLK_GPU_BUS] = clk_hw_register_fixed_rate(NULL, "clk_gpu_bus",
-	                                              NULL, 0, bus_rate);
+	clk_data->clks = clk_table;
+	clk_data->clk_num = CLK_GPU_NR;
 	
-	hws[CLK_GPU_CORE] = clk_hw_register_fixed_rate(NULL, "clk_gpu_core",
-	                                               "clk_gpu_bus", 0, core_rate);
+	ret = of_clk_add_provider(np, of_clk_src_onecell_get, clk_data);
 	
-	of_clk_add_hw_provider(np, of_clk_hw_onecell_get, clk_data);
+	if (ret)
+    {
+        pr_err("Could not register clock provider.");
+        return;
+    }
+    
+    
+    clk = clk_register_fixed_rate(NULL, "clk_gpu_bus", NULL, 0, bus_rate);
+	clk_data->clks[CLK_GPU_BUS] = clk;
+	clk_register_clkdev(clk_data->clks[CLK_GPU_BUS], "clk_gpu_bus", NULL);
+	
+	
+	clk = clk_register_fixed_rate(NULL, "clk_gpu_core", "clk_gpu_bus", 0, core_rate);
+	clk_data->clks[CLK_GPU_CORE] = clk;
+	clk_register_clkdev(clk_data->clks[CLK_GPU_CORE], "clk_gpu_core", NULL);
 }
 
 CLK_OF_DECLARE(k7_gpu_clk, "caninos,k7-gpu-cmu", k7_gpu_clk_init);
