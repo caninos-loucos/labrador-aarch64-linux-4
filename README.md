@@ -3,18 +3,19 @@ Linux 4 kernel source code for "Caninos Labrador v3.0".
 
 ## Release Notes
 
-### Next (18-12-2020)
-1) Add driver for HDMI audio playback (planned)
-2) Enable HDMI-CEC functionality at HDMI-IP driver (planned)
-3) Add driver for TFT LCD displays using DSI interface (planned)
-4) Add driver for GPU power regulator (under development)
-5) Enable Mali 450 GPU driver (under development)
-6) New driver for Video Decode Engine (planned)
+### Next Release (TBA)
+1) Add driver for HDMI audio playback
+2) Enable HDMI-CEC functionality at HDMI-IP driver
+3) Add driver for TFT LCD displays using DSI interface
+4) New driver for Video Decode Engine
 
->Note: Code being updated during the day as features are being consolidated and 
-tested. If you need a stable version, download the one before 05-09-2020.
+### Current Release (26-01-2021)
+1) Add driver for GPU power regulator
+2) Activated more GPIO pins
+3) Enable Mali 450 GPU driver
+4) Corrected minor bugs
 
-### Current Release (05-09-2020)
+### Third Release (05-09-2020)
 1) Added HDMI screen resolution switching feature in the KMS driver
 2) New HDMI-IP driver (HDMI-CEC functionality not activated)
 3) New Display Engine driver (only basic 2D functions implemented)

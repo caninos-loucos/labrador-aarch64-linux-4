@@ -443,8 +443,8 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 	
 	/* This is a temporary solution (until all mux functions are implemented) */
 	writel(0x00000000, data->base + MFP_CTL0);
-	writel(0x2e400000, data->base + MFP_CTL1);
-	writel(0x00000600, data->base + MFP_CTL2);
+	writel(0x2e400060, data->base + MFP_CTL1);
+	writel(0x10000600, data->base + MFP_CTL2);
 	writel(0x40000008, data->base + MFP_CTL3);
 	writel(0x00000000, data->base + PAD_PULLCTL0);
 	writel(0x0003e001, data->base + PAD_PULLCTL1);

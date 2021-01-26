@@ -681,7 +681,7 @@
 		};
 
         gpu: gpu@e0340000 {
-            compatible = "arm,mali-450";
+            compatible = "allwinner,sun50i-h5-mali", "arm,mali-450";
             reg = <0x0 0xe0340000 0x0 0x30000>;
 
             interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
