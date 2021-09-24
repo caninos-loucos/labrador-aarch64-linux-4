@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 
 /dts-v1/;
-
 #include "v3caninos.dtsi"
 
 / {
@@ -9,5 +8,25 @@
 	chosen {
 		bootargs = "earlycon console=ttyS3,115200 console=tty0 root=/dev/mmcblk0p1 rw rootwait no_console_suspend";
 	};
+};
+
+&cpu0 {
+	enable-method = "spin-table";
+	cpu-release-addr = <0 0x1f000020>;
+};
+
+&cpu1 {
+	enable-method = "spin-table";
+	cpu-release-addr = <0 0x1f000020>;
+};
+
+&cpu2 {
+	enable-method = "spin-table";
+	cpu-release-addr = <0 0x1f000020>;
+};
+		
+&cpu3 {
+	enable-method = "spin-table";
+	cpu-release-addr = <0 0x1f000020>;
 };
 

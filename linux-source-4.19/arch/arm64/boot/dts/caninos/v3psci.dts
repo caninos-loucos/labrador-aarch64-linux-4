@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+/dts-v1/;
+#include "v3caninos.dtsi"
+
+/ {
+	/* keep_bootcon console=tty0 loglevel=7*/
+	chosen {
+		bootargs = "";
+	};
+};
+
+&cpu0 {
+	enable-method = "psci";
+};
+
+&cpu1 {
+	enable-method = "psci";
+};
+
+&cpu2 {
+	enable-method = "psci";
+};
+		
+&cpu3 {
+	enable-method = "psci";
+};
+
