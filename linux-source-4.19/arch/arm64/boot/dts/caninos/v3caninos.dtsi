@@ -40,15 +40,6 @@
 		i2c3 = &i2c3;
 	};
 	
-	chosen {
-		stdout-path = "serial3:115200n8";
-	};
-	
-	memory@0 {
-		device_type = "memory";
-		reg = <0x0 0x0 0x0 0x80000000>;
-	};
-	
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -57,12 +48,6 @@
 		/* reserve 48MB for framebuffer */
 		fb_reserved: framebuffer@19000000 {
 			reg = <0x0 0x19000000 0x0 0x3000000>;
-			no-map;
-		};
-		
-		/* reserve 16MB for secure monitor */
-		secmon@1f000000 {
-			reg = <0x0 0x1f000000 0x0 0x1000000>;
 			no-map;
 		};
 		
@@ -106,11 +91,11 @@
 			next-level-cache = <&L2>;
 			reg = <0x3>;
 		};
-	};
-	
-	L2: l2-cache {
-		compatible = "cache";
-		cache-level = <2>;
+		
+		L2: l2-cache {
+			compatible = "cache";
+			cache-level = <2>;
+		};
 	};
 	
 	pmu {

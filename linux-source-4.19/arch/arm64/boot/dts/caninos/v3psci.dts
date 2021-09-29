@@ -4,25 +4,28 @@
 #include "v3caninos.dtsi"
 
 / {
-	/* keep_bootcon console=tty0 loglevel=7*/
 	chosen {
-		bootargs = "";
+		stdout-path = "serial3:115200n8";
 	};
-};
-
-&cpu0 {
-	enable-method = "psci";
-};
-
-&cpu1 {
-	enable-method = "psci";
-};
-
-&cpu2 {
-	enable-method = "psci";
-};
-		
-&cpu3 {
-	enable-method = "psci";
+	
+	psci {
+		compatible = "arm,psci-0.2";
+		method = "smc";
+	};
+	
+	cpus {
+		cpu@0 {
+			enable-method = "psci";
+		};
+		cpu@1 {
+			enable-method = "psci";
+		};
+		cpu@2 {
+			enable-method = "psci";
+		};
+		cpu@3 {
+			enable-method = "psci";
+		};
+	};
 };
 
