@@ -4468,12 +4468,12 @@ alias usb:v3823p0001d*dc*dsc*dp*ic*isc*ip*in* usbtouchscreen
 alias usb:v0EEFp0002d*dc*dsc*dp*ic03isc*ip*in* usbtouchscreen
 alias usb:v0EEFp0001d*dc*dsc*dp*ic03isc*ip*in* usbtouchscreen
 alias serio:ty02pr31id*ex* penmount
-alias i2c:pixcir_tangoc pixcir_i2c_ts
-alias i2c:pixcir_ts pixcir_i2c_ts
 alias of:N*T*Cpixcir,pixcir_tangocC* pixcir_i2c_ts
 alias of:N*T*Cpixcir,pixcir_tangoc pixcir_i2c_ts
 alias of:N*T*Cpixcir,pixcir_tsC* pixcir_i2c_ts
 alias of:N*T*Cpixcir,pixcir_ts pixcir_i2c_ts
+alias i2c:pixcir_tangoc pixcir_i2c_ts
+alias i2c:pixcir_ts pixcir_i2c_ts
 alias i2c:rm32380 raydium_i2c_ts
 alias i2c:raydium_i2c raydium_i2c_ts
 alias of:N*T*Craydium,rm32380C* raydium_i2c_ts
