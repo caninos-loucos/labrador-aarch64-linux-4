@@ -149,6 +149,7 @@
 			      <0x0 0xe00f6000 0x0 0x2000>;
 			interrupts =
 				<GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_HIGH)>;
+			status = "okay";
 		};
 		
 		sirq: interrupt-controller@e01b0000 {

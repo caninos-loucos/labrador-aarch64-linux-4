@@ -100,6 +100,10 @@ erro_gpio_request:
 	return ret;
 }
 
+//https://elixir.bootlin.com/linux/latest/source/drivers/pinctrl/aspeed/pinctrl-aspeed.c#L570
+//PIN_CONFIG_DRIVE_STRENGTH
+
+
 static int caninos_gmac_interface_config(int mode)
 {
 	void __iomem *addr = NULL;
