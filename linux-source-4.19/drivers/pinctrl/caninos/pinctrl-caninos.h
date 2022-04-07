@@ -189,6 +189,25 @@ const static unsigned int uart0_dummy_pins[] = { GPIOA(0), GPIOA(1) };
 const static unsigned int i2c2_dummy_pins[]  = { GPIOA(2), GPIOA(3) };
 const static unsigned int pwm_dummy_pins[]   = { GPIOA(4) };
 
+//const static unsigned int eth_rmii_pins[];
+//const static unsigned int eth_rgmii_pins[];
+
+//   RGMII      --     RMII
+// RGMII_TXC    -- RMII_REF_CLK  --> GPIOA21
+// RGMII_TD3    --               --> GPIOE5
+// RGMII_TD2    --               --> GPIOE4
+// RGMII_TD1    -- RMII_TXD1     --> GPIOA15
+// RGMII_TD0    -- RMII_TXD0     --> GPIOA14
+// RGMII_TC_CTL -- RMII_TX_EN    --> GPIOA16
+// RGMII_RXC    -- RMII_RX_ER    --> GPIOA17
+// RGMII_RD3    --               --> GPIOE7
+// RGMII_RD2    --               --> GPIOE6
+// RGMII_RD1    -- RMII_RXD1     --> GPIOA19
+// RGMII_RD0    -- RMII_RXD0     --> GPIOA20
+// RGMII_RX_CTL -- RMII_CRS_DV   --> GPIOA18
+// MDC          -- MDC           --> GPIOA22
+// MDIO         -- MDIO          --> GPIOA23
+
 const static struct caninos_group caninos_groups[] = {
 	{
 		.name = "uart0_extio_grp",

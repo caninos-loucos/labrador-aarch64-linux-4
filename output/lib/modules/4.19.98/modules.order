@@ -643,8 +643,6 @@ kernel/drivers/hid/hid-wiimote.ko
 kernel/drivers/hid/hid-sensor-hub.ko
 kernel/drivers/hid/hid-sensor-custom.ko
 kernel/drivers/staging/rtl8723bs/r8723bs.ko
-kernel/drivers/staging/rtl8712/r8712u.ko
-kernel/drivers/staging/rtl8188eu/r8188eu.ko
 kernel/drivers/devfreq/governor_simpleondemand.ko
 kernel/drivers/gnss/gnss-serial.ko
 kernel/drivers/gnss/gnss-ubx.ko
@@ -669,17 +667,10 @@ kernel/sound/usb/snd-usbmidi-lib.ko
 kernel/sound/usb/line6/snd-usb-line6.ko
 kernel/sound/usb/line6/snd-usb-pod.ko
 kernel/sound/usb/line6/snd-usb-podhd.ko
-kernel/net/ipv4/netfilter/nf_nat_ipv4.ko
-kernel/net/ipv4/netfilter/iptable_nat.ko
-kernel/net/ipv4/netfilter/ipt_MASQUERADE.ko
 kernel/net/bpfilter/bpfilter.ko
-kernel/net/bridge/br_netfilter.ko
 kernel/net/bluetooth/rfcomm/rfcomm.ko
 kernel/net/bluetooth/bnep/bnep.ko
 kernel/net/wireless/cfg80211.ko
-kernel/net/wireless/lib80211.ko
-kernel/net/wireless/lib80211_crypt_wep.ko
-kernel/net/wireless/lib80211_crypt_ccmp.ko
 kernel/net/ieee802154/ieee802154_socket.ko
 kernel/net/mac80211/mac80211.ko
 kernel/net/mac802154/mac802154.ko

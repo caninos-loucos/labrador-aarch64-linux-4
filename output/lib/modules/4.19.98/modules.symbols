@@ -76,7 +76,6 @@ alias symbol:osd_req_set_attributes libosd
 alias symbol:sas_unregister_ha libsas
 alias symbol:rtl92c_dm_watchdog rtl8192c_common
 alias symbol:cfg80211_check_combinations cfg80211
-alias symbol:lib80211_crypt_delayed_deinit lib80211
 alias symbol:em28xx_init_camera em28xx
 alias symbol:gameport_set_phys gameport
 alias symbol:ieee80211_beacon_get_template mac80211
@@ -85,7 +84,6 @@ alias symbol:isl6421_attach isl6421
 alias symbol:rt2800_get_survey rt2800lib
 alias symbol:cfg80211_unregister_wdev cfg80211
 alias symbol:ieee80211_report_low_ack mac80211
-alias symbol:nf_nat_ipv4_fn nf_nat_ipv4
 alias symbol:osd_req_read_sg_kern libosd
 alias symbol:transport_init_se_cmd target_core_mod
 alias symbol:osd_req_remove_partition libosd
@@ -105,7 +103,6 @@ alias symbol:ar9003_hw_bb_watchdog_dbg_info ath9k_hw
 alias symbol:usb_ftdi_elan_read_pcimem ftdi_elan
 alias symbol:usbnet_pause_rx usbnet
 alias symbol:adxl34x_remove adxl34x
-alias symbol:nf_nat_masquerade_ipv4_register_notifier nf_nat_ipv4
 alias symbol:rt2800_write_beacon rt2800lib
 alias symbol:rt2800_sta_add rt2800lib
 alias symbol:ath9k_hw_ani_monitor ath9k_hw
@@ -138,7 +135,6 @@ alias symbol:rate_control_set_rates mac80211
 alias symbol:ad7879_probe ad7879
 alias symbol:ar9003_hw_bb_watchdog_check ath9k_hw
 alias symbol:go7007_snd_remove go7007
-alias symbol:lib80211_get_crypto_ops lib80211
 alias symbol:usbnet_write_cmd usbnet
 alias symbol:transport_set_vpd_ident_type target_core_mod
 alias symbol:usb_wwan_ioctl usb_wwan
@@ -271,7 +267,6 @@ alias symbol:rt2x00lib_set_mac_address rt2x00lib
 alias symbol:ar9003_mci_set_bt_version ath9k_hw
 alias symbol:dvb_usbv2_generic_write dvb_usb_v2
 alias symbol:isl6423_attach isl6423
-alias symbol:nf_nat_l3proto_ipv4_unregister_fn nf_nat_ipv4
 alias symbol:smsendian_handle_rx_message smsmdtv
 alias symbol:transport_set_vpd_ident target_core_mod
 alias symbol:ath9k_hw_set_sta_beacon_timers ath9k_hw
@@ -393,7 +388,6 @@ alias symbol:btbcm_setup_patchram btbcm
 alias symbol:sms_board_load_modules smsmdtv
 alias symbol:spi_print_msg scsi_transport_spi
 alias symbol:wiphy_read_of_freq_limits cfg80211
-alias symbol:nf_nat_masquerade_ipv4_unregister_notifier nf_nat_ipv4
 alias symbol:regulatory_set_wiphy_regd cfg80211
 alias symbol:ssb_clockspeed ssb
 alias symbol:sas_wait_eh libsas
@@ -1094,7 +1088,6 @@ alias symbol:rtl92c_dm_write_dig rtl8192c_common
 alias symbol:gadget_release snps_udc_core
 alias symbol:cx231xx_disable656 cx231xx
 alias symbol:ufshcd_runtime_suspend ufshcd_core
-alias symbol:lib80211_crypt_info_init lib80211
 alias symbol:rt2800_config_erp rt2800lib
 alias symbol:target_depend_item target_core_mod
 alias symbol:udc_irq snps_udc_core
@@ -1215,7 +1208,6 @@ alias symbol:sas_target_alloc libsas
 alias symbol:_rtl92c_store_pwrIndex_diffrate_offset rtl8192c_common
 alias symbol:b2c2_flexcop_debug b2c2_flexcop
 alias symbol:iscsi_conn_login_event scsi_transport_iscsi
-alias symbol:lib80211_unregister_crypto_ops lib80211
 alias symbol:ieee80211_radiotap_iterator_init cfg80211
 alias symbol:iscsi_is_session_online scsi_transport_iscsi
 alias symbol:ieee80211_start_tx_ba_cb_irqsafe mac80211
@@ -1229,7 +1221,6 @@ alias symbol:__ssb_driver_register ssb
 alias symbol:tsc200x_regmap_config tsc200x_core
 alias symbol:fcoe_get_paged_crc_eof libfcoe
 alias symbol:iscsi_find_flashnode_conn scsi_transport_iscsi
-alias symbol:nf_nat_masquerade_ipv4 nf_nat_ipv4
 alias symbol:rtl_debug_add_one rtlwifi
 alias symbol:ath9k_hw_phy_disable ath9k_hw
 alias symbol:rtl_btc_status_false rtlwifi
@@ -1248,7 +1239,6 @@ alias symbol:ieee802154_register_hw mac802154
 alias symbol:osd_req_flush_collection libosd
 alias symbol:sms_get_board smsmdtv
 alias symbol:ieee80211_cqm_beacon_loss_notify mac80211
-alias symbol:nf_nat_icmp_reply_translation nf_nat_ipv4
 alias symbol:_rtl92c_phy_fw_rf_serial_read rtl8192c_common
 alias symbol:adxl34x_suspend adxl34x
 alias symbol:ath9k_hw_enable_interrupts ath9k_hw
@@ -1420,7 +1410,6 @@ alias symbol:iscsi_tcp_recv_segment_is_hdr libiscsi_tcp
 alias symbol:rt2800_set_rts_threshold rt2800lib
 alias symbol:fc_remove_host scsi_transport_fc
 alias symbol:iscsi_create_flashnode_sess scsi_transport_iscsi
-alias symbol:nf_nat_l3proto_ipv4_register_fn nf_nat_ipv4
 alias symbol:cfg80211_rx_unprot_mlme_mgmt cfg80211
 alias symbol:rt2x00queue_unpause_queue rt2x00lib
 alias symbol:ieee80211_iter_keys_rcu mac80211
@@ -1570,7 +1559,6 @@ alias symbol:osd_req_add_set_attr_list libosd
 alias symbol:usbnet_ether_cdc_bind cdc_ether
 alias symbol:gnss_serial_pm_ops gnss_serial
 alias symbol:videobuf_queue_vmalloc_init videobuf_vmalloc
-alias symbol:lib80211_crypt_info_free lib80211
 alias symbol:qt1010_attach qt1010
 alias symbol:iscsi_session_failure libiscsi
 alias symbol:ssb_pmu_set_ldo_voltage ssb
@@ -1663,7 +1651,6 @@ alias symbol:iscsi_get_ipaddress_state_name scsi_transport_iscsi
 alias symbol:rt2x00usb_initialize rt2x00usb
 alias symbol:rtl_cam_del_entry rtlwifi
 alias symbol:target_tpg_has_node_acl target_core_mod
-alias symbol:lib80211_register_crypto_ops lib80211
 alias symbol:wdev_to_ieee80211_vif mac80211
 alias symbol:cfg80211_rx_control_port cfg80211
 alias symbol:rt2x00lib_remove_dev rt2x00lib
