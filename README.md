@@ -123,7 +123,15 @@ system's root.
 ```
 $ sudo cp output/v3emmc.dtb $ROOTFS/boot/
 $ sudo cp output/v3sdc.dtb $ROOTFS/boot/
+$ sudo cp output/v3psci.dtb $ROOTFS/boot/
 ```
+
+4) Copy the config file to the "/boot/" folder at your SDCARD/EMMC system's root.
+
+```
+$ sudo cp config.json $ROOTFS/boot/
+```
+
 >Note: $ROOTFS must be replaced by the complete directory path of your target
 system's root mounting point.
 

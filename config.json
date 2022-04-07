@@ -1,0 +1,37 @@
+{
+   "model":"Caninos Labrador K7",
+   "compatible":"caninos,k7",
+   "bootloader":{
+      "major-version":2,
+      "minor-version":0,
+      "prioritize-sdcard":true,
+      "graphics-enabled":true,
+      "logo-enabled":true,
+      "cpu-core-clock":1104,
+      "common-bootargs":"selinux=0 earlycon console=ttyS3,115200 console=tty0 no_console_suspend"
+   },
+   "display":{
+      "source":"hdmi",
+      "width":1920,
+      "height":1080,
+      "refresh-rate":60
+   },
+   "sdcard":{
+      "kernel-filename":"Image",
+      "kernel-address":"0x400000",
+      "dtc-filename":"v3psci.dtb",
+      "dtc-address":"0x200000",
+      "initrd-filename":null,
+      "initrd-address":null,
+      "append-bootargs":"root=/dev/mmcblk0p1 rw rootwait"
+   },
+   "emmc":{
+      "kernel-filename":"Image",
+      "kernel-address":"0x400000",
+      "dtc-filename":"v3psci.dtb",
+      "dtc-address":"0x200000",
+      "initrd-filename":null,
+      "initrd-address":null,
+      "append-bootargs":"root=/dev/mmcblk2p1 rw rootwait"
+   }
+}
