@@ -400,6 +400,7 @@ kernel/drivers/net/mii.ko
 kernel/drivers/net/netconsole.ko
 kernel/drivers/net/tun.ko
 kernel/drivers/net/tap.ko
+kernel/drivers/net/veth.ko
 kernel/drivers/net/nlmon.ko
 kernel/drivers/net/xen-netfront.ko
 kernel/drivers/net/bonding/bonding.ko
