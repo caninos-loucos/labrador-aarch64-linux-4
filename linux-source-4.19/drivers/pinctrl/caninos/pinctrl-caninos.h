@@ -189,8 +189,15 @@ const static unsigned int uart0_dummy_pins[] = { GPIOA(0), GPIOA(1) };
 const static unsigned int i2c2_dummy_pins[]  = { GPIOA(2), GPIOA(3) };
 const static unsigned int pwm_dummy_pins[]   = { GPIOA(4) };
 
-//const static unsigned int eth_rmii_pins[];
-//const static unsigned int eth_rgmii_pins[];
+const static unsigned int eth_rmii_pins[] = {
+	GPIOA(21), GPIOA(15), GPIOA(14), GPIOA(16), GPIOA(17), 
+	GPIOA(19), GPIOA(20), GPIOA(18), GPIOA(22), GPIOA(23)
+};
+
+const static unsigned int eth_rgmii_pins[] = {
+	GPIOA(21), GPIOE(5), GPIOE(4), GPIOA(15), GPIOA(14), GPIOA(16), GPIOA(17),
+	GPIOE(7), GPIOE(6), GPIOA(19), GPIOA(20), GPIOA(18), GPIOA(22), GPIOA(23)
+};
 
 //   RGMII      --     RMII
 // RGMII_TXC    -- RMII_REF_CLK  --> GPIOA21
@@ -239,6 +246,16 @@ const static struct caninos_group caninos_groups[] = {
 		.pins = pwm_dummy_pins,
 		.num_pins = ARRAY_SIZE(pwm_dummy_pins),
 	},
+	{
+		.name = "eth_rmii_grp",
+		.pins = eth_rmii_pins,
+		.num_pins = ARRAY_SIZE(eth_rmii_pins),
+	},
+	{
+		.name = "eth_rgmii_grp",
+		.pins = eth_rgmii_pins,
+		.num_pins = ARRAY_SIZE(eth_rgmii_pins),
+	},
 };
 
 const static char * const uart0_groups[] =
@@ -249,4 +266,7 @@ const static char * const i2c2_groups[] =
 
 const static char * const pwm_groups[] = 
 { "pwm_extio_grp", "pwm_dummy_grp" };
+
+const static char * const eth_groups[] =
+{ "eth_rmii_grp", "eth_rgmii_grp" };
 

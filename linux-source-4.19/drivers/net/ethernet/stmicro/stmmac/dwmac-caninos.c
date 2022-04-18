@@ -31,6 +31,9 @@ struct caninos_priv_data {
 	struct clk *tx_clk;
 	int powergpio;
 	int resetgpio;
+	struct pinctrl *pctl;
+	struct pinctrl_state *rmii_state;
+	struct pinctrl_state *rgmii_state;
 };
 
 #define CANINOS_GMAC_GMII_RGMII_RATE 125000000
@@ -63,7 +66,7 @@ static int caninos_gmac_probe_gpios(struct platform_device *pdev, void *priv)
 
 	gmac->powergpio = of_get_named_gpio(dev->of_node, "phy-power-gpio", 0);
 	
-	gmac->resetgpio = of_get_named_gpio(dev->of_node, "phy-reset-gpios", 0);
+	gmac->resetgpio = of_get_named_gpio(dev->of_node, "phy-reset-gpio", 0);
 	
 	if (gpio_is_valid(gmac->powergpio))
 	{
@@ -81,11 +84,11 @@ static int caninos_gmac_probe_gpios(struct platform_device *pdev, void *priv)
 	
 	if (gpio_is_valid(gmac->resetgpio))
 	{
-		ret = gpio_request(gmac->resetgpio, "phy-reset-gpios");
+		ret = gpio_request(gmac->resetgpio, "phy-reset-gpio");
 		
 		if (ret < 0)
 		{
-			dev_err(dev, "couldn't claim phy-reset-gpios pin\n");
+			dev_err(dev, "couldn't claim phy-reset-gpio pin\n");
 			gmac->resetgpio = -EINVAL;
 			goto erro_gpio_request;
 		}
@@ -100,57 +103,16 @@ erro_gpio_request:
 	return ret;
 }
 
-//https://elixir.bootlin.com/linux/latest/source/drivers/pinctrl/aspeed/pinctrl-aspeed.c#L570
-//PIN_CONFIG_DRIVE_STRENGTH
-
-
-static int caninos_gmac_interface_config(int mode)
+static int caninos_gmac_interface_config(void *priv, int mode)
 {
+	struct caninos_priv_data *gmac = priv;
 	void __iomem *addr = NULL;
-	u32 aux;
 	
-	if (mode == PHY_INTERFACE_MODE_RGMII)
-	{
-		addr = ioremap_nocache(0xe01680ac, 4);
-		
-		if (addr == NULL) {
-			return -ENOMEM;
-		}
-		
-		aux = readl(addr);
-		aux &= 0xff807fff;
-		aux |= 0x00198000;
-		writel(aux, addr);
-		
-		iounmap(addr);
-		
-		addr = ioremap_nocache(0xe01b0080, 4);
-		
-		if (addr == NULL) {
-			return -ENOMEM;
-		}
-		
-		aux = readl(addr);
-		aux &= ~(0x3FF << 14);
-		aux |= (0x2 << 14);
-		writel(aux, addr);
-		
-		iounmap(addr);
+	if (mode == PHY_INTERFACE_MODE_RGMII) {
+		pinctrl_select_state(gmac->pctl, gmac->rgmii_state);
 	}
-	else
-	{
-		addr = ioremap_nocache(0xe01b0080, 4);
-		
-		if (addr == NULL) {
-			return -ENOMEM;
-		}
-		
-		aux = readl(addr);
-		aux &= ~(0x3FF << 14);
-		aux |= (0x5b << 14);
-		writel(aux, addr);
-		
-		iounmap(addr);
+	else {
+		pinctrl_select_state(gmac->pctl, gmac->rmii_state);
 	}
 	
 	addr = ioremap_nocache(0xe024c0a0, 4);
@@ -172,7 +134,6 @@ static int caninos_gmac_interface_config(int mode)
 static int caninos_gmac_init(struct platform_device *pdev, void *priv)
 {
 	struct caninos_priv_data *gmac = priv;
-	
 	
 	if (gpio_is_valid(gmac->powergpio))
 	{
@@ -212,7 +173,7 @@ static int caninos_gmac_init(struct platform_device *pdev, void *priv)
 		clk_prepare(gmac->tx_clk);
 	}
 	
-	return caninos_gmac_interface_config(gmac->interface);
+	return caninos_gmac_interface_config(priv, gmac->interface);
 }
 
 static void caninos_gmac_exit(struct platform_device *pdev, void *priv)
@@ -248,14 +209,14 @@ static void caninos_fix_speed(void *priv, unsigned int speed)
 		clk_prepare_enable(gmac->tx_clk);
 		gmac->clk_enabled = 1;
 		
-		caninos_gmac_interface_config(PHY_INTERFACE_MODE_RGMII);
+		caninos_gmac_interface_config(priv, PHY_INTERFACE_MODE_RGMII);
 	}
 	else
 	{
 		clk_set_rate(gmac->tx_clk, CANINOS_GMAC_MII_RATE);
 		clk_prepare(gmac->tx_clk);
 		
-		caninos_gmac_interface_config(PHY_INTERFACE_MODE_RMII);
+		caninos_gmac_interface_config(priv, PHY_INTERFACE_MODE_RMII);
 	}
 }
 
@@ -295,6 +256,27 @@ static int caninos_gmac_probe(struct platform_device *pdev)
 		dev_err(dev, "could not get tx clock\n");
 		ret = PTR_ERR(gmac->tx_clk);
 		goto err_remove_config_dt;
+	}
+	
+	gmac->pctl = devm_pinctrl_get(dev);
+	
+	if (IS_ERR(gmac->pctl)) {
+		dev_err(dev, "devm_pinctrl_get() failed\n");
+		return PTR_ERR(gmac->pctl);
+	}
+	
+	gmac->rmii_state = pinctrl_lookup_state(gmac->pctl, "rmii");
+	
+	if (IS_ERR(gmac->rmii_state)) {
+		dev_err(dev, "could not get pinctrl rmii state\n");
+		return PTR_ERR(gmac->rmii_state);
+	}
+	
+	gmac->rgmii_state = pinctrl_lookup_state(gmac->pctl, "rgmii");
+	
+	if (IS_ERR(gmac->rgmii_state)) {
+		dev_err(dev, "could not get pinctrl rgmii state\n");
+		return PTR_ERR(gmac->rgmii_state);
 	}
 	
 	ret = caninos_gmac_probe_gpios(pdev, gmac);

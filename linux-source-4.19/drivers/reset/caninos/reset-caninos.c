@@ -214,6 +214,7 @@ static int caninos_rcu_reset_probe(struct platform_device *pdev)
 	const struct of_device_id *of_id;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
+	u32 aux;
 	
 	of_id = of_match_node(caninos_rcu_reset_dt_ids, dev->of_node);
 	
@@ -255,6 +256,18 @@ static int caninos_rcu_reset_probe(struct platform_device *pdev)
 	{
 		dev_err(dev, "could not map cmu-base registers.\n");
 		return PTR_ERR(priv->cmu_base);
+	}
+	
+	/* Set ethernet gmac delays */
+	
+	aux = readl(priv->cmu_base + K7_DEVRST1);
+	aux &= 0xff807fff;
+	writel(aux, priv->cmu_base + K7_DEVRST1);
+	
+	if (aux != readl(priv->cmu_base + K7_DEVRST1))
+	{
+		dev_err(dev, "could not set ethernet gmac delays.\n");
+		return -EINVAL;
 	}
 	
 	return devm_reset_controller_register(dev, &priv->rcdev);

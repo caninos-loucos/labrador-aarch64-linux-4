@@ -452,7 +452,7 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 	writel(0x40401880, data->base + PAD_ST0);
 	writel(0x00000140, data->base + PAD_ST1);
 	writel(0x00000002, data->base + PAD_CTL);
-	writel(0x2aaaaaaa, data->base + PAD_DRV0);
+	writel(0x2ffeeaaa, data->base + PAD_DRV0);
 	writel(0xaacf0800, data->base + PAD_DRV1);
 	writel(0xa9482008, data->base + PAD_DRV2);
 	

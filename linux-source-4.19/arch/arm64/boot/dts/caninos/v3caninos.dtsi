@@ -217,6 +217,14 @@
 				function = "pwm";
 				groups = "pwm_extio_grp";
 			};
+			eth_state_rmii: eth_rmii {
+				function = "eth";
+				groups = "eth_rmii_grp";
+			};
+			eth_state_rgmii: eth_rgmii {
+				function = "eth";
+				groups = "eth_rgmii_grp";
+			};
 		};
 		
 		gpioa: gpioa@e01b0000 {
@@ -700,8 +708,12 @@
 			reset-names = "stmmaceth";
 			phy-handle = <&phy0>;
 			
+			pinctrl-names = "rmii", "rgmii";
+			pinctrl-0 = <&eth_state_rmii>;
+			pinctrl-1 = <&eth_state_rgmii>;
+			
 			phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>;
-			phy-reset-gpios = <&gpiod 31 GPIO_ACTIVE_HIGH>; 
+			phy-reset-gpio = <&gpiod 31 GPIO_ACTIVE_HIGH>; 
 			
 			status = "okay";
 			
