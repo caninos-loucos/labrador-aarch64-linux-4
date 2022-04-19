@@ -104,6 +104,11 @@ static const struct caninos_pmx_func caninos_functions[] = {
 		.groups = pwm_groups,
 		.num_groups = ARRAY_SIZE(pwm_groups),
 	},
+	{
+		.name = "eth",
+		.groups = eth_groups,
+		.num_groups = ARRAY_SIZE(eth_groups),
+	},
 };
 
 int caninos_pmx_get_functions_count(struct pinctrl_dev *pctldev)
