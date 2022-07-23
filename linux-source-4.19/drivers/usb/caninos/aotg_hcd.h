@@ -60,7 +60,6 @@
  * 3 -- usb0 and usb1 enable,but reversed.
  */
 extern int hcd_ports_en_ctrl;
-extern struct kmem_cache *td_cache;
 
 extern struct platform_driver aotg_hcd_driver;
 extern struct hc_driver act_hc_driver;
@@ -392,15 +391,17 @@ static inline struct usb_hcd *aotg_to_hcd(struct aotg_hcd *acthcd)
 	return container_of((void *)acthcd, struct usb_hcd, hcd_priv);
 }
 
+extern void aotg_hcd_init(struct usb_hcd *hcd);
+
+extern void aotg_hcd_exit(struct usb_hcd *hcd);
+
+
+
+
 void aotg_hcd_release_queue(struct aotg_hcd *acthcd, struct aotg_queue *q);
-void aotg_hcd_init(struct usb_hcd *hcd, int id);
-
 void aotg_hub_trans_wait_timer(struct timer_list *t);
-
 enum hrtimer_restart aotg_hub_hotplug_timer(struct hrtimer *hrtimer);
-
 void aotg_check_trb_timer(struct timer_list *t);
-
 void aotg_power_onoff(int id, int on_off);
 void aotg_hcd_dump_td(struct aotg_ring *ring, struct aotg_td *td);
 struct aotg_ring *aotg_alloc_ring(struct aotg_hcd *acthcd,

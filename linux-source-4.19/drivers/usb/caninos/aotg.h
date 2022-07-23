@@ -2,7 +2,6 @@
 #define __LINUX_AOTG_H__
 
 #include "aotg_regs.h"
-#include "aotg_plat_data.h"
 
 #define TRB_ITE	(1 << 11)
 #define TRB_CHN	(1 << 10)
@@ -33,23 +32,18 @@ struct aotg_trb {
 	u32 hw_token;
 };
 
-extern enum aotg_mode_e aotg_mode[2];
-extern int hcd_ports_en_ctrl;
-extern enum ic_type_e ic_type[2];
-extern struct kmem_cache *td_cache;
-extern int vbus_otg_en_gpio[2][2];
-extern unsigned int port_host_plug_detect[2];
-extern int aotg_udc_enable[2];
-void aotg_hardware_init(int id);
-int aotg_device_init(int dev_id);
-int aotg_device_exit(int dev_id);
-extern struct aotg_hcd *act_hcd_ptr[2];
-extern struct aotg_udc *acts_udc_controller;
-extern unsigned int port_device_enable[2];
-extern struct of_device_id aotg_of_match[];
-extern int aotg_probe(struct platform_device *pdev);
-extern int aotg_remove(struct platform_device *pdev);
-void aotg_powergate_on(int id);
-void aotg_powergate_off(int id);
+struct aotg_plat_data {
+	struct device *dev;
+	void __iomem *base;
+	void __iomem *usbecs;
+	resource_size_t rsrc_start;
+	resource_size_t rsrc_len;
+	struct clk *clk_usbh_pllen;
+	struct clk *clk_usbh_phy;
+	struct clk *clk_usbh_cce;
+	int irq;
+	int id;
+};
 
 #endif
+

@@ -309,12 +309,13 @@
 		
 		usb2h0: usb@e01d0000 {
 			compatible = "caninos,k7-usb2.0-0";
-			reg = <0 0xe01d0000 0 0x1000>;
+			reg = <0 0xe01d0000 0 0x1000>, <0x0 0xe024c094 0x0 0x4>;
+			reg-names = "base", "usbecs";
 			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&cmu CLK_USB2H0_PLLEN>,
 			         <&cmu CLK_USB2H0_PHY>,
 			         <&cmu CLK_USB2H0_CCE>;
-			clock-names = "usbh0_pllen", "usbh0_phy", "usbh0_cce";
+			clock-names = "pllen", "phy", "cce";
 			resets = <&rst RST_USBH0>;
 			reset-names = "usb2h0";
 			status = "okay";
@@ -322,12 +323,13 @@
 		
 		usb2h1: usb@e01d8000 {
 			compatible = "caninos,k7-usb2.0-1";
-			reg = <0 0xe01d8000 0 0x1000>;
+			reg = <0 0xe01d8000 0 0x1000>, <0x0 0xe024c098 0x0 0x4>;
+			reg-names = "base", "usbecs";
 			interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&cmu CLK_USB2H1_PLLEN>,
 			         <&cmu CLK_USB2H1_PHY>,
 			         <&cmu CLK_USB2H1_CCE>;
-			clock-names = "usbh1_pllen", "usbh1_phy", "usbh1_cce";
+			clock-names = "pllen", "phy", "cce";
 			resets = <&rst RST_USBH1>;
 			reset-names = "usb2h1";
 			status = "okay";

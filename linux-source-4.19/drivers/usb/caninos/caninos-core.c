@@ -1,22 +1,3 @@
-/*
- * Actions OWL SoCs usb2.0 controller driver
- *
- * Copyright (c) 2015 Actions Semiconductor Co., ltd.
- * dengtaiping <dengtaiping@actions-semi.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License v2 as published by
- * the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/kernel.h>
@@ -52,52 +33,62 @@
 
 #include <linux/kallsyms.h>
 
-
 #include "aotg_hcd.h"
-#include "aotg_plat_data.h"
 #include "aotg_hcd_debug.h"
-#include "aotg_udc_debug.h"
-#include "aotg_mon.h"
-#include "aotg_udc.h"
+#include "aotg_regs.h"
+#include "aotg.h"
 
 
+#define HCD_DRIVER_DESC "Caninos USB Host Controller Driver"
+#define HCD_DRIVER_NAME "hcd-caninos"
 
+/* usbecs register. */
+#define	USB2_ECS_VBUS_P0		10
+#define	USB2_ECS_ID_P0			12
+#define USB2_ECS_LS_P0_SHIFT	8
+#define USB2_ECS_LS_P0_MASK		(0x3<<8)
+#define USB2_ECS_DPPUEN_P0     3
+#define USB2_ECS_DMPUEN_P0     2
+#define USB2_ECS_DMPDDIS_P0    1
+#define USB2_ECS_DPPDDIS_P0    0
+#define USB2_ECS_SOFTIDEN_P0   (1<<26)
+#define USB2_ECS_SOFTID_P0     27
+#define USB2_ECS_SOFTVBUSEN_P0 (1<<24)
+#define USB2_ECS_SOFTVBUS_P0   25
+#define USB2_PLL_EN0           (1<<12)
+#define USB2_PLL_EN1           (1<<13)
 
+static struct kmem_cache *td_cache = NULL;
 
+static struct aotg_plat_data aotg_data[] = {
+	[0] = {.irq = -1, .id = 0},
+	[1] = {.irq = -1, .id = 1},
+};
 
-
-
-enum aotg_mode_e aotg_mode[2];
-
-int is_ls_device[2];
-
-
-struct aotg_hcd *act_hcd_ptr[2];
-
-static u64 aotg_dmamask = DMA_BIT_MASK(32);
-
-struct aotg_plat_data aotg_data[2];
-
-static void aotg_plat_data_fill(struct device *dev, int dev_id)
+struct aotg_td *aotg_alloc_td(gfp_t mem_flags)
 {
-	aotg_data[dev_id].no_hs = 0;
-	
-	if (0 == dev_id)
-	{
-		aotg_data[0].usbecs = devm_ioremap_nocache(dev, 0xE024c094, 4);
-	}
-	else if (1 == dev_id)
-	{
-		aotg_data[1].usbecs = devm_ioremap_nocache(dev, 0xE024c098, 4);
-	}
-	else {
-		BUG_ON(1);
-	}
+	struct aotg_td *td;
+
+	td = kmem_cache_alloc(td_cache, GFP_ATOMIC);
+	if (!td)
+		return NULL;
+	memset(td, 0, sizeof(struct aotg_td));
+
+	td->cross_ring = 0;
+	td->err_count = 0;
+	td->urb = NULL;
+	INIT_LIST_HEAD(&td->queue_list);
+	INIT_LIST_HEAD(&td->enring_list);
+	INIT_LIST_HEAD(&td->dering_list);
+
+	return td;
 }
 
-static int usb_current_calibrate(void)
+void aotg_release_td(struct aotg_td *td)
 {
-	return 0x6;
+	if (!td)
+		return;
+	kmem_cache_free(td_cache, td);
 }
 
 static void aotg_DD_set_phy(void __iomem *base, u8 reg, u8 value)
@@ -126,324 +117,315 @@ static void aotg_DD_set_phy(void __iomem *base, u8 reg, u8 value)
 	udelay(time);
 	writeb(addrhigh | 0x10, base + VDCTRL);
 	udelay(time);
-	return;
 }
 
-
-static void aotg_set_hcd_phy(int id)
+static void aotg_set_hcd_phy(struct aotg_plat_data *pdata)
 {
-	int value;
+	aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
+	aotg_DD_set_phy(pdata->base, 0xe1, 0xcf);
+	aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
+	aotg_DD_set_phy(pdata->base, 0xe6, 0xcc);
+	aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
+	aotg_DD_set_phy(pdata->base, 0xe2, 0x02);
+	aotg_DD_set_phy(pdata->base, 0xe2, 0x16);
+	aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
+	aotg_DD_set_phy(pdata->base, 0xe7, 0xa1);
+	aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
+	aotg_DD_set_phy(pdata->base, 0xe0, 0x21);
+	aotg_DD_set_phy(pdata->base, 0xe0, 0x25);
+	aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
+	aotg_DD_set_phy(pdata->base, 0xe4, 0xa6);
+	aotg_DD_set_phy(pdata->base, 0xf0, 0xfc);
+}
+
+static void aotg_powergate_on(struct aotg_plat_data *pdata)
+{
+	pm_runtime_enable(pdata->dev);
+	pm_runtime_get_sync(pdata->dev);
+
+	clk_prepare_enable(pdata->clk_usbh_phy);
+	clk_prepare_enable(pdata->clk_usbh_pllen);
+}
+
+static void aotg_powergate_off(struct aotg_plat_data *pdata)
+{
+	clk_disable_unprepare(pdata->clk_usbh_pllen);
+	clk_disable_unprepare(pdata->clk_usbh_phy);
 	
-		aotg_DD_set_phy(aotg_data[id].base, 0xf4, 0xbb);
-		aotg_DD_set_phy(aotg_data[id].base, 0xe1, 0xcf);
-		aotg_DD_set_phy(aotg_data[id].base, 0xf4, 0x9b);
-		aotg_DD_set_phy(aotg_data[id].base, 0xe6, 0xcc);
-		aotg_DD_set_phy(aotg_data[id].base, 0xf4, 0xbb);
-		aotg_DD_set_phy(aotg_data[id].base, 0xe2, 0x2);
-		aotg_DD_set_phy(aotg_data[id].base, 0xe2, 0x16);
-		aotg_DD_set_phy(aotg_data[id].base, 0xf4, 0x9b);
-		aotg_DD_set_phy(aotg_data[id].base, 0xe7, 0xa1);
-		aotg_DD_set_phy(aotg_data[id].base, 0xf4, 0xbb);
-		aotg_DD_set_phy(aotg_data[id].base, 0xe0, 0x21);
-		aotg_DD_set_phy(aotg_data[id].base, 0xe0, 0x25);
-		aotg_DD_set_phy(aotg_data[id].base, 0xf4, 0x9b);
-
-		value = usb_current_calibrate();
-		dev_info(aotg_data[id].dev, "aotg[%d] CURRENT value: 0x%x\n",
-			id, value);
-		value |=  (0xa<<4);
-		aotg_DD_set_phy(aotg_data[id].base, 0xe4, value);
-		aotg_DD_set_phy(aotg_data[id].base, 0xf0, 0xfc);
-		pr_info("PHY: Disable hysterisys mode\n");
-
-
-	return;
+	pm_runtime_put_sync(pdata->dev);
+	pm_runtime_disable(pdata->dev);
 }
 
-void aotg_powergate_on(int id)
-{
-	pm_runtime_enable(aotg_data[id].dev);
-	pm_runtime_get_sync(aotg_data[id].dev);
-
-	clk_prepare_enable(aotg_data[id].clk_usbh_phy);
-
-	clk_prepare_enable(aotg_data[id].clk_usbh_pllen);
-}
-
-void aotg_powergate_off(int id)
-{
-	clk_disable_unprepare(aotg_data[id].clk_usbh_pllen);
-	clk_disable_unprepare(aotg_data[id].clk_usbh_phy);
-
-
-	pm_runtime_put_sync(aotg_data[id].dev);
-	pm_runtime_disable(aotg_data[id].dev);
-}
-
-int aotg_wait_reset(int id)
+static int aotg_wait_reset(struct aotg_plat_data *pdata)
 {
 	int i = 0;
-	while (((readb(aotg_data[id].base + USBERESET) & USBERES_USBRESET) != 0) && (i < 300000)) {
+	while (((readb(pdata->base + USBERESET) & USBERES_USBRESET) != 0) && (i < 300000)) {
 		i++;
 		udelay(1);
 	}
-
-	if (!(readb(aotg_data[id].base + USBERESET) & USBERES_USBRESET)) {
-		dev_info(aotg_data[id].dev, "usb reset OK: %x.\n", readb(aotg_data[id].base + USBERESET));
+	if (!(readb(pdata->base + USBERESET) & USBERES_USBRESET)) {
+		dev_info(pdata->dev, "usb reset OK: %x.\n", readb(pdata->base + USBERESET));
 	} else {
-		dev_err(aotg_data[id].dev, "usb reset ERROR: %x.\n", readb(aotg_data[id].base + USBERESET));
+		dev_err(pdata->dev, "usb reset ERROR: %x.\n", readb(pdata->base + USBERESET));
 		return -EBUSY;
 	}
 	return 0;
 }
 
-void aotg_hardware_init(int id)
+static void aotg_hardware_init(struct aotg_plat_data *pdata)
 {
-	u8 val8;
 	unsigned long flags;
-	struct aotg_plat_data *data = &aotg_data[id];
-
+	u8 val8;
+	
 	local_irq_save(flags);
-	/*aotg_hcd_controller_reset(acthcd->port_specific);*/
-	aotg_powergate_on(id);
-	aotg_wait_reset(id);
-	/* fpga : new DMA mode */
-	writel(0x1, data->base + HCDMABCKDOOR);
-
-	usb_writel(0x37000000 | (0x3<<4), data->usbecs);
-
+	
+	aotg_powergate_on(pdata);
+	aotg_wait_reset(pdata);
+	writel(0x1, pdata->base + HCDMABCKDOOR);
+	usb_writel(0x37000000 | (0x3<<4), pdata->usbecs);
+	
 	local_irq_restore(flags);
+	
 	udelay(100);
-	aotg_set_hcd_phy(id);
+	aotg_set_hcd_phy(pdata);
+	
 	local_irq_save(flags);
-
-	/***** TA_BCON_COUNT *****/
-	writeb(0x0, data->base + TA_BCON_COUNT);	/*110ms*/
-	/*set TA_SUSPEND_BDIS timeout never generate */
-	usb_writeb(0xff, data->base + TAAIDLBDIS);
-	/*set TA_AIDL_BDIS timeout never generate */
-	usb_writeb(0xff, data->base + TAWAITBCON);
-	/*set TA_WAIT_BCON timeout never generate */
-	usb_writeb(0x28, data->base + TBVBUSDISPLS);
-	usb_setb(1 << 7, data->base + TAWAITBCON);
-
-	usb_writew(0x1000, data->base + VBUSDBCTIMERL);
-
-	val8 = readb(data->base + BKDOOR);
-	if (data && data->no_hs)
-		val8 |= (1 << 7);
-	else
-		val8 &= ~(1 << 7);
-
-	if (is_ls_device[id])
-		val8 |= (1<<7);
-	writeb(val8, data->base + BKDOOR);
+	
+	writeb(0x0, pdata->base + TA_BCON_COUNT);
+	usb_writeb(0xff, pdata->base + TAAIDLBDIS);
+	usb_writeb(0xff, pdata->base + TAWAITBCON);
+	usb_writeb(0x28, pdata->base + TBVBUSDISPLS);
+	usb_setb(1 << 7, pdata->base + TAWAITBCON);
+	usb_writew(0x1000, pdata->base + VBUSDBCTIMERL);
+	
+	val8 = readb(pdata->base + BKDOOR);
+	val8 &= ~(1 << 7);
+	//if (is_ls_device[id])
+	//	val8 |= (1<<7);
+	writeb(val8, pdata->base + BKDOOR);
 	
 	mb();
 	local_irq_restore(flags);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-static const char platform_drv_name[] = "aotg_hcd";
-static struct workqueue_struct *start_mon_wq;
-static struct delayed_work start_mon_wker;
-struct kmem_cache *td_cache;
-struct mutex aotg_onoff_mutex;
-
-static void start_mon(struct work_struct *work)
+static int caninos_hcd_probe(struct platform_device *pdev)
 {
-	pr_info("usb start mon\n");
-	aotg_uhost_mon_init(0);
-	aotg_uhost_mon_init(1);
-}
-
-struct of_device_id aotg_of_match[] = {
-	{.compatible = "caninos,k7-usb2.0-0"},
-	{.compatible = "caninos,k7-usb2.0-1"},
-	{},
-};
-
-MODULE_DEVICE_TABLE(of, aotg_of_match);
-
-static int aotg_hcd_get_dts(struct platform_device *pdev)
-{
-	struct device_node *of_node = pdev->dev.of_node;
-
-
-	if (of_device_is_compatible(of_node, aotg_of_match[0].compatible)) {
-		pdev->id = 0;
-	} else if (of_device_is_compatible(of_node, aotg_of_match[1].compatible)) {
-		pdev->id = 1;
-	} else {
-		dev_err(&pdev->dev, "compatible ic type failed\n");
-	}
+	struct aotg_plat_data *pdata;
+	struct aotg_hcd *acthcd;
+	struct resource *res;
+	struct usb_hcd *hcd;
+	int retval;
 	
-	return 0;
-}
-
-int aotg_probe(struct platform_device *pdev)
-{
-	struct resource *res_mem;
-	int irq, retval;
+	dev_info(&pdev->dev, "caninos_hcd_probe() started\n");
 	
-	res_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	
-	if (!res_mem)
-	{
-		dev_err(&pdev->dev, "<HCD_PROBE>usb has no resource for mem!\n");
+	if (usb_disabled()) {
+		dev_err(&pdev->dev, "usb is disabled, hcd probe aborted\n");
 		return -ENODEV;
 	}
 	
-	irq = platform_get_irq(pdev, 0);
+	pdata = (struct aotg_plat_data *)of_device_get_match_data(&pdev->dev);
 	
-	if (irq <= 0)
+	if (!pdata) {
+		dev_err(&pdev->dev, "could not get of device match data\n");
+		return -ENODEV;
+	}
+	
+	pdev->id = pdata->id;
+	pdata->dev = &pdev->dev;
+	
+	retval = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	
+	if (retval) {
+		dev_err(&pdev->dev, "could not set dma mask, %d\n", retval);
+		return retval;
+	}
+	
+	pdata->irq = platform_get_irq(pdev, 0);
+	
+	if (pdata->irq <= 0) {
+		dev_err(&pdev->dev, "could not get irq\n");
+		return -ENODEV;
+	}
+	
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
+	pdata->base = devm_ioremap_resource(&pdev->dev, res);
+	
+	if (IS_ERR(pdata->base))
 	{
-		dev_err(&pdev->dev, "<HCD_PROBE>usb has no resource for irq!\n");
-		retval = -ENODEV;
-		goto err1;
+		retval = PTR_ERR(pdata->base);
+		dev_err(&pdev->dev, "failed to ioremap base resource, %d\n", retval);
+		return retval;
 	}
 	
-	if (!request_mem_region(res_mem->start, res_mem->end - res_mem->start + 1, dev_name(&pdev->dev))) {
-		dev_err(&pdev->dev, "<HCD_PROBE>request_mem_region failed\n");
-		retval = -EBUSY;
-		goto err1;
-	}
+	pdata->rsrc_start = res->start;
+	pdata->rsrc_len = resource_size(res);
 	
-	if (aotg_hcd_get_dts(pdev) < 0) {
-		retval = -ENODEV;
-		goto err1;
-	}
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "usbecs");
 	
-	aotg_data[pdev->id].base = devm_ioremap(&pdev->dev, res_mem->start, res_mem->end - res_mem->start + 1);
-	
-	if (!aotg_data[pdev->id].base)
+	if (!res || resource_type(res) != IORESOURCE_MEM)
 	{
-		dev_err(&pdev->dev, "<HCD_PROBE>ioremap failed\n");
-		retval = -ENOMEM;
-		goto err1;
+		dev_err(&pdev->dev, "failed to get usbecs resource\n");
+		return -EINVAL;
 	}
 	
-	aotg_plat_data_fill(&pdev->dev, pdev->id);
+	pdata->usbecs = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	
-	pdev->dev.dma_mask = &aotg_dmamask;
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	if (!pdata->usbecs)
+	{
+		dev_err(&pdev->dev, "failed to ioremap usbecs resource\n");
+		return -ENOMEM;
+	}
 	
-	aotg_data[pdev->id].rsrc_start = res_mem->start;
-	aotg_data[pdev->id].rsrc_len = res_mem->end - res_mem->start + 1;
-	aotg_data[pdev->id].irq = irq;
-	aotg_data[pdev->id].dev = &pdev->dev;
+	pdata->clk_usbh_pllen = devm_clk_get(&pdev->dev, "pllen");
+	
+	if (IS_ERR(pdata->clk_usbh_pllen))
+	{
+		retval = PTR_ERR(pdata->clk_usbh_pllen);
+		dev_err(&pdev->dev, "could not get pllen clk, %d\n", retval);
+		return retval;
+	}
+	
+	pdata->clk_usbh_phy = devm_clk_get(&pdev->dev, "phy");
+	
+	if (IS_ERR(pdata->clk_usbh_phy))
+	{
+		retval = PTR_ERR(pdata->clk_usbh_phy);
+		dev_err(&pdev->dev, "could not get phy clk, %d\n", retval);
+		return retval;
+	}
+	
+	pdata->clk_usbh_cce = devm_clk_get(&pdev->dev, "cce");
+	
+	if (IS_ERR(pdata->clk_usbh_cce))
+	{
+		retval = PTR_ERR(pdata->clk_usbh_cce);
+		dev_err(&pdev->dev, "could not get cce clk, %d\n", retval);
+		return retval;
+	}
 	
 	device_init_wakeup(&pdev->dev, true);
 	
-	if (pdev->id)
+	hcd = usb_create_hcd(&act_hc_driver, &pdev->dev, dev_name(&pdev->dev));
+	
+	if (!hcd)
 	{
-		aotg_data[pdev->id].clk_usbh_pllen = devm_clk_get(&pdev->dev, "usbh1_pllen");
-	}
-	else
-	{
-		aotg_data[pdev->id].clk_usbh_pllen = devm_clk_get(&pdev->dev, "usbh0_pllen");
+		dev_err(&pdev->dev, "usb create hcd failed\n");
+		return -ENOMEM;
 	}
 	
-	if (IS_ERR(aotg_data[pdev->id].clk_usbh_pllen))
-	{
-		dev_err(&pdev->dev, "unable to get usbh_pllen\n");
-		retval = -EINVAL;
-		goto err1;
-	}
+	platform_set_drvdata(pdev, hcd);
+	aotg_hcd_init(hcd);
 	
-	if (pdev->id) {
-		aotg_data[pdev->id].clk_usbh_phy = devm_clk_get(&pdev->dev, "usbh1_phy");
-	}
-	else {
-		aotg_data[pdev->id].clk_usbh_phy = devm_clk_get(&pdev->dev, "usbh0_phy");
-	}
+	hcd->regs = pdata->base;
+	hcd->rsrc_start = pdata->rsrc_start;
+	hcd->rsrc_len = pdata->rsrc_len;
+	
+	acthcd = hcd_to_aotg(hcd);
+	acthcd->dev = &pdev->dev;
+	acthcd->base = pdata->base;
+	acthcd->hcd_exiting = 0;
+	acthcd->uhc_irq = pdata->irq;
+	acthcd->id = pdata->id;
+	
+	aotg_hardware_init(pdata);
+	
+	hcd->self.sg_tablesize = 32;
+	hcd->has_tt = 1;
+	hcd->self.uses_pio_for_control = 1;
+	
+	hrtimer_init(&acthcd->hotplug_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	acthcd->hotplug_timer.function = aotg_hub_hotplug_timer;
+	
+	timer_setup(&acthcd->trans_wait_timer, aotg_hub_trans_wait_timer, 0);
+	timer_setup(&acthcd->check_trb_timer, aotg_check_trb_timer, 0);
+	
+	retval = usb_add_hcd(hcd, acthcd->uhc_irq, 0);
+	
+	if (retval)
+	{
+		//usb_remove_hcd(hcd);
 		
-	if (IS_ERR(aotg_data[pdev->id].clk_usbh_phy))
-	{
-		dev_err(&pdev->dev, "unable to get usbh_phy\n");
-		retval =  -EINVAL;
-		goto err1;
+		aotg_disable_irq(acthcd);
+		aotg_powergate_off(pdata);
+		
+		acthcd->hcd_exiting = 1;
+		
+		tasklet_kill(&acthcd->urb_tasklet);
+		del_timer_sync(&acthcd->trans_wait_timer);
+		del_timer_sync(&acthcd->check_trb_timer);
+		hrtimer_cancel(&acthcd->hotplug_timer);
+	
+		aotg_hcd_release_queue(acthcd, NULL);
+		
+		aotg_hcd_exit(hcd);
+		usb_put_hcd(hcd);
+		
+		dev_info(&pdev->dev, "usb add hcd failed\n");
+		return retval;
 	}
 	
-	pr_info("usb pdev->id:%x successfully probed\n", pdev->id);
+	aotg_enable_irq(acthcd);
+	device_wakeup_enable(&hcd->self.root_hub->dev);
+	writeb(readb(acthcd->base + USBEIRQ), acthcd->base + USBEIRQ);
+	dev_info(&pdev->dev, "caninos_hcd_probe() successfully finished\n");
 	return 0;
-
-err1:
-	release_mem_region(res_mem->start, res_mem->end - res_mem->start + 1);
-	return retval;
 }
 
-int aotg_remove(struct platform_device *pdev)
+static int caninos_hcd_remove(struct platform_device *pdev)
 {
-	aotg_uhost_mon_exit();
-	release_mem_region(aotg_data[pdev->id].rsrc_start, aotg_data[pdev->id].rsrc_len);
 	return 0;
 }
 
-struct platform_driver aotg_hcd_driver = {
-	.probe = aotg_probe,
-	.remove = aotg_remove,
+static int __maybe_unused caninos_hcd_pm_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int __maybe_unused caninos_hcd_pm_resume(struct device *dev)
+{
+	return 0;
+}
+
+struct of_device_id caninos_hcd_dt_id[] = {
+	{.compatible = "caninos,k7-usb2.0-0", .data = (void*)&aotg_data[0]},
+	{.compatible = "caninos,k7-usb2.0-1", .data = (void*)&aotg_data[1]},
+	{ /* sentinel */ },
+};
+MODULE_DEVICE_TABLE(of, caninos_hcd_dt_id);
+
+static SIMPLE_DEV_PM_OPS(caninos_hcd_pm_ops, caninos_hcd_pm_suspend,
+                         caninos_hcd_pm_resume);
+
+struct platform_driver caninos_hcd_driver = {
 	.driver = {
+		.name = HCD_DRIVER_NAME,
+		.of_match_table = caninos_hcd_dt_id,
 		.owner = THIS_MODULE,
-		.name = platform_drv_name,
-		.of_match_table = aotg_of_match,
+		.pm	= &caninos_hcd_pm_ops,
 	},
+	.probe = caninos_hcd_probe,
+	.remove = caninos_hcd_remove,
+	.shutdown = usb_hcd_platform_shutdown,
 };
 
-static int __init aotg_init(void)
+static int __init caninos_usb_module_init(void)
 {
-	mutex_init(&aotg_onoff_mutex);
-	
-	td_cache = kmem_cache_create("aotg_hcd", sizeof(struct aotg_td), 0, SLAB_HWCACHE_ALIGN | SLAB_PANIC, NULL);
-	
-	platform_driver_register(&aotg_hcd_driver);
-	
-	start_mon_wq = create_singlethread_workqueue("aotg_start_mon_wq");
-	
-	INIT_DELAYED_WORK(&start_mon_wker, start_mon);
-	
-	queue_delayed_work(start_mon_wq, &start_mon_wker, msecs_to_jiffies(5000));
-	
+	td_cache = kmem_cache_create(HCD_DRIVER_NAME, sizeof(struct aotg_td), 0,
+	                             SLAB_HWCACHE_ALIGN | SLAB_PANIC, NULL);
+	platform_driver_register(&caninos_hcd_driver);
 	return 0;
 }
 
-static void __exit aotg_exit(void)
+module_init(caninos_usb_module_init);
+
+static void __exit caninos_usb_module_exit(void)
 {
-	cancel_delayed_work_sync(&start_mon_wker);
-	
-	flush_workqueue(start_mon_wq);
-	
-	destroy_workqueue(start_mon_wq);
-	
-	platform_driver_unregister(&aotg_hcd_driver);
-	
+	platform_driver_unregister(&caninos_hcd_driver);
 	kmem_cache_destroy(td_cache);
-	return;
 }
 
-module_init(aotg_init);
-module_exit(aotg_exit);
+module_exit(caninos_usb_module_exit);
 
-MODULE_DESCRIPTION("Actions OTG controller driver");
+MODULE_DESCRIPTION(HCD_DRIVER_DESC);
 MODULE_LICENSE("GPL");
 

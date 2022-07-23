@@ -1,22 +1,3 @@
-/*
- * Actions OWL SoCs usb2.0 controller driver
- *
- * Copyright (c) 2015 Actions Semiconductor Co., ltd.
- * dengtaiping <dengtaiping@actions-semi.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License v2 as published by
- * the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/list.h>
@@ -213,32 +194,7 @@ void aotg_free_ring(struct aotg_hcd *acthcd, struct aotg_ring *ring)
 	return;
 }
 
-struct aotg_td *aotg_alloc_td(gfp_t mem_flags)
-{
-	struct aotg_td *td;
 
-	/*td = kmalloc(sizeof(struct aotg_td), mem_flags);*/
-	td = kmem_cache_alloc(td_cache, GFP_ATOMIC);
-	if (!td)
-		return NULL;
-	memset(td, 0, sizeof(struct aotg_td));
-
-	td->cross_ring = 0;
-	td->err_count = 0;
-	td->urb = NULL;
-	INIT_LIST_HEAD(&td->queue_list);
-	INIT_LIST_HEAD(&td->enring_list);
-	INIT_LIST_HEAD(&td->dering_list);
-
-	return td;
-}
-
-void aotg_release_td(struct aotg_td *td)
-{
-	if (!td)
-		return;
-	kmem_cache_free(td_cache, td);
-}
 
 void enable_overflow_irq(struct aotg_hcd *acthcd, struct aotg_hcep *ep)
 {

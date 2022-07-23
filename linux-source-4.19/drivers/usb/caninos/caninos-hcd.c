@@ -1,22 +1,3 @@
-/*
- * Actions OWL SoCs usb2.0 controller driver
- *
- * Copyright (c) 2015 Actions Semiconductor Co., ltd.
- * dengtaiping <dengtaiping@actions-semi.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License v2 as published by
- * the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/kernel.h>
@@ -54,9 +35,7 @@
 #include <linux/kallsyms.h>
 
 #include "aotg_hcd.h"
-#include "aotg_plat_data.h"
 #include "aotg_hcd_debug.h"
-#include "aotg_mon.h"
 #include "aotg.h"
 
 #define DRIVER_DESC "AOTG USB Host Controller Driver"
@@ -66,9 +45,6 @@ static int handle_setup_packet(struct aotg_hcd *acthcd, struct aotg_queue *q);
 static void handle_hcep0_in(struct aotg_hcd *acthcd);
 static void handle_hcep0_out(struct aotg_hcd *acthcd);
 
-#ifndef NO_IRQ
-#define NO_IRQ  ((unsigned int)(-1))
-#endif
 
 #define MAX_PACKET(x)	((x)&0x7FF)
 
@@ -1032,29 +1008,26 @@ static void aotg_hcd_err_handle(struct aotg_hcd *acthcd, u32 irqvector,
 	return;
 }
 
-
-
 static void handle_suspend(struct aotg_hcd *acthcd)
 {
 	usb_clearbitsb(SUSPEND_IRQIEN, acthcd->base + USBEIEN);
 	usb_setbitsb(SUSPEND_IRQIEN, acthcd->base + USBEIRQ);
+	
 	aotg_sofirq_clr(acthcd);
 	aotg_sofirq_on(acthcd);
-	/*clear clk gate to suspend usb pll */
-	/*writeb(readb(acthcd->base + BKDOOR)&0xbf,acthcd->base + BKDOOR);*/
 }
 
 static void handle_sof(struct aotg_hcd *acthcd)
 {
 	struct usb_hcd *hcd = aotg_to_hcd(acthcd);
+	
 	aotg_sofirq_clr(acthcd);
 	aotg_sofirq_off(acthcd);
-	/*writeb(readb(acthcd->base + BKDOOR)|0x40,acthcd->base + BKDOOR); */
-	/*while(!(readb(acthcd->base + BKDOOR) & 0x40))*/
-	if (HC_IS_SUSPENDED(hcd->state))
+	
+	if (HC_IS_SUSPENDED(hcd->state)) {
 		usb_hcd_resume_root_hub(hcd);
+	}
 
-	/*aotg_hcd_flush_queue(acthcd);*/
 	usb_hcd_poll_rh_status(hcd);
 }
 
@@ -1176,6 +1149,13 @@ static irqreturn_t aotg_hub_irq(struct usb_hcd *hcd)
 		case UIV_LOCSOF:
 		case UIV_VBUSERR:
 		case UIV_PERIPH:
+		
+		//when device is inserted: port_no:1 OTG IRQ, OTGSTATE: 0x03, USBIRQ:0x00
+		
+		//when device is removed:  port_no:1 OTG IRQ, OTGSTATE: 0x02, USBIRQ:0x02
+		
+		
+		
 			if (readb(acthcd->base + OTGIRQ) & (0x1<<2))
 			{
 				writeb(0x1<<2, acthcd->base + OTGIRQ);
@@ -1185,36 +1165,48 @@ static irqreturn_t aotg_hub_irq(struct usb_hcd *hcd)
 					port_no, otg_state,
 					readb(acthcd->base + USBIRQ));
 
-				if (otg_state == 0x4) {
+				if (otg_state == AOTG_STATE_A_SUSPEND) {
 					return IRQ_HANDLED;
 				}
-				if (otg_state == 0x02) {
-					return IRQ_HANDLED;
-				}
+				
+				//if (otg_state == AOTG_STATE_A_WAIT_BCON) {
+				//	return IRQ_HANDLED;
+				//}
 				
 				acthcd->put_aout_msg = 0;
 				
-				acthcd->discon_happened = 1;
-				
-				hrtimer_start(&acthcd->hotplug_timer, ktime_set(0, NSEC_PER_MSEC), HRTIMER_MODE_REL);
+				if (acthcd->discon_happened) {
+					hrtimer_start(&acthcd->hotplug_timer, ktime_set(0, 500*NSEC_PER_MSEC), HRTIMER_MODE_REL);
+				}
+				else
+				{
+					acthcd->discon_happened = 1;
+					hrtimer_start(&acthcd->hotplug_timer, ktime_set(0, NSEC_PER_MSEC), HRTIMER_MODE_REL);
+				}
 			}
 			else {
 				pr_info("port_no:%d error OTG irq! OTGIRQ: 0x%02X\n",
 					port_no, readb(acthcd->base + OTGIRQ));
 			}
 			break;
+			
 		case UIV_SOF:
 			writeb(USBIRQ_SOF, acthcd->base + USBIRQ);
+			
 			if (acthcd->bus_remote_wakeup) {
 				acthcd->bus_remote_wakeup = 0;
 				acthcd->port |= (USB_PORT_STAT_C_SUSPEND<<16);
 				acthcd->port &= ~USB_PORT_STAT_C_SUSPEND;
 			}
+			
 			handle_sof(acthcd);
 			break;
+			
 		case UIV_USBRESET:
-			pr_warn("USBRESET IRQ\n");
-			if (acthcd->port & (USB_PORT_STAT_POWER | USB_PORT_STAT_CONNECTION)) {
+		
+			
+			if (acthcd->port & (USB_PORT_STAT_POWER | USB_PORT_STAT_CONNECTION))
+			{
 				acthcd->speed = USB_SPEED_FULL;	/*FS is the default */
 				acthcd->port |= (USB_PORT_STAT_C_RESET << 16);
 				acthcd->port &= ~USB_PORT_STAT_RESET;
@@ -1231,23 +1223,30 @@ static irqreturn_t aotg_hub_irq(struct usb_hcd *hcd)
 
 				acthcd->port |= USB_PORT_STAT_ENABLE;
 				acthcd->rhstate = AOTG_RH_ENABLE;
+				
 				/*now root port is enabled fully */
-				if (readb(acthcd->base + USBCS) & USBCS_HFMODE) {
+				if (readb(acthcd->base + USBCS) & USBCS_HFMODE)
+				{
 					acthcd->speed = USB_SPEED_HIGH;
 					acthcd->port |= USB_PORT_STAT_HIGH_SPEED;
 					writeb(USBIRQ_HS, acthcd->base + USBIRQ);
-					HCD_DEBUG("%s: USB device is  HS\n", __func__);
-				} else if (readb(acthcd->base + USBCS) & USBCS_LSMODE) {
+					
+					dev_info(acthcd->dev, "USB device is HS\n");
+				}
+				else if (readb(acthcd->base + USBCS) & USBCS_LSMODE)
+				{
 					acthcd->speed = USB_SPEED_LOW;
 					acthcd->port |= USB_PORT_STAT_LOW_SPEED;
-					HCD_DEBUG("%s: USB device is  LS\n", __func__);
-				} else {
+					
+					dev_info(acthcd->dev, "USB device is LS\n");
+				}
+				else {
 					acthcd->speed = USB_SPEED_FULL;
-					HCD_DEBUG("%s: USB device is  FS\n", __func__);
+					
+					dev_info(acthcd->dev, "USB device is FS\n");
 				}
 
-				/*usb_clearbitsb(USBIEN_URES,USBIEN);*/ /*disable reset irq */
-				/*khu del for must enable USBIEN_URES again*/
+				
 				writew(0xffff, acthcd->base + HCINxERRIRQ0);
 				writew(0xffff, acthcd->base + HCOUTxERRIRQ0);
 
@@ -1256,35 +1255,38 @@ static irqreturn_t aotg_hub_irq(struct usb_hcd *hcd)
 				writew(0xffff, acthcd->base + HCINxERRIEN0);
 				writew(0xffff, acthcd->base + HCOUTxERRIEN0);
 
-				HCD_DEBUG("%s: USB reset end\n", __func__);
 			}
 			break;
-
+			
+			
+			
 		case UIV_EP0IN:
-			writew(1, acthcd->base + HCOUTxIRQ0);	/*clear hcep0out irq */
+			writew(0x1, acthcd->base + HCOUTxIRQ0); //clear hcep0out irq
 			handle_hcep0_out(acthcd);
 			break;
+			
 		case UIV_EP0OUT:
-			writew(1, acthcd->base + HCINxIRQ0);	/*clear hcep0in irq */
+			writew(0x1, acthcd->base + HCINxIRQ0); //clear hcep0in irq
 			handle_hcep0_in(acthcd);
 			break;
+			
 		case UIV_EP1IN:
-			ACT_HCD_DBG
-			writew(1<<1, acthcd->base + HCOUTxIRQ0);	/*clear hcep1out irq */
+			writew(0x1 << 1, acthcd->base + HCOUTxIRQ0); //clear hcep1out irq
 			break;
+			
 		case UIV_EP1OUT:
-			ACT_HCD_DBG
-			writeb(1<<1, acthcd->base + HCINxIRQ0);	/*clear hcep1in irq */
+			writew(0x1 << 1, acthcd->base + HCINxIRQ0); //clear hcep1in irq
 			break;
+			
 		case UIV_EP2IN:
-			ACT_HCD_DBG
-			writew(1<<2, acthcd->base + HCOUTxIRQ0);	/*clear hcep2out irq */
+			writew(0x1 << 2, acthcd->base + HCOUTxIRQ0); //clear hcep2out irq
 			break;
+			
 		case UIV_EP2OUT:
-			ACT_HCD_DBG
-			writeb(1<<2, acthcd->base + HCINxIRQ0);	/*clear hcep2in irq */
+			writeb(0x1 << 2, acthcd->base + HCINxIRQ0); //clear hcep2in irq
 			break;
-
+			
+			
 		default:
 			if ((irqvector >= UIV_HCOUT0ERR) && (irqvector <= UIV_HCOUT15ERR)) {
 				printk(KERN_DEBUG"irqvector:%d, 0x%x\n", irqvector, irqvector);
@@ -1527,7 +1529,7 @@ static inline int start_transfer(struct aotg_hcd *acthcd,
 			else
 				writeb(urb->dev->portnum, ep->reg_hcep_port);
 		}
-		/*writeb(0, ep->reg_hcep_splitcs);*/
+		
 	} else {
 		writeb(usb_pipedevice(urb->pipe), ep->reg_hcep_dev_addr);
 		writeb(urb->dev->portnum, ep->reg_hcep_port);
@@ -1705,7 +1707,7 @@ static int aotg_hub_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
 	int type = usb_pipetype(pipe);
 	int retval = 0;
 
-	if ((acthcd == NULL) || (act_hcd_ptr[acthcd->id] == NULL)) {
+	if (acthcd == NULL) {
 		pr_info("aotg_hcd device had been removed...\n");
 		return -EIO;
 	}
@@ -1922,7 +1924,7 @@ static int aotg_hub_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status
 	unsigned long flags;
 	int retval = 0;
 
-	if ((acthcd == NULL) || (act_hcd_ptr[acthcd->id] == NULL)) {
+	if (acthcd == NULL) {
 		pr_err("aotg_hcd device had been removed...\n");
 		return -EIO;
 	}
@@ -2409,7 +2411,7 @@ static int aotg_hub_control(struct usb_hcd *hcd,
 				port_power(acthcd, 0);
 			break;
 		case USB_PORT_FEAT_SUSPEND:
-			HUB_DEBUG("<HUB_CONTROL>clear suspend feathure\n");
+			HUB_DEBUG("<HUB_CONTROL>clear suspend feature\n");
 			/*port_resume(acthcd);*/
 			acthcd->port &= ~(1 << wValue);
 			break;
@@ -2510,7 +2512,7 @@ hub_error:
 	return retval;
 }
 
-void aotg_hcd_init(struct usb_hcd *hcd, int id)
+void aotg_hcd_init(struct usb_hcd *hcd)
 {
 	struct aotg_hcd *acthcd = hcd_to_aotg(hcd);
 	int i;
@@ -2555,6 +2557,47 @@ void aotg_hcd_init(struct usb_hcd *hcd, int id)
 	}
 }
 
+void aotg_hcd_exit(struct usb_hcd *hcd)
+{
+	struct aotg_hcd *acthcd = hcd_to_aotg(hcd);
+	struct aotg_hcep *ep;
+	int i;
+	
+	
+	for (i = 0; i < MAX_EP_NUM; i++)
+	{
+		ep = acthcd->ep0[i];
+		if (ep)
+		{
+			ACT_HCD_DBG
+			if (ep->q)
+				ACT_HCD_DBG
+			kfree(ep);
+		}
+	}
+	
+		for (i = 1; i < MAX_EP_NUM; i++) {
+			ep = acthcd->inep[i];
+			if (ep) {
+				ACT_HCD_DBG
+				if (ep->ring) {
+					ACT_HCD_DBG
+				}
+				kfree(ep);
+			}
+		}
+		for (i = 1; i < MAX_EP_NUM; i++) {
+			ep = acthcd->outep[i];
+			if (ep) {
+				ACT_HCD_DBG
+				if (ep->ring)
+					ACT_HCD_DBG
+				kfree(ep);
+			}
+		}
+
+		
+}
 
 
 
@@ -2619,13 +2662,7 @@ struct hc_driver act_hc_driver = {
 	 */
 	.hub_status_data = aotg_hub_status_data,
 	.hub_control = aotg_hub_control,
-
 	.bus_suspend = NULL,
 	.bus_resume = NULL,
 };
-
-
-
-
-
 
