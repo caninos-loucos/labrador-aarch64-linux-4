@@ -859,6 +859,7 @@ static void aotg_hcd_err_handle(struct aotg_hcd *acthcd, u32 irqvector,
 	struct usb_hcd *hcd = aotg_to_hcd(acthcd);
 
 	printk(KERN_DEBUG"hcd ep err ep_num:%d, is_in:%d\n", ep_num, is_in);
+	
 	if (is_in)
 		writew(1 << ep_num, acthcd->base + HCINxERRIRQ0);
 	else
@@ -899,7 +900,9 @@ static void aotg_hcd_err_handle(struct aotg_hcd *acthcd, u32 irqvector,
 
 	err_val = readb(ep->reg_hcerr);
 	err_type = err_val & HCINxERR_TYPE_MASK;
+	
 	printk(KERN_DEBUG"err_type:%x\n", err_type>>2);
+	
 	switch (err_type) {
 	case HCINxERR_NO_ERR:
 	case HCINxERR_OVER_RUN:
@@ -1322,7 +1325,6 @@ enum hrtimer_restart aotg_hub_hotplug_timer(struct hrtimer *hrtimer)
 	int connect_changed = 0;
 
 	if (acthcd->hcd_exiting != 0) {
-		ACT_HCD_DBG
 		return HRTIMER_NORESTART;
 	}
 	
@@ -1333,7 +1335,6 @@ enum hrtimer_restart aotg_hub_hotplug_timer(struct hrtimer *hrtimer)
 	{
 		pdev = to_platform_device(hcd->self.controller);
 		port_no = pdev->id & 0xff;
-		ACT_HCD_DBG
 		acthcd->put_aout_msg = 0;
 		spin_unlock_irqrestore(&acthcd->lock, flags);
 		enable_irq(acthcd->uhc_irq);
@@ -1369,12 +1370,11 @@ enum hrtimer_restart aotg_hub_hotplug_timer(struct hrtimer *hrtimer)
 		}
 	}
 
-	dev_info(acthcd->dev, "<USB> %s connection changed: %d, acthcd->inserted: %d\n",
-		dev_name(hcd->self.controller), connect_changed, acthcd->inserted);
+	dev_info(acthcd->dev, "connection changed: %d, acthcd->inserted: %d\n",
+		connect_changed, acthcd->inserted);
 	if (connect_changed) {
 		if (HC_IS_SUSPENDED(hcd->state))
 			usb_hcd_resume_root_hub(hcd);
-		ACT_HCD_DBG
 		usb_hcd_poll_rh_status(hcd);
 	}
 
@@ -1636,7 +1636,7 @@ static struct aotg_hcep	*aotg_hcep_alloc(struct usb_hcd *hcd, struct urb *urb)
 				usb_setbitsb(0x80, acthcd->base + FNADDR);
 			else
 				writeb(usb_pipedevice(urb->pipe), acthcd->base + FNADDR);
-			dev_info(acthcd->dev, "device addr : 0x%08x\n", readb(acthcd->base + FNADDR));
+			dev_info(acthcd->dev, "device addr: 0x%08x\n", readb(acthcd->base + FNADDR));
 		} else {
 			ACT_HCD_ERR
 		}
@@ -2307,7 +2307,6 @@ done:
 
 static inline void port_reset(struct aotg_hcd *acthcd)
 {
-	HCD_DEBUG("<USB> port reset\n");
 	/*portrst & 55ms */
 	writeb(0x1<<6 | 0x1<<5, acthcd->base + HCPORTCTRL);
 }
@@ -2461,7 +2460,8 @@ static int aotg_hub_control(struct usb_hcd *hcd,
 		HUB_DEBUG("<HUB_CONTROL> SetPortFeature, wValue:%04x, wIndex: %04x, wLength: %04x\n",
 			wValue, wIndex, wLength);
 
-		switch (wValue) {
+		switch (wValue)
+		{
 		case USB_PORT_FEAT_POWER:
 			if (unlikely(acthcd->port & USB_PORT_STAT_POWER))
 				break;
@@ -2469,25 +2469,29 @@ static int aotg_hub_control(struct usb_hcd *hcd,
 			acthcd->rhstate = AOTG_RH_POWERED;
 			port_power(acthcd, 1);
 			break;
+			
 		case USB_PORT_FEAT_RESET:
 			if (acthcd->hcd_exiting) {
 				retval = -ENODEV;
-				pr_warn("aotg reset port, return -ENODEV\n");
 				break;
 			}
+			
+			dev_info(acthcd->dev, "hub_control: set port reset\n");
 			port_reset(acthcd);
+			
 			/* if it's already enabled, disable */
 			acthcd->port &= ~(USB_PORT_STAT_ENABLE
 				| USB_PORT_STAT_LOW_SPEED
 				| USB_PORT_STAT_HIGH_SPEED);
+			
 			acthcd->port |= (1 << wValue);
 			mdelay(2);
+			
 			acthcd->rhstate = AOTG_RH_RESET;
 			usb_setbitsb(USBIEN_URES, acthcd->base + USBIEN);
 			usb_setbitsb(USBEIRQ_USBIEN, acthcd->base + USBEIEN);
-			pr_err("set port reset!%x\n", readb(acthcd->base + USBEIEN));
-			/*enable reset irq */
 			break;
+			
 		case USB_PORT_FEAT_SUSPEND:
 			/*acthcd->port |= USB_PORT_FEAT_SUSPEND;*/
 			acthcd->port |= (1 << wValue);

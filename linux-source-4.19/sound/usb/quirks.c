@@ -1342,6 +1342,10 @@ void snd_usb_ctl_msg_quirk(struct usb_device *dev, unsigned int pipe,
 	     chip->usb_id == USB_ID(0x0b0e, 0x0349)) &&
 	    (requesttype & USB_TYPE_MASK) == USB_TYPE_CLASS)
 		usleep_range(1000, 2000);
+	
+	if (chip->usb_id == USB_ID(0x1bcf, 0x2cd1) &&
+	    (requesttype & USB_TYPE_MASK) == USB_TYPE_CLASS)
+		usleep_range(1000, 2000);
 }
 
 /*
