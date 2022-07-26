@@ -1190,6 +1190,7 @@ bool snd_usb_get_sample_rate_quirk(struct snd_usb_audio *chip)
 	case 0x045E: /* MS Lifecam */
 	case 0x047F: /* Plantronics */
 	case 0x1de7: /* Phoenix Audio */
+	case 0x1bcf: /* Sunplus Innovation Technology Inc. */
 		return true;
 	}
 
