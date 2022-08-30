@@ -9,7 +9,13 @@ Linux 4 kernel source code for "Caninos Labrador v3.0".
 3) Add driver for TFT LCD displays using DSI interface
 4) New driver for Video Decode Engine
 
-### Current Release (26-01-2021)
+### Current Release (30-08-2022)
+1) Kernel version updated from 4.19.98 to 4.19.249
+2) Corrected USB bugs (hubs are now supported)
+3) Corrected ethernet bugs
+4) Corrected minor bugs
+
+### Fourth Release (26-01-2021)
 1) Add driver for GPU power regulator
 2) Activated more GPIO pins
 3) Enable Mali 450 GPU driver

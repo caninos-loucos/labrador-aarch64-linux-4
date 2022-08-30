@@ -1203,7 +1203,7 @@ static void caninos_mmc_power_up(struct caninos_mmc_host *host)
 		ret = clk_prepare_enable(host->clk);
 		
 		if (ret) {
-			return ret;
+			return;
 		}
 		
 		host->clk_on = 1;

@@ -127,8 +127,8 @@ static int gpd_pocket_fan_probe(struct platform_device *pdev)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(temp_limits); i++) {
-		if (temp_limits[i] < 40000 || temp_limits[i] > 70000) {
-			dev_err(&pdev->dev, "Invalid temp-limit %d (must be between 40000 and 70000)\n",
+		if (temp_limits[i] < 20000 || temp_limits[i] > 90000) {
+			dev_err(&pdev->dev, "Invalid temp-limit %d (must be between 20000 and 90000)\n",
 				temp_limits[i]);
 			temp_limits[0] = TEMP_LIMIT0_DEFAULT;
 			temp_limits[1] = TEMP_LIMIT1_DEFAULT;

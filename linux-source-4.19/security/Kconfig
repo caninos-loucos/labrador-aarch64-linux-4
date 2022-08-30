@@ -200,6 +200,9 @@ config HARDENED_USERCOPY_PAGESPAN
 config FORTIFY_SOURCE
 	bool "Harden common str/mem functions against buffer overflows"
 	depends on ARCH_HAS_FORTIFY_SOURCE
+	# https://bugs.llvm.org/show_bug.cgi?id=50322
+	# https://bugs.llvm.org/show_bug.cgi?id=41459
+	depends on !CC_IS_CLANG
 	help
 	  Detect overflows of buffers in common string and memory functions
 	  where the compiler can determine and validate the buffer sizes.
@@ -246,15 +249,6 @@ config LOCK_DOWN_KERNEL
 	  instance if UEFI secure boot is enabled.  Locking down the kernel
 	  turns off various features that might otherwise allow access to the
 	  kernel image (eg. setting MSR registers).
-
-config ALLOW_LOCKDOWN_LIFT_BY_SYSRQ
-	bool "Allow the kernel lockdown to be lifted by SysRq"
-	depends on LOCK_DOWN_KERNEL
-	depends on MAGIC_SYSRQ
-	depends on X86
-	help
-	  Allow the lockdown on a kernel to be lifted, by pressing a SysRq key
-	  combination on a wired keyboard.
 
 config LOCK_DOWN_IN_EFI_SECURE_BOOT
 	bool "Lock down the kernel in EFI Secure Boot mode"
