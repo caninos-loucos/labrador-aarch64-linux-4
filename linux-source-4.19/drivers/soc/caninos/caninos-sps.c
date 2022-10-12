@@ -40,8 +40,14 @@ struct caninos_sps_domain {
 static int caninos_sps_set_power(struct caninos_sps_domain *pd, bool enable)
 {
 	u32 pwr_mask, ack_mask;
+	
+	if ((pd->info->ack_bit < 0) || (pd->info->pwr_bit < 0)) {
+		return 0;
+	}
+	
 	ack_mask = BIT(pd->info->ack_bit);
 	pwr_mask = BIT(pd->info->pwr_bit);
+	
 	return caninos_sps_set_pg(pd->sps->base, pwr_mask, ack_mask, enable);
 }
 
@@ -152,6 +158,13 @@ static const struct caninos_sps_domain_info k7_sps_domains[] = {
 		.name = "USB3",
 		.pwr_bit = 10,
 		.ack_bit = 10,
+		.genpd_flags = 0,
+		.is_off = false,
+	},
+	[PD_DMAC] = {
+		.name = "DMAC",
+		.pwr_bit = 8,
+		.ack_bit = 8,
 		.genpd_flags = 0,
 		.is_off = false,
 	},

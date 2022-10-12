@@ -14,6 +14,7 @@
 #define DMA_DRQ_SPDIF             13
 #define DMA_DRQ_HDMI_AUDIO        14
 #define DMA_DRQ_I2STX_SPDIF_HDMI  15
+#define DMA_DRQ_LIMIT             15
 
 #endif
 

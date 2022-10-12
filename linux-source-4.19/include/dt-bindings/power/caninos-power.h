@@ -4,5 +4,6 @@
 #define DT_BINDINGS_POWER_CANINOS_H
 
 #define PD_USB3 0
+#define PD_DMAC 1
 
 #endif
