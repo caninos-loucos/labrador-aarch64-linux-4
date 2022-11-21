@@ -296,6 +296,54 @@ int hdmi_gen_vs_infoframe(struct hdmi_ip *ip)
 	return 0;
 }
 
+/*
+ * HDMI generate audio infoframe
+ * Input:
+ * Output: 0
+ *
+*/
+int hdmi_gen_audio_infoframe(struct hdmi_ip * ip)
+{/* 
+	static uint8_t pkt[32];
+	uint32_t checksum = 0;
+	int i;
+
+	// clear buffer 
+	for (i = 0; i < 32; i++)
+		pkt[i] = 0;
+	
+// header
+	pkt[0] = 0x80 | 0x04;	// HB0: Packet Type = 0x84 
+	pkt[1] = 0x01;			// HB1: Version = 1 
+	pkt[2] = 0x0A;			// HB2: Length = 10
+	pkt[3] = 0x00;			// PB0: checksum = 0 
+
+	// data
+	pkt[4] = 0x01;			// PB1 : CodingType[3:0] R ChannelCount[2:0]
+									 CT = 000 
+									 CC = 001 = 2 CHANNELS
+
+	pkt[5] = 0;				// PB2 : R[3] SampleFreq[2:0] SampleSize[1:0]
+							// 		 SF = 000 for LPCM and IEC61937 streams
+							//		 SS = 000
+
+	pkt[6] = 0; 			// PB3 : 0
+
+	pkt[7] = 0x01;			// PB4 : Channel/SpeakerAllocation[7:0]
+							// 		 00 for FRONT LEFT; FRONT RIGHT
+
+	pkt[8] = 0;				// PB5 : DM_INH LevelShift[3:0] R[3]
+							// DM = 0;
+							// LS = 0000 = 0dB on signal
+
+
+	// set to RAM Packet 
+	ip->ops->packet_generate(ip, PACKET_AUDIO_SLOT, pkt);
+	ip->ops->packet_send(ip, PACKET_AUDIO_SLOT, PACKET_PERIOD);
+
+	return 0; */
+}
+
 int hdmi_packet_gen_infoframe(struct hdmi_ip *ip)
 {
 	hdmi_gen_spd_infoframe(ip);
@@ -304,6 +352,7 @@ int hdmi_packet_gen_infoframe(struct hdmi_ip *ip)
 		return -1;
 
 	/* hdmi_gen_gbd_infoframe(ip); */
+	/* hdmi_gen_audio_infoframe(ip); */
 	hdmi_gen_vs_infoframe(ip);
 
 	return 0;
