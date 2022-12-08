@@ -5,5 +5,6 @@
 
 #define PD_USB3 0
 #define PD_DMAC 1
+#define PD_NUM  2
 
 #endif
