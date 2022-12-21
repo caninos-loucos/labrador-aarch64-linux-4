@@ -36,6 +36,8 @@ struct lab_dma_pchan;
 struct lab_dma_vchan;
 
 #define CANINOS_DMA_FRAME_MAX_LENGTH 0xffff0
+#define CANINOS_INV_DRQ -1
+#define CANINOS_MAX_DRQ 15
 
 /* extract the bit field to new shift */
 #define BIT_FIELD(val, width, shift, newshift)	\
@@ -55,7 +57,7 @@ struct caninos_lli_hw_k9 {
 	u32	ctrla;		/* dma_mode and linklist ctrl */
 	u32	ctrlb;		/* interrupt control */
 	u32	const_num;	/* data for constant fill */
-} __attribute__((packed, aligned(4)));
+} __attribute__((packed));
 
 struct caninos_lli_hw_k7 {
 	u32	next_lli;	/* physical address of the next link list */
@@ -68,7 +70,7 @@ struct caninos_lli_hw_k7 {
 	u32	fcnt:12;	/* frame count */
 	u32	ctrlb:20;	/* interrupt control */
 	u32	const_num;	/* data for constant fill */
-} __attribute__((packed, aligned(4)));
+} __attribute__((packed));
 
 struct caninos_lli_hw_k5 {
 	u32	next_lli;	/* physical address of the next link list */
@@ -81,15 +83,22 @@ struct caninos_lli_hw_k5 {
 	u32	ctrla;		/* dma_mode and linklist ctrl */
 	u32	ctrlb; 		/* interrupt control and acp attribute */
 	u32	const_num;	/* data for constant fill */
-} __attribute__((packed, aligned(4)));
+} __attribute__((packed));
 
 /**
  * enum caninos_dmac_id - hardware type enum
  */
 enum caninos_dmac_id {
-	DEVID_K9_DMAC = 1,
-	DEVID_K7_DMAC = 2,
-	DEVID_K5_DMAC = 3,
+	DEVID_K9_DMAC = 0x55AA,
+	DEVID_K7_DMAC = 0xAA55,
+	DEVID_K5_DMAC = 0xCAFE,
+};
+
+enum caninos_vchan_state {
+	CANINOS_VCHAN_IDLE    = 0x1,
+	CANINOS_VCHAN_PAUSED  = 0x2,
+	CANINOS_VCHAN_WAITING = 0x3,
+	CANINOS_VCHAN_RUNNING = 0x4,
 };
 
 /**
@@ -114,7 +123,7 @@ struct lab_dma_txd {
 };
 
 /**
- * struct lab_dma_pchan - this structure wraps a DMA ENGINE channel
+ * struct lab_dma_vchan - this structure wraps a DMA ENGINE channel
  */
 struct lab_dma_vchan {
 	struct virt_dma_chan vc;       /* wrappped virtual channel */
@@ -122,6 +131,7 @@ struct lab_dma_vchan {
 	struct dma_slave_config cfg;   /* dma slave config */
 	struct lab_dma_txd *txd;       /* active transaction on this channel */
 	int	drq;                       /* physical DMA DRQ this channel is using */
+	enum caninos_vchan_state state;
 };
 
 /**
@@ -131,7 +141,6 @@ struct lab_dma_pchan {
 	u32	id;                      /* physical index to this channel */
 	void __iomem *base;          /* virtual memory base for the dma channel */
 	struct lab_dma_vchan *vchan; /* virtual channel being served now by pchan */
-	bool paused;
 };
 
 /**
@@ -142,14 +151,14 @@ struct lab_dma {
 	void __iomem *base;           /* register base for the DMA controller */
 	struct clk *clk;              /* clock for the DMA controller */
 	spinlock_t lock;              /* lock used for DMA controller registers */
+	enum caninos_dmac_id devid;   /* hardware type ID */
+	struct device *dev;           /* driver device instance */
+	int irq;                      /* IRQ used by the DMA controller */
+	u32 nr_pchans;                /* number of physical dma channels */
+	u32 nr_vchans;                /* number of virtual dma channels */
 	struct dma_pool *lli_pool;    /* a pool for the LLI descriptors */
-	enum caninos_dmac_id	devid;        /* hardware type */
-	u32 nr_pchans;       /* number of physical dma channels */
 	struct lab_dma_pchan *pchans; /* array of data for the physical channels */
-	u32 nr_vchans;       /* number of virtual channels */
 	struct lab_dma_vchan *vchans; /* array of data for the virtual channels */
-	int irq;
-	struct device *dev;
 	struct device_dma_parameters dma_parms;
 };
 

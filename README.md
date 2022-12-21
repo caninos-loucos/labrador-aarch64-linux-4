@@ -155,6 +155,9 @@ To update the EMMC's bootloader from a live Linux system booted from SDCARD use:
 $ sudo dd if=bootloader.bin of=/dev/mmcblk2 conv=notrunc seek=1 bs=512
 ```
 
+If the current bootloader has a different config file, it may also be necessary to change the config.json file on the /boot folder. For that, follow step 4 on the [Kernel Installation](#kernel-installation) section
+
+
 ## Contributing
 
 **Caninos Loucos Forum: <https://forum.caninosloucos.org.br/>**

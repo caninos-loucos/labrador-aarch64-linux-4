@@ -36,6 +36,12 @@
 #define CANINOS_DMA_BUSWIDTHS \
         BIT(DMA_SLAVE_BUSWIDTH_4_BYTES) | BIT(DMA_SLAVE_BUSWIDTH_1_BYTE)
 
+static void caninos_dma_free_lli(struct lab_dma *cd, struct lab_dma_lli *lli)
+{
+	list_del(&lli->node);
+	dma_pool_free(cd->lli_pool, lli, lli->phys);
+}
+
 static void caninos_dma_free_txd(struct lab_dma *cd, struct lab_dma_txd *txd)
 {
 	struct lab_dma_lli *lli, *n;
@@ -44,10 +50,230 @@ static void caninos_dma_free_txd(struct lab_dma *cd, struct lab_dma_txd *txd)
 		return;
 	}
 	list_for_each_entry_safe(lli, n, &txd->lli_list, node) {
-		list_del(&lli->node);
-		dma_pool_free(cd->lli_pool, lli, lli->phys);
+		caninos_dma_free_lli(cd, lli);
 	}
 	kfree(txd);
+}
+
+static inline void caninos_dma_desc_free(struct virt_dma_desc *vd)
+{
+	struct lab_dma *cd = to_lab_dma(vd->tx.chan->device);
+	struct lab_dma_txd *txd = to_lab_txd(&vd->tx);
+
+	caninos_dma_free_txd(cd, txd);
+}
+
+static inline void caninos_dma_put_pchan(struct lab_dma *cd,
+                                         struct lab_dma_pchan *pchan)
+{
+	pchan->vchan = NULL;
+}
+
+static void caninos_dma_terminate_pchan(struct lab_dma *cd,
+                                        struct lab_dma_pchan *pchan)
+{
+	unsigned long flags, tmp;
+	/* note: this is a forced termination, so we do not care about the data */
+	
+	/* stop dma operation */
+	pchan_writel(pchan, 0, DMAX_START);
+	
+	/* clear interrupt status */
+	pchan_writel(pchan, pchan_readl(pchan, DMAX_INT_STATUS), DMAX_INT_STATUS);
+	
+	spin_lock_irqsave(&cd->lock, flags);
+	
+	/* disable channel interrupt */
+	dma_writel(cd, dma_readl(cd, DMA_IRQ_EN0) & ~BIT(pchan->id), DMA_IRQ_EN0);
+	
+	/* clear interrupt pending flag */
+	tmp = dma_readl(cd, DMA_IRQ_PD0);
+	
+	if (tmp & BIT(pchan->id)) {
+		dma_writel(cd, BIT(pchan->id), DMA_IRQ_PD0);
+	}
+	
+	spin_unlock_irqrestore(&cd->lock, flags);
+}
+
+static void caninos_dma_pchan_pause(struct lab_dma *cd, 
+                                    struct lab_dma_pchan *pchan)
+{
+	if(cd->devid == DEVID_K5_DMAC)
+	{
+		u32 tmp = dma_readl(cd, DMA_DBGSEL);
+		dma_writel(cd, tmp | BIT(pchan->id + 16), DMA_DBGSEL);
+	}
+	else {
+		pchan_writel(pchan, 0x1, DMAX_PAUSE_K7_K9);
+	}
+}
+
+static void caninos_dma_pchan_resume(struct lab_dma *cd,
+                                     struct lab_dma_pchan *pchan)
+{
+	if(cd->devid == DEVID_K5_DMAC)
+	{
+		u32 tmp = dma_readl(cd, DMA_DBGSEL);
+		dma_writel(cd, tmp & ~BIT(pchan->id + 16), DMA_DBGSEL);
+	}
+	else {
+		pchan_writel(pchan, 0x0, DMAX_PAUSE_K7_K9);
+	}
+}
+
+static int caninos_dma_pchan_busy(struct lab_dma *cd,
+                                  struct lab_dma_pchan *pchan)
+{
+	u32 val;
+	
+	if(cd->devid == DEVID_K5_DMAC)
+	{
+		/* bus delay */
+		dma_readl(cd, DMA_IDLE_STAT);
+		dma_readl(cd, DMA_IDLE_STAT);
+		dma_readl(cd, DMA_IDLE_STAT);
+	}
+	
+	val = dma_readl(cd, DMA_IDLE_STAT);
+	return !(val & BIT(pchan->id));
+}
+
+static int caninos_dma_start_next_txd(struct lab_dma_vchan *vchan)
+{
+	struct lab_dma *cd = to_lab_dma(vchan->vc.chan.device);
+	struct virt_dma_desc *vd = vchan_next_desc(&vchan->vc);
+	struct lab_dma_pchan *pchan = vchan->pchan;
+	struct lab_dma_txd *txd = to_lab_txd(&vd->tx);
+	struct lab_dma_lli *lli;
+	unsigned long flags;
+	u32 ctrla, ctrlb;
+	
+	list_del(&vd->node);
+	vchan->txd = txd;
+	
+	/* wait for channel inactive */
+	while (caninos_dma_pchan_busy(cd, pchan)) {
+		cpu_relax();
+	}
+	
+	lli = list_first_entry(&txd->lli_list, struct lab_dma_lli, node);
+	
+	ctrla = DMA_LLC_SAV_LOAD_NEXT | DMA_LLC_DAV_LOAD_NEXT;
+	ctrlb = DMA_INTCTL_SUPER_BLOCK;
+	
+	pchan_writel(pchan, DMA_MODE_LME, DMAX_MODE);
+	pchan_writel(pchan, ctrla, DMAX_LINKLIST_CTL);
+	pchan_writel(pchan, lli->phys, DMAX_NEXT_DESCRIPTOR);
+	pchan_writel(pchan, ctrlb, DMAX_INT_CTL);
+	pchan_writel(pchan, pchan_readl(pchan, DMAX_INT_STATUS), DMAX_INT_STATUS);
+	
+	spin_lock_irqsave(&cd->lock, flags);
+	
+	/* enable channel interrupt */
+	dma_writel(cd, dma_readl(cd, DMA_IRQ_EN0) | BIT(pchan->id), DMA_IRQ_EN0);
+	
+	spin_unlock_irqrestore(&cd->lock, flags);
+	
+	/* start dma operation */
+	pchan_writel(pchan, 0x1, DMAX_START);
+	
+	return 0;
+}
+
+static void caninos_dma_phy_reassign_start(struct lab_dma *cd,
+                                           struct lab_dma_vchan *vchan,
+                                           struct lab_dma_pchan *pchan)
+{
+	pchan->vchan = vchan;
+	vchan->pchan = pchan;
+	vchan->state = CANINOS_VCHAN_RUNNING;
+	
+	caninos_dma_start_next_txd(vchan);
+}
+
+static void caninos_dma_phy_free(struct lab_dma *cd,
+                                 struct lab_dma_vchan *vchan)
+{
+	struct lab_dma_vchan *p, *next;
+
+retry:
+	next = NULL;
+	
+	/* Find a waiting virtual channel for the next transfer. */
+	list_for_each_entry(p, &cd->dma.channels, vc.chan.device_node)
+	{
+		if (p->state == CANINOS_VCHAN_WAITING) {
+			next = p;
+			break;
+		}
+	}
+	
+	/* Ensure that the physical channel is stopped */
+	caninos_dma_terminate_pchan(cd, vchan->pchan);
+	
+	if (next)
+	{
+		bool success;
+		
+		/*
+		 * We know this isn't going to deadlock
+		 * but lockdep probably doesn't.
+		 */
+		spin_lock(&next->vc.lock);
+		
+		/* Re-check the state now that we have the lock */
+		success = next->state == CANINOS_VCHAN_WAITING;
+		
+		if (success)
+			caninos_dma_phy_reassign_start(cd, next, vchan->pchan);
+		
+		spin_unlock(&next->vc.lock);
+
+		/* If the state changed, try to find another channel */
+		if (!success)
+			goto retry;
+	}
+	else
+	{
+		/* No more jobs, so free up the physical channel */
+		caninos_dma_put_pchan(cd, vchan->pchan);
+	}
+	
+	vchan->pchan = NULL;
+	vchan->state = CANINOS_VCHAN_IDLE;
+}
+
+static struct lab_dma_pchan *caninos_dma_get_pchan(struct lab_dma *cd,
+                                                   struct lab_dma_vchan *vchan)
+{
+	struct lab_dma_pchan *pchan = NULL;
+	unsigned long flags;
+	int i;
+	
+	for (i = 0; i < cd->nr_pchans; i++)
+	{
+		pchan = &cd->pchans[i];
+		
+		spin_lock_irqsave(&cd->lock, flags);
+		
+		if (!pchan->vchan)
+		{
+			pchan->vchan = vchan;
+			spin_unlock_irqrestore(&cd->lock, flags);
+			break;
+		}
+		
+		spin_unlock_irqrestore(&cd->lock, flags);
+	}
+	
+	if (i == cd->nr_pchans)
+	{
+		/* No physical channel available */
+		return NULL;
+	}
+	
+	return pchan;
 }
 
 static struct lab_dma_lli *caninos_dma_alloc_lli
@@ -186,169 +412,6 @@ static struct lab_dma_lli *caninos_dma_add_lli
 	return next;
 }
 
-static struct lab_dma_pchan *caninos_dma_get_pchan
-	(struct lab_dma *cd, struct lab_dma_vchan *vchan)
-{
-	struct lab_dma_pchan *pchan = NULL;
-	unsigned long flags;
-	int i;
-	
-	for (i = 0; i < cd->nr_pchans; i++)
-	{
-		pchan = &cd->pchans[i];
-		
-		spin_lock_irqsave(&cd->lock, flags);
-		
-		if (!pchan->vchan)
-		{
-			pchan->vchan = vchan;
-			spin_unlock_irqrestore(&cd->lock, flags);
-			break;
-		}
-		
-		spin_unlock_irqrestore(&cd->lock, flags);
-	}
-	
-	return pchan;
-}
-
-static void caninos_dma_terminate_pchan(struct lab_dma *cd,
-                                        struct lab_dma_pchan *pchan)
-{
-	unsigned long flags, timeout = 1000000, tmp;
-	/* note: this is a forced termination, so we do not care about the data */
-	
-	spin_lock_irqsave(&cd->lock, flags);
-	
-	/* disable channel interrupt */
-	dma_writel(cd, dma_readl(cd, DMA_IRQ_EN0) & ~BIT(pchan->id), DMA_IRQ_EN0);
-	
-	/* stop dma operation */
-	pchan_writel(pchan, 0, DMAX_START);
-	
-	spin_unlock_irqrestore(&cd->lock, flags);
-	
-	/* wait for channel inactive */
-	do {
-		/* bus delay */
-		dma_readl(cd, DMA_IDLE_STAT);
-		dma_readl(cd, DMA_IDLE_STAT);
-		dma_readl(cd, DMA_IDLE_STAT);
-		
-		tmp = dma_readl(cd, DMA_IDLE_STAT) & BIT(pchan->id); //high -> idle
-		timeout--;
-		
-	} while (!tmp && timeout > 0);
-	
-	if (timeout == 0) {
-		dev_err(cd->dev, "termination of channel %u timed out.\n", pchan->id);
-	}
-	
-	spin_lock_irqsave(&cd->lock, flags);
-	
-	/* clear interrupt status */
-	pchan_writel(pchan, pchan_readl(pchan, DMAX_INT_STATUS), DMAX_INT_STATUS);
-	
-	/* clear interrupt pending flag */
-	dma_writel(cd, BIT(pchan->id), DMA_IRQ_PD0);
-	
-	pchan->vchan = NULL;
-	
-	spin_unlock_irqrestore(&cd->lock, flags);
-}
-
-static void caninos_dma_pchan_pause(struct lab_dma *cd, 
-                                    struct lab_dma_pchan *pchan)
-{
-	u32 tmp;
-	
-	if(cd->devid == DEVID_K5_DMAC) {
-		tmp = dma_readl(cd, DMA_DBGSEL);
-		
-		if (!(tmp & BIT(pchan->id + 16))) {
-			dma_writel(cd, tmp | BIT(pchan->id + 16), DMA_DBGSEL);
-		}
-	}
-	else {
-		tmp = pchan_readl(pchan, DMAX_PAUSE_K7_K9);
-		
-		if (!(tmp & 0x1)) {
-			pchan_writel(pchan, 0x1, DMAX_PAUSE_K7_K9);
-		}
-	}
-	pchan->paused = true;
-}
-
-static void caninos_dma_pchan_resume(struct lab_dma *cd,
-                                     struct lab_dma_pchan *pchan)
-{
-	u32 tmp;
-	
-	if(cd->devid == DEVID_K5_DMAC) {
-		tmp = dma_readl(cd, DMA_DBGSEL);
-		
-		if (tmp & BIT(pchan->id + 16)) {
-			dma_writel(cd, tmp & ~BIT(pchan->id + 16), DMA_DBGSEL);
-		}
-	}
-	else {
-		tmp = pchan_readl(pchan, DMAX_PAUSE_K7_K9);
-		
-		if (tmp & 0x1) {
-			pchan_writel(pchan, 0x0, DMAX_PAUSE_K7_K9);
-		}
-	}
-	pchan->paused = false;
-}
-
-static int caninos_dma_start_next_txd(struct lab_dma_vchan *vchan)
-{
-	struct lab_dma *cd = to_lab_dma(vchan->vc.chan.device);
-	struct virt_dma_desc *vd = vchan_next_desc(&vchan->vc);
-	struct lab_dma_pchan *pchan = vchan->pchan;
-	struct lab_dma_txd *txd = to_lab_txd(&vd->tx);
-	struct lab_dma_lli *lli;
-	unsigned long flags;
-	u32 ctrla, ctrlb;
-	
-	list_del(&vd->node);
-	vchan->txd = txd;
-	
-	caninos_dma_terminate_pchan(cd, pchan);
-	
-	lli = list_first_entry(&txd->lli_list, struct lab_dma_lli, node);
-	
-	ctrla = DMA_LLC_SAV_LOAD_NEXT | DMA_LLC_DAV_LOAD_NEXT;
-	ctrlb = DMA_INTCTL_SUPER_BLOCK;
-	
-	spin_lock_irqsave(&cd->lock, flags);
-	
-	pchan_writel(pchan, DMA_MODE_LME, DMAX_MODE);
-	pchan_writel(pchan, ctrla, DMAX_LINKLIST_CTL);
-	pchan_writel(pchan, lli->phys, DMAX_NEXT_DESCRIPTOR);
-	pchan_writel(pchan, ctrlb, DMAX_INT_CTL);
-	
-	caninos_dma_pchan_resume(cd, pchan);
-	
-	/* disable channel interrupt */
-	dma_writel(cd, dma_readl(cd, DMA_IRQ_EN0) & ~BIT(pchan->id), DMA_IRQ_EN0);
-	
-	/* clear interrupt status */
-	pchan_writel(pchan, pchan_readl(pchan, DMAX_INT_STATUS), DMAX_INT_STATUS);
-	
-	/* clear interrupt pending flag */
-	dma_writel(cd, BIT(pchan->id), DMA_IRQ_PD0);
-	
-	/* enable channel interrupt */
-	dma_writel(cd, dma_readl(cd, DMA_IRQ_EN0) | BIT(pchan->id), DMA_IRQ_EN0);
-	
-	/* start dma operation */
-	pchan_writel(pchan, 0x1, DMAX_START);
-	
-	spin_unlock_irqrestore(&cd->lock, flags);
-	return 0;
-}
-
 static struct dma_async_tx_descriptor *caninos_dma_prep_slave_sg
 	(struct dma_chan *chan, struct scatterlist *sgl, unsigned int sg_len,
 	 enum dma_transfer_direction dir, unsigned long flags, void *context)
@@ -472,18 +535,19 @@ static int caninos_device_pause(struct dma_chan *chan)
 {
 	struct lab_dma_vchan *vchan = to_lab_vchan(chan);
 	struct lab_dma *cd = to_lab_dma(vchan->vc.chan.device);
-	struct lab_dma_pchan *pchan;
 	unsigned long flags;
 	
 	spin_lock_irqsave(&vchan->vc.lock, flags);
 	
-	pchan = vchan->pchan;
-	
-	if (pchan && vchan->txd) {
-		spin_lock(&cd->lock);
-		caninos_dma_pchan_pause(cd, pchan);
-		spin_unlock(&cd->lock);
+	if (!vchan->pchan && !vchan->txd) {
+		spin_unlock_irqrestore(&vchan->vc.lock, flags);
+		return 0;
 	}
+	
+	spin_lock(&cd->lock);
+	caninos_dma_pchan_pause(cd, vchan->pchan);
+	vchan->state = CANINOS_VCHAN_PAUSED;
+	spin_unlock(&cd->lock);
 	
 	spin_unlock_irqrestore(&vchan->vc.lock, flags);
 	return 0;
@@ -493,28 +557,22 @@ static int caninos_device_resume(struct dma_chan *chan)
 {
 	struct lab_dma_vchan *vchan = to_lab_vchan(chan);
 	struct lab_dma *cd = to_lab_dma(vchan->vc.chan.device);
-	struct lab_dma_pchan *pchan = vchan->pchan;
 	unsigned long flags;
 	
 	spin_lock_irqsave(&vchan->vc.lock, flags);
 	
-	if (pchan && vchan->txd) {
-		spin_lock(&cd->lock);
-		caninos_dma_pchan_resume(cd, pchan);
-		spin_unlock(&cd->lock);
+	if (!vchan->pchan && !vchan->txd) {
+		spin_unlock_irqrestore(&vchan->vc.lock, flags);
+		return 0;
 	}
+	
+	spin_lock(&cd->lock);
+	caninos_dma_pchan_resume(cd, vchan->pchan);
+	vchan->state = CANINOS_VCHAN_RUNNING;
+	spin_unlock(&cd->lock);
 	
 	spin_unlock_irqrestore(&vchan->vc.lock, flags);
 	return 0;
-}
-
-static void caninos_dma_phy_free(struct lab_dma *cd,
-                                 struct lab_dma_vchan *vchan)
-{
-	/* Ensure that the physical channel is stopped */
-	caninos_dma_terminate_pchan(cd, vchan->pchan);
-	vchan->pchan = NULL;
-	vchan->drq = -1;
 }
 
 static inline unsigned long caninos_dma_clear_missed_irqs(struct lab_dma *cd)
@@ -544,14 +602,6 @@ static inline unsigned long caninos_dma_clear_missed_irqs(struct lab_dma *cd)
 	return pending;
 }
 
-static void caninos_dma_desc_free(struct virt_dma_desc *vd)
-{
-	struct lab_dma *cd = to_lab_dma(vd->tx.chan->device);
-	struct lab_dma_txd *txd = to_lab_txd(&vd->tx);
-
-	caninos_dma_free_txd(cd, txd);
-}
-
 static irqreturn_t caninos_dma_interrupt(int irq, void *data)
 {
 	struct lab_dma *cd = (struct lab_dma*) data;
@@ -574,7 +624,9 @@ static irqreturn_t caninos_dma_interrupt(int irq, void *data)
 	dma_writel(cd, pending, DMA_IRQ_PD0);
 	
 	/* check and clear missed IRQs */
-	pending |= caninos_dma_clear_missed_irqs(cd);
+	if(cd->devid != DEVID_K7_DMAC) {
+		pending |= caninos_dma_clear_missed_irqs(cd);
+	}
 	
 	spin_unlock_irqrestore(&cd->lock, flags);
 	
@@ -621,6 +673,13 @@ static int caninos_device_terminate_all(struct dma_chan *chan)
 	
 	spin_lock_irqsave(&vchan->vc.lock, flags);
 	
+	if (!vchan->pchan && !vchan->txd) {
+		spin_unlock_irqrestore(&vchan->vc.lock, flags);
+		return 0;
+	}
+	
+	vchan->state = CANINOS_VCHAN_IDLE;
+	
 	if (vchan->pchan) {
 		caninos_dma_phy_free(cd, vchan);
 	}
@@ -632,6 +691,7 @@ static int caninos_device_terminate_all(struct dma_chan *chan)
 	
 	vchan_get_all_descriptors(&vchan->vc, &head);
 	vchan_dma_desc_free_list(&vchan->vc, &head);
+	vchan->vc.cyclic = NULL;
 	
 	spin_unlock_irqrestore(&vchan->vc.lock, flags);
 	
@@ -645,11 +705,14 @@ static inline void caninos_dma_phy_alloc_and_start(struct lab_dma_vchan *vchan)
 	
 	pchan = caninos_dma_get_pchan(cd, vchan);
 	
-	if (!pchan) {
+	if (!pchan)
+	{
+		vchan->state = CANINOS_VCHAN_WAITING;
 		return;
 	}
 	
 	vchan->pchan = pchan;
+	vchan->state = CANINOS_VCHAN_RUNNING;
 	
 	caninos_dma_start_next_txd(vchan);
 }
@@ -662,7 +725,7 @@ static void caninos_dma_issue_pending(struct dma_chan *chan)
 	spin_lock_irqsave(&vchan->vc.lock, flags);
 	
 	if (vchan_issue_pending(&vchan->vc)) {
-		if (!vchan->pchan) {
+		if (!vchan->pchan && vchan->state != CANINOS_VCHAN_WAITING) {
 			caninos_dma_phy_alloc_and_start(vchan);
 		}
 	}
@@ -676,9 +739,10 @@ static size_t caninos_dma_getbytes_chan(struct lab_dma_vchan *vchan)
 	struct lab_dma_pchan *pchan = vchan->pchan;
 	struct lab_dma_txd *txd = vchan->txd;
 	struct lab_dma_lli *lli;
+	unsigned long next_phys;
 	bool start_counting;
-	u32 next_phys;
 	size_t bytes;
+	int i;
 	
 	if (unlikely(!pchan || !txd)) {
 		return 0;
@@ -694,19 +758,22 @@ static size_t caninos_dma_getbytes_chan(struct lab_dma_vchan *vchan)
 	
 	next_phys = pchan_readl(pchan, DMAX_NEXT_DESCRIPTOR);
 	
-	lli = list_first_entry(&txd->lli_list, typeof(*lli), node);
-	
 	start_counting = false;
 	
 	/* get the linked list chain remain count */
 	list_for_each_entry(lli, &txd->lli_list, node)
 	{
-		if (lli->phys == next_phys) {
+		if (lli->phys == next_phys)
+		{
+			if (i == 0) {
+				break;
+			}
 			start_counting = true;
 		}
 		if (start_counting) {
 			bytes += lli_get_frame_len(lli, cd->devid);
 		}
+		i++;
 		smp_rmb();
 	}
 	return bytes;
@@ -731,42 +798,43 @@ static enum dma_status caninos_dma_tx_status(struct dma_chan *chan,
 		return ret;
 	}
 	
-	spin_lock_irqsave(&vchan->vc.lock, flags);
-	
-	if (ret == DMA_IN_PROGRESS)
+	if (!state)
 	{
-		spin_lock(&cd->lock);
-		
-		if (vchan->pchan && vchan->txd && vchan->pchan->paused) {
+		if (vchan->state == CANINOS_VCHAN_PAUSED) {
 			ret = DMA_PAUSED;
 		}
-		
-		spin_unlock(&cd->lock);
-	}
-	
-	if (!state) {
-		spin_unlock_irqrestore(&vchan->vc.lock, flags);
 		return ret;
 	}
 	
-	vd = vchan_find_desc(&vchan->vc, cookie);
+	spin_lock_irqsave(&vchan->vc.lock, flags);
 	
-	if (vd)
+	ret = dma_cookie_status(chan, cookie, state);
+	
+	if (ret != DMA_COMPLETE)
 	{
-		txd = to_lab_txd(&vd->tx);
-		list_for_each_entry(lli, &txd->lli_list, node) {
-			bytes += lli_get_frame_len(lli, cd->devid);
+		vd = vchan_find_desc(&vchan->vc, cookie);
+		
+		if (vd)
+		{
+			txd = to_lab_txd(&vd->tx);
+			
+			list_for_each_entry(lli, &txd->lli_list, node) {
+				bytes += lli_get_frame_len(lli, cd->devid);
+			}
 		}
-	}
-	else
-	{
-		spin_lock(&cd->lock);
-		bytes = caninos_dma_getbytes_chan(vchan);
-		spin_unlock(&cd->lock);
+		else {
+			bytes = caninos_dma_getbytes_chan(vchan);
+		}
 	}
 	
 	spin_unlock_irqrestore(&vchan->vc.lock, flags);
+	
 	dma_set_residue(state, bytes);
+	
+	if (vchan->state == CANINOS_VCHAN_PAUSED && ret == DMA_IN_PROGRESS) {
+		ret = DMA_PAUSED;
+	}
+	
 	return ret;
 }
 
@@ -806,7 +874,7 @@ static struct dma_chan *caninos_of_dma_xlate(struct of_phandle_args *dma_spec,
 	struct caninos_dma_of_filter_args fargs;
 	dma_cap_mask_t cap;
 	
-	if (drq > DMA_DRQ_LIMIT) {
+	if (drq > CANINOS_MAX_DRQ) {
 		return NULL;
 	}
 	
@@ -832,194 +900,105 @@ static inline void caninos_dma_free(struct lab_dma *cd)
 	}
 }
 
-static inline void caninos_dma_disable_all_irqs(struct lab_dma *cd)
+#ifdef CONFIG_PM_SLEEP
+static int caninos_dma_suspend(struct device *dev)
 {
-	dma_writel(cd, DMA_IRQ_EN0, 0x0);
-	dma_writel(cd, DMA_IRQ_EN1, 0x0);
-	dma_writel(cd, DMA_IRQ_EN2, 0x0);
-	dma_writel(cd, DMA_IRQ_EN3, 0x0);
+	return -EBUSY;
 }
 
-static inline void caninos_dma_clear_all_irqs(struct lab_dma *cd)
+static int caninos_dma_resume(struct device *dev)
 {
-	dma_writel(cd, DMA_IRQ_PD0, 0xfff);
-	dma_writel(cd, DMA_IRQ_PD1, 0xfff);
-	dma_writel(cd, DMA_IRQ_PD2, 0xfff);
-	dma_writel(cd, DMA_IRQ_PD3, 0xfff);
-}
-
-static int caninos_dma_hw_init(struct lab_dma *cd)
-{
-	int ret;
-	
-	pm_runtime_enable(cd->dev);
-	pm_runtime_get(cd->dev);
-	
-	ret = clk_prepare_enable(cd->clk);
-	
-	if (ret) {
-		pm_runtime_put(cd->dev);
-		pm_runtime_disable(cd->dev);
-		return ret;
-	}
-	
-	/* Make sure all irqs are masked */
-	caninos_dma_disable_all_irqs(cd);
-	
-	/* Clear all pendings irqs */
-	caninos_dma_clear_all_irqs(cd);
-	
-	/* Request IRQ */
-	ret = devm_request_irq(cd->dev, cd->irq, caninos_dma_interrupt,
-	                       IRQF_SHARED, dev_name(cd->dev), cd);
-	if (ret) {
-		clk_disable_unprepare(cd->clk);
-		pm_runtime_put(cd->dev);
-		pm_runtime_disable(cd->dev);
-		return ret;
-	}
-	
-	/* Setup QOS */
-	if (cd->devid == DEVID_K5_DMAC) {
-		dma_writel(cd, DMA_NIC_QOS, 0xf0);
-	}
-	
 	return 0;
 }
-
-static void caninos_dma_hw_turnoff(struct lab_dma *cd)
-{
-	caninos_dma_disable_all_irqs(cd);
-	caninos_dma_clear_all_irqs(cd);
-	
-	devm_free_irq(cd->dma.dev, cd->irq, cd);
-	
-	clk_disable_unprepare(cd->clk);
-	
-	pm_runtime_put(cd->dev);
-	pm_runtime_disable(cd->dev);
-}
-
-static int __maybe_unused caninos_dma_runtime_suspend(struct device *dev)
-{
-	//struct lab_dma *cd = dev_get_drvdata(dev);
-	return 0;
-}
-
-static int __maybe_unused caninos_dma_runtime_resume(struct device *dev)
-{
-	//struct lab_dma *cd = dev_get_drvdata(dev);
-	return 0;
-}
-
-static int parse_device_properties(struct lab_dma *cd)
-{
-	enum caninos_dmac_id devid;
-	
-	devid = (enum caninos_dmac_id) of_device_get_match_data(cd->dev);
-	
-	switch(devid)
-	{
-	case DEVID_K7_DMAC:
-		cd->nr_pchans = 10;
-		cd->nr_vchans = 48;
-		break;
-	case DEVID_K9_DMAC:
-	case DEVID_K5_DMAC:
-		cd->nr_pchans = 12;
-		cd->nr_vchans = 48;
-		break;
-	default:
-		dev_err(cd->dev, "unrecognized hardware type.\n");
-		return -ENODEV;
-	}
-	
-	cd->devid = devid;
-	
-	return 0;
-}
+#else
+#define caninos_dma_suspend NULL
+#define caninos_dma_resume NULL
+#endif
 
 static int caninos_dma_probe(struct platform_device *pdev)
 {
-	struct lab_dma *cd;
 	struct resource *res;
+	struct lab_dma *cd;
 	int ret, i;
 	
 	cd = devm_kzalloc(&pdev->dev, sizeof(*cd), GFP_KERNEL);
 	
 	if (!cd) {
+		dev_err(&pdev->dev, "could not allocate main data structure.\n");
 		return -ENOMEM;
 	}
 	
 	cd->dev = &pdev->dev;
-	spin_lock_init(&cd->lock);
 	
 	cd->irq = platform_get_irq(pdev, 0);
 	
-	if (cd->irq < 0) {
+	if (cd->irq < 0)
+	{
+		dev_err(cd->dev, "could not get irq resource.\n");
 		return cd->irq;
 	}
 	
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	cd->base = devm_ioremap_resource(cd->dev, res);
 	
-	if (IS_ERR(cd->base)) {
+	if (IS_ERR(cd->base))
+	{
+		dev_err(cd->dev, "could not map memory resource.\n");
 		return PTR_ERR(cd->base);
 	}
 	
 	cd->clk = devm_clk_get(cd->dev, NULL);
 	
-	if (IS_ERR(cd->clk)) {
+	if (IS_ERR(cd->clk))
+	{
+		dev_err(cd->dev, "could not get clock resource.\n");
 		return PTR_ERR(cd->clk);
 	}
 	
-	ret = parse_device_properties(cd);
+	cd->devid = (enum caninos_dmac_id) of_device_get_match_data(cd->dev);
 	
-	if (ret) {
-		return ret;
-	}
-	
-	cd->pchans = devm_kcalloc(cd->dev, cd->nr_pchans,
-	                          sizeof(struct lab_dma_pchan), GFP_KERNEL);
-	
-	if (!cd->pchans) {
-		return -ENOMEM;
-	}
-	
-	cd->vchans = devm_kcalloc(cd->dev, cd->nr_vchans,
-	                          sizeof(struct lab_dma_vchan), GFP_KERNEL);
-	
-	if (!cd->vchans) {
-		return -ENOMEM;
-	}
-	
-	INIT_LIST_HEAD(&cd->dma.channels);
-	
-	/* Init physical channels */
-	for (i = 0; i < cd->nr_pchans; i++)
+	switch(cd->devid)
 	{
-		struct lab_dma_pchan *pchan = &cd->pchans[i];
+	case DEVID_K9_DMAC:
+		dev_info(cd->dev, "K9 DMA Controller found.\n");
+		cd->nr_pchans = 12;
+		cd->nr_vchans = 48;
+		break;
 		
-		pchan->id = i;
-		pchan->base = cd->base + DMA_CHAN_BASE(i);
-		pchan->paused = false;
+	case DEVID_K7_DMAC:
+		dev_info(cd->dev, "K7 DMA Controller found.\n");
+		cd->nr_pchans = 10;
+		cd->nr_vchans = 48;
+		break;
+		
+	case DEVID_K5_DMAC:
+		dev_info(cd->dev, "K5 DMA Controller found.\n");
+		cd->nr_pchans = 12;
+		cd->nr_vchans = 48;
+		break;
+		
+	default:
+		dev_err(cd->dev, "unrecognized hardware type.\n");
+		return -ENODEV;
 	}
 	
-	/* Init virtual channels */
-	for (i = 0; i < cd->nr_vchans; i++)
+	dev_info(cd->dev, "physical dma channels: %d.\n", cd->nr_pchans);
+	dev_info(cd->dev, "virtual dma channels: %d.\n", cd->nr_vchans);
+	
+	/* Set DMA mask to 32 bits */
+	if (!cd->dev->dma_mask)
 	{
-		struct lab_dma_vchan *vchan = &cd->vchans[i];
-		
-		vchan->drq = -1;
-		vchan->vc.desc_free = caninos_dma_desc_free;
-		vchan_init(&vchan->vc, &cd->dma);
+		cd->dev->coherent_dma_mask = DMA_BIT_MASK(32);
+		cd->dev->dma_mask = &(cd->dev->coherent_dma_mask);
 	}
+	
+	platform_set_drvdata(pdev, cd);
+	spin_lock_init(&cd->lock);
 	
 	/* Set capabilities */
 	dma_cap_set(DMA_MEMCPY, cd->dma.cap_mask);
 	dma_cap_set(DMA_SLAVE, cd->dma.cap_mask);
 	
-	/* DMA capabilities */
 	cd->dma.chancnt = cd->nr_vchans;
 	cd->dma.max_burst = CANINOS_DMA_FRAME_MAX_LENGTH;
 	cd->dma.src_addr_widths = CANINOS_DMA_BUSWIDTHS;
@@ -1043,36 +1022,91 @@ static int caninos_dma_probe(struct platform_device *pdev)
 	cd->dma.dev->dma_parms = &cd->dma_parms;
 	dma_set_max_seg_size(cd->dev, CANINOS_DMA_FRAME_MAX_LENGTH);
 	
-	platform_set_drvdata(pdev, cd);
+	INIT_LIST_HEAD(&cd->dma.channels);
 	
-	/* Set DMA mask to 32 bits */
-	ret = dma_set_mask_and_coherent(cd->dev, DMA_BIT_MASK(32));
+	/* Request IRQ */
+	ret = devm_request_irq(cd->dev, cd->irq, caninos_dma_interrupt,
+	                       IRQF_SHARED, dev_name(cd->dev), cd);
 	
-	if (ret) {
+	if (ret)
+	{
+		dev_err(cd->dev, "could not request irq.\n");
 		return ret;
+	}
+	
+	/* Init physical channels */
+	cd->pchans = devm_kcalloc(cd->dev, cd->nr_pchans,
+	                          sizeof(struct lab_dma_pchan), GFP_KERNEL);
+	
+	if (!cd->pchans)
+	{
+		dev_err(cd->dev, "could not allocate physical channel data.\n");
+		return -ENOMEM;
+	}
+	
+	for (i = 0; i < cd->nr_pchans; i++)
+	{
+		struct lab_dma_pchan *pchan = &(cd->pchans[i]);
+		
+		pchan->id = i;
+		pchan->base = cd->base + DMA_CHAN_BASE(i);
+	}
+	
+	/* Init virtual channels */
+	cd->vchans = devm_kcalloc(cd->dev, cd->nr_vchans,
+	                          sizeof(struct lab_dma_vchan), GFP_KERNEL);
+	
+	if (!cd->vchans)
+	{
+		dev_err(cd->dev, "could not allocate virtual channel data.\n");
+		return -ENOMEM;
+	}
+	
+	for (i = 0; i < cd->nr_vchans; i++)
+	{
+		struct lab_dma_vchan *vchan = &(cd->vchans[i]);
+		
+		vchan->vc.desc_free = caninos_dma_desc_free;
+		vchan_init(&vchan->vc, &cd->dma);
+		vchan->drq = CANINOS_INV_DRQ;
+		vchan->state = CANINOS_VCHAN_IDLE;
 	}
 	
 	/* Create a pool of consistent memory blocks for hardware descriptors */
 	cd->lli_pool = dma_pool_create(dev_name(cd->dev), cd->dev,
-	                               sizeof(struct lab_dma_lli),
-	                               __alignof__(struct lab_dma_lli), 0);
-	if (!cd->lli_pool) {
+	                               sizeof(struct lab_dma_lli), 8, 0);
+	if (!cd->lli_pool)
+	{
+		dev_err(cd->dev, "could not create dma pool.\n");
 		return -ENOMEM;
 	}
 	
 	/* Init hardware */
-	ret = caninos_dma_hw_init(cd);
+	pm_runtime_dont_use_autosuspend(cd->dev);
+	pm_runtime_mark_last_busy(cd->dev);
+	pm_runtime_set_active(cd->dev);
+	pm_runtime_enable(cd->dev);
+	pm_runtime_get(cd->dev);
 	
-	if (ret){
-		dma_pool_destroy(cd->lli_pool);
-		return ret;
+	clk_prepare_enable(cd->clk);
+	
+	/* Mask interrupts */
+	dma_writel(cd, DMA_IRQ_EN0, 0x0);
+	
+	/* Setup QOS */
+	if (cd->devid == DEVID_K5_DMAC) {
+		dma_writel(cd, DMA_NIC_QOS, 0xf0);
 	}
 	
 	/* Register DMA controller device */
 	ret = dma_async_device_register(&cd->dma);
 	
-	if (ret) {
-		caninos_dma_hw_turnoff(cd);
+	if (ret)
+	{
+		clk_disable_unprepare(cd->clk);
+		pm_runtime_put(cd->dev);
+		pm_runtime_disable(cd->dev);
+		
 		dma_pool_destroy(cd->lli_pool);
 		return ret;
 	}
@@ -1080,9 +1114,14 @@ static int caninos_dma_probe(struct platform_device *pdev)
 	/* Device-tree DMA controller registration */
 	ret = of_dma_controller_register(cd->dev->of_node,
 	                                 caninos_of_dma_xlate, cd);
-	if (ret) {
+	if (ret)
+	{
 		dma_async_device_unregister(&cd->dma);
-		caninos_dma_hw_turnoff(cd);
+		
+		clk_disable_unprepare(cd->clk);
+		pm_runtime_put(cd->dev);
+		pm_runtime_disable(cd->dev);
+		
 		dma_pool_destroy(cd->lli_pool);
 		return ret;
 	}
@@ -1096,18 +1135,19 @@ static int caninos_dma_remove(struct platform_device *pdev)
 	
 	of_dma_controller_free(pdev->dev.of_node);
 	dma_async_device_unregister(&cd->dma);
-	caninos_dma_hw_turnoff(cd);
+	
+	dma_writel(cd, DMA_IRQ_EN0, 0x0);
 	caninos_dma_free(cd);
+	
+	clk_disable_unprepare(cd->clk);
+	
+	pm_runtime_put(cd->dev);
+	pm_runtime_disable(cd->dev);
+	
 	dma_pool_destroy(cd->lli_pool);
 	
 	return 0;
 }
-
-static const struct dev_pm_ops caninos_dma_pm_ops = {
-	SET_RUNTIME_PM_OPS(caninos_dma_runtime_suspend,
-	                   caninos_dma_runtime_resume,
-	                   NULL)
-};
 
 static const struct of_device_id caninos_dma_match[] = {
 	{ .compatible = "caninos,k9-dma", .data = (void *)DEVID_K9_DMAC,},
@@ -1115,6 +1155,9 @@ static const struct of_device_id caninos_dma_match[] = {
 	{ .compatible = "caninos,k5-dma", .data = (void *)DEVID_K5_DMAC,},
 	{ /* sentinel */ },
 };
+
+static SIMPLE_DEV_PM_OPS(caninos_dma_pm_ops,
+                         caninos_dma_suspend, caninos_dma_resume);
 
 MODULE_DEVICE_TABLE(of, caninos_dma_match);
 

@@ -165,19 +165,19 @@ static const struct caninos_sps_domain_info k7_sps_domains[] = {
 		.name = "DMAC",
 		.pwr_bit = 8,
 		.ack_bit = 8,
-		.genpd_flags = 0,
+		.genpd_flags = GENPD_FLAG_ALWAYS_ON,
 		.is_off = false,
 	},
 };
 
 static const struct caninos_sps_info k7_sps_info = {
-	.num_domains = ARRAY_SIZE(k7_sps_domains),
+	.num_domains = PD_NUM,
 	.domains = k7_sps_domains,
 };
 
 static const struct of_device_id caninos_sps_of_matches[] = {
 	{ .compatible = "caninos,k7-sps", .data = &k7_sps_info },
-	{ }
+	{ /* sentinel */ }
 };
 
 static struct platform_driver caninos_sps_platform_driver = {
