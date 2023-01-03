@@ -26,6 +26,8 @@
 #include <sound/dmaengine_pcm.h>
 
 #include "caninos-codec.h"
+#include "../../../drivers/gpu/drm/caninos/hdmi.h"
+#include "../../../drivers/gpu/drm/caninos/ip-sx00.h"
 
 struct snd_caninos
 {
@@ -41,6 +43,7 @@ struct snd_caninos
 	
 	struct snd_card *card;
 	struct snd_pcm *pcm;
+	struct hdmi_ip *hdmi;
 	
 	struct dma_chan *txchan;
 	struct dma_chan *rxchan;
@@ -49,6 +52,7 @@ struct snd_caninos
 	
 	phys_addr_t phys_base;
 };
+
 
 static void snd_caninos_set_rate(struct snd_caninos *chip)
 {
@@ -350,6 +354,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct platform_device *codec_pdev;
 	struct device_node *codec_np;
+	struct device_node *hdmi_np;
 	struct snd_card *card;
 	struct snd_caninos *chip;
 	struct snd_pcm *pcm;
@@ -535,6 +540,31 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	
 	/* setup soc playback and capture modes */
 	snd_caninos_playback_capture_setup(chip);
+
+	/* get hdmi ip device */
+	hdmi_np =  of_parse_phandle(dev->of_node, "hdmi", 0);
+	
+	if (!hdmi_np)
+	{
+		dev_err(dev, "could not find hdmi\n");
+		snd_card_free(card);
+		return -ENXIO;
+	}
+	
+	hdmi_pdev = of_find_device_by_node(hdmi_np);
+	
+	if (hdmi_pdev) {
+		chip->codec = platform_get_drvdata(hdmi_pdev);
+	}
+	
+	of_node_put(hdmi_np);
+	
+	if (!hdmi_pdev || !chip->hdmi)
+	{
+		dev_err(dev, "hdmi is not ready\n");
+		snd_card_free(card);
+		return -EPROBE_DEFER;
+	}
 	
 	/* all is good, register our new card! */
 	err = snd_card_register(card);
