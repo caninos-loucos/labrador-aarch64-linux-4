@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Clock Controller Driver for Caninos Labrador
- * Copyright (c) 2018-2020 LSI-TEC - Caninos Loucos
- * Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
  *
- * Copyright (c) 2014 David Liu, Actions Semi Inc <liuwei@actions-semi.com>
+ * Copyright (c) 2022-2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * Copyright (c) 2018-2020 LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * Copyright (c) 2014 Actions Semi Inc.
+ * Author: David Liu <liuwei@actions-semi.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -15,7 +20,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
- 
+
 #include <linux/kernel.h>
 #include <linux/clk-provider.h>
 #include <linux/clkdev.h>
@@ -27,75 +32,155 @@
 #include <linux/clk.h>
 #include "clk-caninos.h"
 
-static void caninos_clk_add_lookup(struct caninos_clk_provider *ctx,
-                                   struct clk *clk, int id)
+static void
+caninos_clk_add_lookup(struct caninos_clk_provider *ctx,
+                       struct clk *clk, int id)
 {
     if (ctx->clk_data.clks && id >= 0) {
         ctx->clk_data.clks[id] = clk;
     }
 }
 
-void __init caninos_clk_register_gate(struct caninos_clk_provider *ctx,
-                                      struct caninos_gate_clock *clks, int num)
+void __init
+caninos_clk_register_fixed(struct caninos_clk_provider *ctx,
+                           const struct caninos_fixed_clock *clks,
+                           int num)
+{
+	struct clk *clk;
+	int i, ret;
+	
+	for (i = 0; i < num; i++)
+	{
+		const struct caninos_fixed_clock *info = &clks[i];
+		
+		clk = clk_register_fixed_rate(NULL, info->name, info->parent_name,
+		                              info->flags, info->fixed_rate);
+		
+		if (IS_ERR(clk))
+		{
+			pr_err("%s: failed to register clock %s\n", __func__, info->name);
+			continue;
+		}
+		
+		caninos_clk_add_lookup(ctx, clk, info->id);
+		
+		ret = clk_register_clkdev(clk, info->name, NULL);
+		
+		if (ret) {
+			pr_err("%s: failed to register lookup %s\n",__func__, info->name);
+		}
+	}
+}
+
+void __init
+caninos_clk_register_mux(struct caninos_clk_provider *ctx,
+                         const struct caninos_mux_clock *clks, int num)
+{
+	struct clk *clk;
+	int i, ret;
+	
+	for (i = 0; i < num; i++)
+	{
+		const struct caninos_mux_clock *info = &clks[i];
+		
+		clk = clk_register_mux(NULL, info->name, info->parent_names,
+		                       info->num_parents, info->flags,
+		                       ctx->reg_base + info->offset,
+		                       info->shift, info->width,
+		                       info->mux_flags, &ctx->lock);
+		
+		if (IS_ERR(clk))
+		{
+			pr_err("%s: failed to register clock %s\n",__func__, info->name);
+			continue;
+		}
+		
+		caninos_clk_add_lookup(ctx, clk, info->id);
+		
+		ret = clk_register_clkdev(clk, info->name, NULL);
+		
+		if (ret) {
+			pr_err("%s: failed to register lookup %s\n",__func__, info->name);
+		}
+	}
+}
+
+void __init 
+caninos_clk_register_div(struct caninos_clk_provider *ctx,
+                         const struct caninos_div_clock *clks,
+                         int num)
 {
     struct clk *clk;
     int i, ret;
     
     for (i = 0; i < num; i++)
     {
-        clk = caninos_register_gate(&clks[i], ctx->reg_base, &ctx->lock);
+    	const struct caninos_div_clock *info = &clks[i];
+    	
+        clk = clk_register_divider(NULL, info->name,
+                                   info->parent_name, info->flags,
+		                           ctx->reg_base + info->offset,
+		                           info->shift, info->width,
+		                           info->div_flags, &ctx->lock);
         
         if (IS_ERR(clk))
         {
-            pr_err("%s: failed to register clock %s\n",__func__, clks[i].name);
+            pr_err("%s: failed to register clock %s\n",__func__, info->name);
             continue;
         }
         
-        caninos_clk_add_lookup(ctx, clk, clks[i].id);
+        caninos_clk_add_lookup(ctx, clk, info->id);
+
+        ret = clk_register_clkdev(clk, info->name, NULL);
+
+        if (ret) {
+            pr_err("%s: failed to register lookup %s\n",__func__, info->name);
+        }		
+    }
+}
+
+void __init
+caninos_clk_register_gate(struct caninos_clk_provider *ctx,
+                          const struct caninos_gate_clock *clks, int num)
+{
+    struct clk *clk;
+    int i, ret;
+    
+    for (i = 0; i < num; i++)
+    {
+    	const struct caninos_gate_clock *info = &clks[i];
+    	
+        clk = clk_register_gate(NULL, info->name,
+		                        info->parent_name, info->flags,
+		                        ctx->reg_base + info->offset, info->bit_idx,
+		                        info->gate_flags, &ctx->lock);
         
-        ret = clk_register_clkdev(clk, clks[i].name, NULL);
+        if (IS_ERR(clk))
+        {
+            pr_err("%s: failed to register clock %s\n",__func__, info->name);
+            continue;
+        }
+        
+        caninos_clk_add_lookup(ctx, clk, info->id);
+        
+        ret = clk_register_clkdev(clk, info->name, NULL);
         
         if (ret) {
-            pr_err("%s: failed to register lookup %s\n",__func__, clks[i].name);
+            pr_err("%s: failed to register lookup %s\n",__func__, info->name);
         }
     }
 }
 
-void __init caninos_clk_register_mux(struct caninos_clk_provider *ctx,
-                                     struct caninos_mux_clock *clks, int num)
+void __init
+caninos_clk_register_pll(struct caninos_clk_provider *ctx,
+                         const struct caninos_pll_clock *clks, int num)
 {
     struct clk *clk;
     int i, ret;
     
     for (i = 0; i < num; i++)
     {
-        clk = caninos_register_mux(&clks[i], ctx->reg_base, &ctx->lock);
-        
-        if (IS_ERR(clk))
-        {
-            pr_err("%s: failed to register clock %s\n",__func__, clks[i].name);
-            continue;
-        }
-        
-        caninos_clk_add_lookup(ctx, clk, clks[i].id);
-        
-        ret = clk_register_clkdev(clk, clks[i].name, NULL);
-        
-        if (ret) {
-            pr_err("%s: failed to register lookup %s\n",__func__, clks[i].name);
-        }
-    }
-}
-
-void __init caninos_clk_register_pll(struct caninos_clk_provider *ctx,
-                                     struct caninos_pll_clock *clks, int num)
-{
-    struct clk *clk;
-    int i, ret;
-    
-    for (i = 0; i < num; i++)
-    {
-        clk = caninos_register_pll(&clks[i], ctx->reg_base, &ctx->lock);
+        clk = caninos_register_pll(&clks[i], NULL, ctx->reg_base, &ctx->lock);
         
 		if (IS_ERR(clk))
 		{
@@ -113,70 +198,18 @@ void __init caninos_clk_register_pll(struct caninos_clk_provider *ctx,
 	}
 }
 
-void __init caninos_clk_register_div(struct caninos_clk_provider *ctx,
-                                     struct caninos_div_clock *clks,
-                                     int num)
+void __init
+caninos_clk_register_composite(struct caninos_clk_provider *ctx,
+                               const struct caninos_composite_clock *clks,
+                               int num)
 {
     struct clk *clk;
     int i, ret;
     
     for (i = 0; i < num; i++)
     {
-        clk = caninos_register_div(&clks[i], ctx->reg_base, &ctx->lock);
-        
-        if (IS_ERR(clk))
-        {
-            pr_err("%s: failed to register clock %s\n",__func__, clks[i].name);
-            continue;
-        }
-
-        caninos_clk_add_lookup(ctx, clk, clks[i].id);
-
-        ret = clk_register_clkdev(clk, clks[i].name, NULL);
-
-        if (ret) {
-            pr_err("%s: failed to register lookup %s\n",__func__, clks[i].name);
-        }		
-    }
-}
-
-void __init caninos_clk_register_fixed(struct caninos_clk_provider *ctx,
-                                       struct caninos_fixed_clock *clks,
-                                       int num)
-{
-    struct clk *clk;
-    int i, ret;
-    
-    for (i = 0; i < num; i++)
-    {
-        clk = caninos_register_fixed(&clks[i]);
-        
-        if (IS_ERR(clk))
-        {
-            pr_err("%s: failed to register clock %s\n", __func__, clks[i].name);
-            continue;
-        }
-        
-        caninos_clk_add_lookup(ctx, clk, clks[i].id);
-        
-        ret = clk_register_clkdev(clk, clks[i].name, NULL);
-        
-        if (ret) {
-            pr_err("%s: failed to register lookup %s\n",__func__, clks[i].name);
-        }
-	}
-}
-
-void __init caninos_clk_register_composite
-    (struct caninos_clk_provider *ctx,
-     struct caninos_composite_clock *clks, int num)
-{
-    struct clk *clk;
-    int i, ret;
-    
-    for (i = 0; i < num; i++)
-    {
-        clk = caninos_register_composite(&clks[i], ctx->reg_base, &ctx->lock);
+        clk = caninos_register_composite(&clks[i], NULL,
+                                         ctx->reg_base, &ctx->lock);
         
         if (IS_ERR(clk))
         {
@@ -194,8 +227,9 @@ void __init caninos_clk_register_composite
     }
 }
 
-struct caninos_clk_provider *__init caninos_clk_init
-    (struct device_node *np, void __iomem *base, unsigned long nr_clks)
+struct caninos_clk_provider *__init
+caninos_clk_init(struct device_node *np,
+                 void __iomem *base, unsigned long nr_clks)
 {
     struct caninos_clk_provider *ctx;
     struct clk **clk_table;

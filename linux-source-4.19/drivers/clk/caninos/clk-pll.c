@@ -20,16 +20,6 @@
 #include <linux/delay.h>
 #include "clk-caninos.h"
 
-/*
- * DOC: basic adjustable pll clock that can gate and ungate it's ouput
- *
- * Traits of this clock:
- * prepare - clk_(un)prepare only ensures parent is (un)prepared
- * enable - clk_enable and clk_disable are functional & control gating
- * rate - rate is adjustable. clk->rate = ceiling(clk->base * multiplier)
- * parent - fixed parent. No clk_set_parent support
- */
-
 struct caninos_pll
 {
     struct clk_hw hw;
@@ -41,6 +31,7 @@ struct caninos_pll
     unsigned int width;
     unsigned int min_mul;
     unsigned int max_mul;
+    unsigned int pll_flags;
     const struct clk_pll_table *table;
 };
 
@@ -256,13 +247,17 @@ static void caninos_pll_endisable(struct clk_hw *hw, u8 enable)
 
 static int caninos_pll_enable(struct clk_hw *hw)
 {
-    caninos_pll_endisable(hw, 1);
+	if (!caninos_pll_is_enabled(hw)) {
+		caninos_pll_endisable(hw, 1);
+	}
 	return 0;
 }
 
 static void caninos_pll_disable(struct clk_hw *hw)
 {
-	caninos_pll_endisable(hw, 0);
+	if (caninos_pll_is_enabled(hw)) {
+		caninos_pll_endisable(hw, 0);
+	}
 }
 
 static const struct clk_ops caninos_pll_ops = {
@@ -275,62 +270,61 @@ static const struct clk_ops caninos_pll_ops = {
 };
 
 static const struct clk_ops caninos_pll_ro_ops = {
+	.enable = caninos_pll_enable,
+    .disable = caninos_pll_disable,
     .is_enabled = caninos_pll_is_enabled,
     .recalc_rate = caninos_pll_recalc_rate,
     .round_rate = caninos_pll_ro_round_rate,
 };
 
-struct clk *caninos_register_pll(const struct caninos_pll_clock *info,
-                                 void __iomem *reg, spinlock_t *lock)
+struct clk *__init caninos_register_pll(const struct caninos_pll_clock *info,
+                                 struct device *dev, void __iomem *reg,
+                                 spinlock_t *lock)
 {
-    struct clk_init_data init = {};
-    struct caninos_pll *pll;
-    struct clk_hw *hw;
-    int ret;
-    
-    pll = kmalloc(sizeof(*pll), GFP_KERNEL);
-    
-    if (!pll) {
-        return ERR_PTR(-ENOMEM);
-    }
-    
-    pll->bfreq = info->bfreq;
-    pll->enable_bit = info->enable_bit;
-    pll->shift = info->shift;
-    pll->width = info->width;
-    pll->min_mul = info->min_mul;
-    pll->max_mul = info->max_mul;
-    pll->table = info->table;
-    pll->reg = reg + info->offset;
-    pll->lock = lock;
-    
-    init.name = info->name;
-    init.flags = CLK_IGNORE_UNUSED;
-    init.parent_names = (info->parent_name ? &info->parent_name : NULL);
-    init.num_parents = (info->parent_name ? 1 : 0);
-    
-    if (info->pll_flags & CANINOS_CLK_IS_CRITICAL) {
-        init.flags |= CLK_IS_CRITICAL;
-    }
-    
-    if (info->pll_flags & CANINOS_CLK_RATE_READ_ONLY) {
-        init.ops = &caninos_pll_ro_ops;
-    }
-    else {
-        init.ops = &caninos_pll_ops;
-    }
-    
-    pll->hw.init = &init;
-    hw = &pll->hw;
-    
-    ret = clk_hw_register(NULL, hw);
-    
-    if (ret)
-    {
-        kfree(pll);
-        return ERR_PTR(ret);
-    }
-    
-    return hw->clk;
+	struct clk_init_data init;
+	struct caninos_pll *pll;
+	struct clk_hw *hw;
+	int ret;
+	
+	pll = kmalloc(sizeof(*pll), GFP_KERNEL);
+	
+	if (!pll) {
+		return ERR_PTR(-ENOMEM);
+	}
+	
+	init.name = info->name;
+	
+	if (info->pll_flags & CANINOS_CLK_PLL_READ_ONLY) {
+		init.ops = &caninos_pll_ro_ops;
+	}
+	else {
+		init.ops = &caninos_pll_ops;
+	}
+	
+	init.flags = info->flags;
+	init.parent_names = (info->parent_name ? &info->parent_name : NULL);
+	init.num_parents = (info->parent_name ? 1 : 0);
+	
+	pll->bfreq = info->bfreq;
+	pll->enable_bit = info->enable_bit;
+	pll->shift = info->shift;
+	pll->width = info->width;
+	pll->min_mul = info->min_mul;
+	pll->max_mul = info->max_mul;
+	pll->table = info->table;
+	pll->reg = reg + info->offset;
+	pll->lock = lock;
+	pll->pll_flags = info->pll_flags;
+	pll->hw.init = &init;
+	
+	hw = &pll->hw;
+	ret = clk_hw_register(dev, hw);
+	
+	if (ret) {
+		kfree(pll);
+		return ERR_PTR(ret);
+	}
+	
+	return hw->clk;
 }
 
