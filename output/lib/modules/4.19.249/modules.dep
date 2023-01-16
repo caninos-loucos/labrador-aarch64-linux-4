@@ -1,3 +1,4 @@
+kernel/fs/nfs/blocklayout/blocklayoutdriver.ko:
 kernel/crypto/crypto_engine.ko:
 kernel/drivers/phy/broadcom/phy-bcm-kona-usb2.ko:
 kernel/drivers/phy/marvell/phy-pxa-28nm-hsic.ko:
@@ -11,7 +12,12 @@ kernel/drivers/video/backlight/backlight.ko:
 kernel/drivers/xen/xen-gntdev.ko:
 kernel/drivers/xen/xen-gntalloc.ko:
 kernel/drivers/regulator/tps6105x-regulator.ko:
+kernel/drivers/misc/eeprom/eeprom.ko:
+kernel/drivers/misc/eeprom/max6875.ko:
+kernel/drivers/misc/eeprom/eeprom_93cx6.ko:
+kernel/drivers/misc/eeprom/eeprom_93xx46.ko:
 kernel/drivers/misc/altera-stapl/altera-stapl.ko:
+kernel/drivers/misc/echo/echo.ko:
 kernel/drivers/misc/cardreader/rtsx_usb.ko:
 kernel/drivers/mfd/sm501.ko:
 kernel/drivers/mfd/lp873x.ko:
@@ -42,6 +48,8 @@ kernel/drivers/scsi/iscsi_tcp.ko: kernel/drivers/scsi/libiscsi_tcp.ko kernel/dri
 kernel/drivers/scsi/iscsi_boot_sysfs.ko:
 kernel/drivers/scsi/ufs/ufshcd-core.ko:
 kernel/drivers/scsi/virtio_scsi.ko:
+kernel/drivers/scsi/st.ko:
+kernel/drivers/scsi/osst.ko:
 kernel/drivers/scsi/osd/libosd.ko:
 kernel/drivers/scsi/osd/osd.ko: kernel/drivers/scsi/osd/libosd.ko
 kernel/drivers/mtd/cmdlinepart.ko:
@@ -80,7 +88,7 @@ kernel/drivers/net/wireless/ralink/rt2x00/rt2800lib.ko: kernel/lib/crc-ccitt.ko 
 kernel/drivers/net/wireless/ralink/rt2x00/rt2500usb.ko: kernel/drivers/net/wireless/ralink/rt2x00/rt2x00usb.ko kernel/drivers/net/wireless/ralink/rt2x00/rt2x00lib.ko kernel/net/mac80211/mac80211.ko kernel/net/wireless/cfg80211.ko
 kernel/drivers/net/wireless/ralink/rt2x00/rt73usb.ko: kernel/drivers/net/wireless/ralink/rt2x00/rt2x00usb.ko kernel/drivers/net/wireless/ralink/rt2x00/rt2x00lib.ko kernel/net/mac80211/mac80211.ko kernel/net/wireless/cfg80211.ko
 kernel/drivers/net/wireless/ralink/rt2x00/rt2800usb.ko: kernel/drivers/net/wireless/ralink/rt2x00/rt2800lib.ko kernel/lib/crc-ccitt.ko kernel/drivers/net/wireless/ralink/rt2x00/rt2x00usb.ko kernel/drivers/net/wireless/ralink/rt2x00/rt2x00lib.ko kernel/net/mac80211/mac80211.ko kernel/net/wireless/cfg80211.ko
-kernel/drivers/net/wireless/realtek/rtl818x/rtl8187/rtl8187.ko: kernel/net/mac80211/mac80211.ko kernel/net/wireless/cfg80211.ko
+kernel/drivers/net/wireless/realtek/rtl818x/rtl8187/rtl8187.ko: kernel/drivers/misc/eeprom/eeprom_93cx6.ko kernel/net/mac80211/mac80211.ko kernel/net/wireless/cfg80211.ko
 kernel/drivers/net/wireless/realtek/rtlwifi/rtlwifi.ko: kernel/net/mac80211/mac80211.ko kernel/net/wireless/cfg80211.ko
 kernel/drivers/net/wireless/realtek/rtlwifi/rtl_usb.ko: kernel/drivers/net/wireless/realtek/rtlwifi/rtlwifi.ko kernel/net/mac80211/mac80211.ko kernel/net/wireless/cfg80211.ko
 kernel/drivers/net/wireless/realtek/rtlwifi/rtl8192c/rtl8192c-common.ko: kernel/drivers/net/wireless/realtek/rtlwifi/rtlwifi.ko kernel/net/mac80211/mac80211.ko kernel/net/wireless/cfg80211.ko
@@ -131,6 +139,13 @@ kernel/drivers/net/usb/lg-vl600.ko: kernel/drivers/net/usb/cdc_ether.ko kernel/d
 kernel/drivers/net/usb/qmi_wwan.ko: kernel/drivers/usb/class/cdc-wdm.ko kernel/drivers/net/usb/usbnet.ko
 kernel/drivers/net/usb/cdc_mbim.ko: kernel/drivers/usb/class/cdc-wdm.ko kernel/drivers/net/usb/cdc_ncm.ko kernel/drivers/net/usb/usbnet.ko
 kernel/drivers/net/usb/ch9200.ko: kernel/drivers/net/usb/usbnet.ko
+kernel/drivers/net/dummy.ko:
+kernel/drivers/net/eql.ko:
+kernel/drivers/net/netconsole.ko:
+kernel/drivers/net/tun.ko:
+kernel/drivers/net/vxlan.ko:
+kernel/drivers/net/geneve.ko:
+kernel/drivers/net/gtp.ko:
 kernel/drivers/net/netdevsim/netdevsim.ko:
 kernel/drivers/uwb/hwa-rc.ko:
 kernel/drivers/uwb/i1480/dfu/i1480-dfu-usb.ko:
@@ -273,6 +288,7 @@ kernel/drivers/input/mouse/bcm5974.ko:
 kernel/drivers/input/mouse/cyapatp.ko:
 kernel/drivers/input/mouse/elan_i2c.ko:
 kernel/drivers/input/mouse/gpio_mouse.ko: kernel/drivers/input/input-polldev.ko
+kernel/drivers/input/mouse/psmouse.ko:
 kernel/drivers/input/mouse/sermouse.ko:
 kernel/drivers/input/mouse/synaptics_i2c.ko:
 kernel/drivers/input/mouse/synaptics_usb.ko:
@@ -640,10 +656,33 @@ kernel/drivers/media/radio/radio-wl1273.ko:
 kernel/drivers/media/radio/tea575x.ko:
 kernel/drivers/media/radio/radio-raremono.ko:
 kernel/drivers/media/cec/cec.ko:
-kernel/drivers/md/dm-multipath.ko:
-kernel/drivers/md/dm-round-robin.ko: kernel/drivers/md/dm-multipath.ko
-kernel/drivers/md/dm-queue-length.ko: kernel/drivers/md/dm-multipath.ko
-kernel/drivers/md/dm-service-time.ko: kernel/drivers/md/dm-multipath.ko
+kernel/drivers/md/multipath.ko:
+kernel/drivers/md/faulty.ko:
+kernel/drivers/md/bcache/bcache.ko:
+kernel/drivers/md/dm-mod.ko:
+kernel/drivers/md/dm-bufio.ko: kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-bio-prison.ko:
+kernel/drivers/md/dm-crypt.ko: kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-delay.ko: kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-flakey.ko: kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-multipath.ko: kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-round-robin.ko: kernel/drivers/md/dm-multipath.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-queue-length.ko: kernel/drivers/md/dm-multipath.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-service-time.ko: kernel/drivers/md/dm-multipath.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-snapshot.ko: kernel/drivers/md/dm-bufio.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/persistent-data/dm-persistent-data.ko: kernel/drivers/md/dm-bufio.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-mirror.ko: kernel/drivers/md/dm-region-hash.ko kernel/drivers/md/dm-log.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-log.ko: kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-region-hash.ko: kernel/drivers/md/dm-log.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-log-userspace.ko: kernel/drivers/md/dm-log.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-zero.ko: kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-raid.ko: kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-thin-pool.ko: kernel/drivers/md/persistent-data/dm-persistent-data.ko kernel/drivers/md/dm-bio-prison.ko kernel/drivers/md/dm-bufio.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-verity.ko: kernel/drivers/md/dm-bufio.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-cache.ko: kernel/drivers/md/persistent-data/dm-persistent-data.ko kernel/drivers/md/dm-bio-prison.ko kernel/drivers/md/dm-bufio.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-cache-smq.ko: kernel/drivers/md/dm-cache.ko kernel/drivers/md/persistent-data/dm-persistent-data.ko kernel/drivers/md/dm-bio-prison.ko kernel/drivers/md/dm-bufio.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-era.ko: kernel/drivers/md/persistent-data/dm-persistent-data.ko kernel/drivers/md/dm-bufio.ko kernel/drivers/md/dm-mod.ko
+kernel/drivers/md/dm-log-writes.ko: kernel/drivers/md/dm-mod.ko
 kernel/drivers/bluetooth/hci_uart.ko:
 kernel/drivers/bluetooth/bcm203x.ko:
 kernel/drivers/bluetooth/bpa10x.ko:

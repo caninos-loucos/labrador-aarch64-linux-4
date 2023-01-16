@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Caninos Labrador DRM/KMS driver
- * Copyright (c) 2018-2020 LSI-TEC - Caninos Loucos
- * Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ * DRM/KMS driver for Caninos Labrador
+ *
+ * Copyright (c) 2022-2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * Copyright (c) 2018-2020 LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -41,7 +45,7 @@
 
 #include "gfx_drv.h"
 
-static int caninos_gfx_load(struct drm_device *drm, struct hdmi_ip_ops *hdmi_ip)
+static int caninos_gfx_load(struct drm_device *drm, struct hdmi_ip *hdmi_ip)
 {
     struct platform_device *pdev = to_platform_device(drm->dev);
     struct caninos_gfx *priv;
@@ -77,6 +81,13 @@ static int caninos_gfx_load(struct drm_device *drm, struct hdmi_ip_ops *hdmi_ip)
 	
 	if (IS_ERR(priv->cvbs_base)) {
 		return PTR_ERR(priv->cvbs_base);
+	}
+	
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dcu");
+	priv->dcu_base = devm_ioremap(drm->dev, res->start, resource_size(res));
+	
+	if (IS_ERR(priv->dcu_base)) {
+		return PTR_ERR(priv->dcu_base);
 	}
 	
 	priv->tvout_clk = devm_clk_get(drm->dev, "tvout");
@@ -173,7 +184,7 @@ static const struct of_device_id caninos_gfx_match[] = {
 
 static int caninos_gfx_probe(struct platform_device *pdev)
 {
-	struct hdmi_ip_ops *hdmi_ip = NULL;
+	struct hdmi_ip *hdmi_ip = NULL;
 	struct platform_device *hdmi_pdev;
 	struct device_node *hdmi_np;
 	struct drm_device *drm;
