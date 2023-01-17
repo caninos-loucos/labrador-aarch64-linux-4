@@ -1,3 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DRM/KMS driver for Caninos Labrador
+ *
+ * Copyright (c) 2022-2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * Copyright (c) 2018-2020 LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 
 #include <linux/delay.h>
 #include <linux/module.h>
@@ -259,12 +278,122 @@ static int ip_update_reg_values(struct hdmi_ip *ip)
 	return 0;
 }
 
+static void __ip_tmds_ldo_enable(struct hdmi_ip *ip)
+{
+	uint32_t val;
+	
+	/* do not enable HDMI lane util video enable */
+	val = ip->tx_2 & (~((0xf << 8) | (1 << 17)));
+	hdmi_ip_writel(ip, HDMI_TX_2, val);
+}
+
+static void __ip_phy_enable(struct hdmi_ip *ip)
+{
+	uint32_t val;
+	
+	/* TMDS Encoder */
+	val = hdmi_ip_readl(ip, TMDS_EODR0);
+	val = REG_SET_VAL(val, 1, 31, 31);
+	hdmi_ip_writel(ip, TMDS_EODR0, val);
+	
+	hdmi_ip_writel(ip, HDMI_TX_1, ip->tx_1);
+}
+
+static void __ip_pll_enable(struct hdmi_ip *ip)
+{
+	uint32_t val;
+	
+	/* 24M enable */
+	val = readl(ip->cmu_base + ip->hwdiff->pll_reg);
+	val |= (1 << ip->hwdiff->pll_24m_en);
+	writel(val, ip->cmu_base + ip->hwdiff->pll_reg);
+	mdelay(1);
+	
+	/* set PLL, only bit18:16 of pll_val is used */
+	val = readl(ip->cmu_base + ip->hwdiff->pll_reg);
+	val &= ~(0x7 << 16);
+	val |= (ip->pll_val & (0x7 << 16));
+	writel(val, ip->cmu_base + ip->hwdiff->pll_reg);
+	mdelay(1);
+	
+	/* set debug PLL */
+	writel(ip->pll_debug0_val, ip->cmu_base + ip->hwdiff->pll_debug0_reg);
+	writel(ip->pll_debug1_val, ip->cmu_base + ip->hwdiff->pll_debug1_reg);
+	
+	/* enable PLL */
+	val = readl(ip->cmu_base + ip->hwdiff->pll_reg);
+	val |= (1 << ip->hwdiff->pll_en);
+	writel(val, ip->cmu_base + ip->hwdiff->pll_reg);
+	mdelay(1);
+	
+	val = hdmi_ip_readl(ip, CEC_DDC_HPD);
+	
+	/* 0 to 1, start calibration */
+	val = REG_SET_VAL(val, 0, 20, 20);
+	hdmi_ip_writel(ip, CEC_DDC_HPD, val);
+	
+	udelay(10);
+	
+	val = REG_SET_VAL(val, 1, 20, 20);
+	hdmi_ip_writel(ip, CEC_DDC_HPD, val);
+	
+	while (1) {
+		val = hdmi_ip_readl(ip, CEC_DDC_HPD);
+		if ((val >> 24) & 0x1)
+			break;
+	}
+}
+
+static void __ip_video_timing_config(struct hdmi_ip *ip)
+{
+	bool vsync_pol, hsync_pol, interlace, repeat;
+	uint32_t val;
+	const struct videomode *mode = &ip->mode;
+	
+	vsync_pol = ((mode->sync & DSS_SYNC_VERT_HIGH_ACT) == 0);
+	hsync_pol = ((mode->sync & DSS_SYNC_HOR_HIGH_ACT) == 0);
+	
+	interlace = ip->interlace;
+	repeat = ip->repeat;
+	
+	val = hdmi_ip_readl(ip, HDMI_SCHCR);
+	val = REG_SET_VAL(val, hsync_pol, 1, 1);
+	val = REG_SET_VAL(val, vsync_pol, 2, 2);
+	hdmi_ip_writel(ip, HDMI_SCHCR, val);
+
+	val = hdmi_ip_readl(ip, HDMI_VICTL);
+	val = REG_SET_VAL(val, interlace, 28, 28);
+	val = REG_SET_VAL(val, repeat, 29, 29);
+	hdmi_ip_writel(ip, HDMI_VICTL, val);
+}
+
+static void __ip_video_format_config(struct hdmi_ip *ip)
+{
+	uint32_t val, val_hp, val_vp;
+	bool interlace;
+	const struct videomode *mode = &ip->mode;
+
+	val_hp = mode->xres + mode->hbp + mode->hfp + mode->hsw;
+	val_vp = mode->yres + mode->vbp + mode->vfp + mode->vsw;
+	interlace = ip->interlace;
+	
+	val = hdmi_ip_readl(ip, HDMI_VICTL);
+
+	val = REG_SET_VAL(val, val_hp - 1, ip->hwdiff->hp_end, ip->hwdiff->hp_start);
+
+	if (interlace == false)
+		val = REG_SET_VAL(val, val_vp - 1, ip->hwdiff->vp_end, ip->hwdiff->vp_start);
+	else
+		val = REG_SET_VAL(val, val_vp * 2, ip->hwdiff->vp_end, ip->hwdiff->vp_start);
+	
+	hdmi_ip_writel(ip, HDMI_VICTL, val);
+}
+
 static int ip_video_enable(struct hdmi_ip *ip)
 {
 	uint32_t val, mode, val_hp, val_vp;
 	bool vsync_pol, hsync_pol;
 	int preline, retry;
-	
 	int ret;
 	
 	ret = ip_update_reg_values(ip);
@@ -273,106 +402,17 @@ static int ip_video_enable(struct hdmi_ip *ip)
 		return ret;
 	}
 	
-	/* do not enable HDMI lane util video enable */
-	val = ip->tx_2 & (~((0xf << 8) | (1 << 17)));
-	hdmi_ip_writel(ip, HDMI_TX_2, val);
+	__ip_tmds_ldo_enable(ip);
 	
-	/* wait 500us */
 	udelay(500);
 	
-	/* TMDS Encoder */
-	val = hdmi_ip_readl(ip, TMDS_EODR0);
-	val = REG_SET_VAL(val, 1, 31, 31);
+	__ip_phy_enable(ip);
+	__ip_pll_enable(ip);
 	
-	hdmi_ip_writel(ip, TMDS_EODR0, val);
-	hdmi_ip_writel(ip, HDMI_TX_1, ip->tx_1);
+	mdelay(10);
 	
-	/* enable PLL */
-	
-	/* 24M enable */
-	val = readl(ip->cmu_base + ip->hwdiff->pll_reg);
-	val |= (0x1 << ip->hwdiff->pll_24m_en);
-	writel(val, ip->cmu_base + ip->hwdiff->pll_reg);
-	
-	/* wait 1ms */
-	udelay(1000);
-	
-	/* set PLL, only bit18:16 of pll_val is used */
-	val = readl(ip->cmu_base + ip->hwdiff->pll_reg);
-	val &= ~(0x7 << 16);
-	val |= (ip->pll_val & (0x7 << 16));
-	writel(val, ip->cmu_base + ip->hwdiff->pll_reg);
-	
-	/* wait 1ms */
-	udelay(1000);
-	
-	/* set debug PLL */
-	
-	writel(ip->pll_debug0_val, ip->cmu_base + ip->hwdiff->pll_debug0_reg);
-	writel(ip->pll_debug1_val, ip->cmu_base + ip->hwdiff->pll_debug1_reg);
-
-	/* enable PLL */
-	val = readl(ip->cmu_base + ip->hwdiff->pll_reg);
-	val |= (0x1 << ip->hwdiff->pll_en);
-	writel(val, ip->cmu_base + ip->hwdiff->pll_reg);
-	
-	/* wait 1ms */
-	udelay(1000);
-	
-	/* do TDMS clock calibration */
-	val = hdmi_ip_readl(ip, CEC_DDC_HPD);
-		
-	/* 0 to 1, start calibration */
-	val = REG_SET_VAL(val, 0, 20, 20);
-	hdmi_ip_writel(ip, CEC_DDC_HPD, val);
-		
-	udelay(10);
-		
-	val = REG_SET_VAL(val, 1, 20, 20);
-	hdmi_ip_writel(ip, CEC_DDC_HPD, val);
-	
-	for (retry = 100; retry > 0; retry--)
-	{
-		val = hdmi_ip_readl(ip, CEC_DDC_HPD);
-		
-		if ((val >> 24) & 0x1) {
-			break;
-		}
-		
-		retry--;
-		udelay(1);
-	}
-	
-	/* wait 10ms */
-	udelay(10000);
-	
-	vsync_pol = ((ip->mode.sync & DSS_SYNC_VERT_HIGH_ACT) == 0);
-	hsync_pol = ((ip->mode.sync & DSS_SYNC_HOR_HIGH_ACT) == 0);
-	
-	val = hdmi_ip_readl(ip, HDMI_SCHCR);
-	val = REG_SET_VAL(val, hsync_pol, 1, 1);
-	val = REG_SET_VAL(val, vsync_pol, 2, 2);
-	hdmi_ip_writel(ip, HDMI_SCHCR, val);
-	
-	val = hdmi_ip_readl(ip, HDMI_VICTL);
-	val = REG_SET_VAL(val, ip->interlace, 28, 28);
-	val = REG_SET_VAL(val, ip->repeat, 29, 29);
-	hdmi_ip_writel(ip, HDMI_VICTL, val);
-	
-	val_hp = ip->mode.xres + ip->mode.hbp + ip->mode.hfp + ip->mode.hsw;
-	val_vp = ip->mode.yres + ip->mode.vbp + ip->mode.vfp + ip->mode.vsw;
-	
-	val = hdmi_ip_readl(ip, HDMI_VICTL);
-	val = REG_SET_VAL(val, val_hp - 1, ip->hwdiff->hp_end, ip->hwdiff->hp_start);
-	
-	if (ip->interlace == 0) {
-		val = REG_SET_VAL(val, val_vp - 1, ip->hwdiff->vp_end, ip->hwdiff->vp_start);
-	}
-	else {
-		val = REG_SET_VAL(val, val_vp * 2, ip->hwdiff->vp_end, ip->hwdiff->vp_start);
-	}
-	
-	hdmi_ip_writel(ip, HDMI_VICTL, val);
+	__ip_video_timing_config(ip);
+	__ip_video_format_config(ip);
 	
 	if (ip->interlace == 0)
 	{
@@ -628,7 +668,6 @@ static int ip_power_on(struct hdmi_ip *ip)
 	}
 
 	clk_prepare_enable(ip->hdmi_dev_clk);
-	
 	mdelay(1);
 	
 	if (!ip_is_video_enabled(ip))
