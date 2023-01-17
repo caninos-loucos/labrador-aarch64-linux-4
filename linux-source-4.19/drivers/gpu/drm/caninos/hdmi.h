@@ -1,3 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DRM/KMS driver for Caninos Labrador
+ *
+ * Copyright (c) 2022-2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * Copyright (c) 2018-2020 LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+ 
 #ifndef _HDMI_H_
 #define _HDMI_H_
 
@@ -24,7 +44,6 @@ struct videomode
 	int hsw; /* horizontal synchronization pulse width */
 	int vsw; /* vertical synchronization pulse width */
 	int sync; /* see DSS_SYNC_* */
-	int vmode; /* see DSS_VMODE_* */
 };
 
 enum SRC_SEL {
@@ -80,21 +99,19 @@ enum hdmi_3d_mode {
  */
 
 enum hdmi_vid_table {
-	VID640x480P_60_4VS3 = 1,
-	VID720x480P_60_4VS3,
-	VID1280x720P_60_16VS9 = 4,
-	VID1920x1080I_60_16VS9,
-	VID720x480I_60_4VS3,
+	VID640x480P_60_4VS3    =  1,
+	VID720x480P_60_4VS3    =  2,
+	VID1280x720P_60_16VS9  =  4,
+	VID1920x1080I_60_16VS9 =  5,
+	VID720x480I_60_4VS3    =  6,
 	VID1920x1080P_60_16VS9 = 16,
-	VID720x576P_50_4VS3,
-	VID1280x720P_50_16VS9 = 19,
-	VID1920x1080I_50_16VS9,
-	VID720x576I_50_4VS3,
-	VID1440x576P_50_4VS3 = 29,
+	VID720x576P_50_4VS3    = 17,
+	VID1280x720P_50_16VS9  = 19,
+	VID1920x1080I_50_16VS9 = 20,
+	VID720x576I_50_4VS3    = 21,
+	VID1440x576P_50_4VS3   = 29,
 	VID1920x1080P_50_16VS9 = 31,
-	VID1920x1080P_24_16VS9,
-
-	
+	VID1920x1080P_24_16VS9 = 32,
 };
 
 enum hdmi_packet_type {

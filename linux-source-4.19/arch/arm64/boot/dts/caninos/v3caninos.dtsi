@@ -383,9 +383,10 @@
 			status = "okay";
 			
 			reg = <0x0 0xe02e0000 0x0 0x1014>,
-			      <0x0 0xe02b0000 0x0 0x80>;
+			      <0x0 0xe02b0000 0x0 0x80>,
+			      <0x0 0xe0290000 0x0 0x100>;
 			      
-			reg-names = "de", "cvbs";
+			reg-names = "de", "cvbs", "dcu";
 			
 			clocks = <&cmu CLK_TVOUT>,
 			         <&cmu CLK_CVBS_PLL>,

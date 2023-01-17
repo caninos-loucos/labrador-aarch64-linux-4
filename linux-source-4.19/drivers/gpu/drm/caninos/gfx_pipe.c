@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Caninos Labrador DRM/KMS driver
- * Copyright (c) 2018-2020 LSI-TEC - Caninos Loucos
- * Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ * DRM/KMS driver for Caninos Labrador
+ *
+ * Copyright (c) 2022-2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * Copyright (c) 2018-2020 LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,31 +29,237 @@
 
 #include "gfx_drv.h"
 
-#define REG_MASK(start, end) (((1 << ((start) - (end) + 1)) - 1) << (end))
-#define REG_VAL(val, start, end) (((val) << (end)) & REG_MASK(start, end))
-#define REG_GET_VAL(val, start, end) (((val) & REG_MASK(start, end)) >> (end))
-#define REG_SET_VAL(orig, val, start, end) (((orig) & ~REG_MASK(start, end))\
-						 | REG_VAL(val, start, end))
-
-#define RECOMMENDED_PRELINE_TIME (60)
-
-int caninos_de_calculate_preline(struct videomode *mode)
+static int caninos_de_calculate_preline(struct videomode *mode)
 {
-    int preline_num;
+    int preline, total;
+    total = (mode->xres + mode->hfp + mode->hbp + mode->hsw) * mode->pixclock;
     
-    preline_num = mode->xres + mode->hfp + mode->hbp + mode->hsw;
-    preline_num *= mode->pixclock;
+    preline = ((RECOMMENDED_PRELINE_TIME * 1000000) + (total / 2)) / total;
+    preline -= mode->vfp;
+    preline = (preline <= 0) ? 1 : preline;
     
-    if (preline_num != 0)
-    {
-        preline_num = RECOMMENDED_PRELINE_TIME * 1000000 + preline_num / 2;
-        preline_num /= preline_num;
-    }
+    return preline;
+}
+
+static void caninos_de_reset(struct drm_crtc *crtc)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
 	
-    preline_num -= mode->vfp;
-    preline_num = (preline_num <= 0 ? 1 : preline_num);
-    
-    return preline_num;
+	reset_control_assert(pipe->de_rst);
+	usleep_range(100, 200);
+	reset_control_deassert(pipe->de_rst);
+	msleep(1);
+	
+	writel(0x3f, pipe->base + DE_MAX_OUTSTANDING);
+	writel(0x0f, pipe->base + DE_QOS);
+	
+	writel(0xf832, pipe->dcu_base + 0x0c);
+	writel(0x100, pipe->dcu_base + 0x68);
+	
+	writel(0x80000000, pipe->dcu_base);
+	msleep(1);
+	writel(0x80000004, pipe->dcu_base);
+}
+
+static void caninos_de_video_enable(struct drm_crtc *crtc, bool enable)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	val = readl(pipe->base + DE_PATH_CTL(DE_PATH0));
+	val &= ~DE_PATH_CTL_MLn_EN_MASK;
+	val |= enable ? DE_PATH_CTL_MLn_EN(DE_MICRO_LAYER0) : 0x0;
+	writel(val, pipe->base + DE_PATH_CTL(DE_PATH0));
+	
+	val = readl(pipe->base + DE_ML_CFG(DE_MICRO_LAYER0));
+	val &= ~DE_ML_CFG_SLn_EN_MASK;
+	val |= enable ? DE_ML_CFG_SLn_EN(DE_SUB_LAYER0) : 0x0;
+	writel(val, pipe->base + DE_ML_CFG(DE_MICRO_LAYER0));
+}
+
+static void caninos_de_path_enable(struct drm_crtc *crtc, bool enable)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	val = readl(pipe->base + DE_PATH_EN(DE_PATH0));
+	val &= ~BIT(DE_PATH_EN_ENABLE_BIT);
+	val |= enable ? BIT(DE_PATH_EN_ENABLE_BIT) : 0x0;
+	writel(val, pipe->base + DE_PATH_EN(DE_PATH0));
+}
+
+static void caninos_de_path_set_go(struct drm_crtc *crtc)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	val = readl(pipe->base + DE_PATH_FCR(DE_PATH0));
+    val |= BIT(DE_PATH_FCR_GO_BIT);
+    writel(val, pipe->base + DE_PATH_FCR(DE_PATH0));
+}
+
+static void caninos_de_path_set_out_con(struct drm_crtc *crtc, u32 device)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	val = readl(pipe->base + DE_OUTPUT_CON);
+	val &= ~DE_OUTPUT_CON_PATH0_DEVICE_MASK;
+	val |= DE_OUTPUT_CON_PATH0_DEVICE(device);
+	writel(val, pipe->base + DE_OUTPUT_CON);
+}
+
+static void caninos_de_path_set_size(struct drm_crtc *crtc, u32 w, u32 h)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val = DE_PATH_SIZE_WIDTH(w - 1U) | DE_PATH_SIZE_HEIGHT(h - 1U);
+	writel(val, pipe->base + DE_PATH_SIZE(DE_PATH0));
+}
+
+static void caninos_de_path_ilace_enable(struct drm_crtc *crtc, bool enable)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	val = readl(pipe->base + DE_PATH_CTL(DE_PATH0));
+	val &= ~BIT(DE_PATH_CTL_ILACE_BIT);
+	val |= enable ? BIT(DE_PATH_CTL_ILACE_BIT) : 0x0;
+	writel(val, pipe->base + DE_PATH_CTL(DE_PATH0));
+}
+
+static void caninos_de_path_yuv_enable(struct drm_crtc *crtc, bool enable)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	val = readl(pipe->base + DE_PATH_CTL(DE_PATH0));
+	val &= ~BIT(DE_PATH_CTL_RGB_YUV_EN_BIT);
+	val |= enable ? BIT(DE_PATH_CTL_RGB_YUV_EN_BIT) : 0x0;
+	writel(val, pipe->base + DE_PATH_CTL(DE_PATH0));
+}
+
+static void caninos_de_path_set_bk_color(struct drm_crtc *crtc, u32 color)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	writel(color, pipe->base + DE_PATH_BK(DE_PATH0));
+}
+
+static void caninos_video_fb_addr_set(struct drm_crtc *crtc, u32 paddr)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	writel(paddr, pipe->base + DE_SL_FB(DE_MICRO_LAYER0, DE_SUB_LAYER0));
+}
+
+static void caninos_video_pitch_set(struct drm_crtc *crtc, u32 pitch)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	writel(pitch, pipe->base + DE_SL_STR(DE_MICRO_LAYER0, DE_SUB_LAYER0));
+}
+
+static u32 caninos_drm_color_mode_to_hw_mode(u32 color_mode)
+{
+	u32 hw_format = 0U;
+	
+	switch (color_mode)
+	{
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_XRGB8888:
+		hw_format = 0U;
+		break;
+		
+	case DRM_FORMAT_ABGR8888: 
+	case DRM_FORMAT_XBGR8888:
+		hw_format = 1U;
+		break;
+		
+	case DRM_FORMAT_RGBA8888:
+	case DRM_FORMAT_RGBX8888:
+		hw_format = 2U;
+		break;
+		
+	case DRM_FORMAT_BGRA8888:
+	case DRM_FORMAT_BGRX8888:
+		hw_format = 3U;
+		break;
+	}
+	return hw_format;
+}
+
+static void caninos_video_format_set(struct drm_crtc *crtc, u32 color_mode)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 hw_format, val;
+	
+	hw_format = caninos_drm_color_mode_to_hw_mode(color_mode);
+	
+	val = readl(pipe->base + DE_SL_CFG(DE_MICRO_LAYER0, DE_SUB_LAYER0));
+	val &= ~DE_SL_CFG_FMT_MASK;
+	val |= DE_SL_CFG_FMT(hw_format);
+	writel(val, pipe->base + DE_SL_CFG(DE_MICRO_LAYER0, DE_SUB_LAYER0));
+}
+
+static void caninos_video_rotate_set(struct drm_crtc *crtc, bool rotate)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	val = readl(pipe->base + DE_ML_CFG(DE_MICRO_LAYER0));
+	val &= ~BIT(DE_ML_CFG_ROT180_BIT);
+	val |= rotate ? BIT(DE_ML_CFG_ROT180_BIT) : 0x0;
+	writel(val, pipe->base + DE_ML_CFG(DE_MICRO_LAYER0));
+}
+
+static void caninos_video_crop_set(struct drm_crtc *crtc,
+                                   u32 slw, u32 slh, u32 mlw, u32 mlh)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	val = DE_PATH_SIZE_WIDTH(slw - 1U) | DE_PATH_SIZE_HEIGHT(slh - 1U);
+	writel(val, pipe->base + DE_SL_CROPSIZE(DE_MICRO_LAYER0, DE_SUB_LAYER0));
+	
+	val = DE_PATH_SIZE_WIDTH(mlw - 1U) | DE_PATH_SIZE_HEIGHT(mlh - 1U);
+	writel(val, pipe->base + DE_ML_ISIZE(DE_MICRO_LAYER0));
+}
+
+static void caninos_video_display_set(struct drm_crtc *crtc,
+                                      u32 slx, u32 sly, u32 mlx, u32 mly,
+                                      u32 outw, u32 outh)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	val = DE_PATH_SIZE_WIDTH(slx) | DE_PATH_SIZE_HEIGHT(sly);
+	writel(val, pipe->base + DE_SL_COOR(DE_MICRO_LAYER0, DE_SUB_LAYER0));
+	
+	val = DE_PATH_SIZE_WIDTH(mlx) | DE_PATH_SIZE_HEIGHT(mly);
+	writel(val, pipe->base + DE_PATH_COOR(DE_PATH0, DE_MICRO_LAYER0));
+	
+	val = DE_PATH_SIZE_WIDTH(outw - 1U) | DE_PATH_SIZE_HEIGHT(outh - 1U);
+	writel(val, pipe->base + DE_SCALER_OSZIE(DE_PATH0));
+}
+
+static void caninos_video_alpha_set(struct drm_crtc *crtc,
+                                    enum caninos_blending_type blending,
+                                    u8 alpha)
+{
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	u32 val;
+	
+	if (blending == CANINOS_BLENDING_NONE) {
+		alpha = 0xff;
+	}
+	
+	val = readl(pipe->base + DE_SL_CFG(DE_MICRO_LAYER0, DE_SUB_LAYER0));
+	
+	val &= ~(DE_SL_CFG_GLOBAL_ALPHA_MASK | BIT(DE_SL_CFG_DATA_MODE_BIT));
+	val |= DE_SL_CFG_GLOBAL_ALPHA(alpha);
+	
+	if (blending == CANINOS_BLENDING_COVERAGE) {
+		val |= BIT(DE_SL_CFG_DATA_MODE_BIT);
+	}
+	
+	writel(val, pipe->base + DE_SL_CFG(DE_MICRO_LAYER0, DE_SUB_LAYER0));
 }
 
 static int caninos_crtc_enable_vblank(struct drm_crtc *crtc)
@@ -58,7 +268,7 @@ static int caninos_crtc_enable_vblank(struct drm_crtc *crtc)
     
     // Clear pending irq
     writel(0x1, pipe->base + DE_IRQSTATUS);
-
+    
     // Enable path 0 vblank irq
     writel(0x1, pipe->base + DE_IRQENABLE);
 
@@ -74,209 +284,6 @@ static void caninos_crtc_disable_vblank(struct drm_crtc *crtc)
 
     // Clear pending irq
     writel(0x1, pipe->base + DE_IRQSTATUS);
-}
-
-static void caninos_video_fb_addr_set(struct drm_crtc *crtc, u32 paddr)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	writel(paddr, pipe->base + DE_SL_FB(0, 0));
-}
-
-static void caninos_video_pitch_set(struct drm_crtc *crtc, u32 pitch)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	writel(pitch, pipe->base + DE_SL_STR(0, 0));
-}
-
-static int caninos_drm_color_mode_to_hw_mode(u32 color_mode)
-{
-	int hw_format = 0;
-	
-	switch (color_mode)
-	{
-	case DRM_FORMAT_ARGB8888:
-	case DRM_FORMAT_XRGB8888:
-		hw_format = 0;
-		break;
-		
-	case DRM_FORMAT_ABGR8888: 
-	case DRM_FORMAT_XBGR8888:
-		hw_format = 1;
-		break;
-		
-	case DRM_FORMAT_RGBA8888:
-	case DRM_FORMAT_RGBX8888:
-		hw_format = 2;
-		break;
-		
-	case DRM_FORMAT_BGRA8888:
-	case DRM_FORMAT_BGRX8888:
-		hw_format = 3;
-		break;
-	}
-	return hw_format;
-}
-
-static void caninos_video_format_set(struct drm_crtc *crtc, u32 color_mode)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	int hw_format = 0;
-	u32 val;
-	
-	hw_format = caninos_drm_color_mode_to_hw_mode(color_mode);
-	
-	val = readl(pipe->base + DE_SL_CFG(0, 0));
-	
-	val = REG_SET_VAL(val, hw_format, DE_SL_CFG_FMT_END_BIT,
-	                  DE_SL_CFG_FMT_BEGIN_BIT);
-	
-	writel(val, pipe->base + DE_SL_CFG(0, 0));
-}
-
-static void caninos_video_rotate_set(struct drm_crtc *crtc, bool rotate)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	u32 val;
-	
-	val = readl(pipe->base + DE_ML_CFG(0));
-
-	val = REG_SET_VAL(val, (rotate ? 1 : 0), 
-	                  DE_ML_ROT180_BIT, DE_ML_ROT180_BIT);
-	
-	writel(val, pipe->base + DE_ML_CFG(0));
-}
-
-static int caninos_video_crop_set(struct drm_crtc *crtc,
-                                  u32 sl_width, u32 sl_height,
-                                  u32 ml_width, u32 ml_height)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	u32 val;
-	
-	/* ml -> macro layer */
-	
-	if ((sl_width > DE_PATH_SIZE_WIDTH) || (sl_height > DE_PATH_SIZE_HEIGHT)) {
-		return -EINVAL;
-	}
-	
-	if ((ml_width > DE_PATH_SIZE_WIDTH) || (ml_height > DE_PATH_SIZE_HEIGHT)) {
-		return -EINVAL;
-	}
-	
-	val = REG_VAL(sl_height - 1, DE_PATH_SIZE_HEIGHT_END_BIT,
-	              DE_PATH_SIZE_HEIGHT_BEGIN_BIT) | 
-	      REG_VAL(sl_width - 1, DE_PATH_SIZE_WIDTH_END_BIT,
-	              DE_PATH_SIZE_WIDTH_BEGIN_BIT);
-	
-	writel(val, pipe->base + DE_SL_CROPSIZE(0, 0));
-
-	val = REG_VAL(ml_height - 1, DE_PATH_SIZE_HEIGHT_END_BIT,
-	              DE_PATH_SIZE_HEIGHT_BEGIN_BIT) | 
-	      REG_VAL(ml_width - 1, DE_PATH_SIZE_WIDTH_END_BIT,
-	              DE_PATH_SIZE_WIDTH_BEGIN_BIT);
-	
-	writel(val, pipe->base + DE_ML_ISIZE(0));
-	
-	return 0;
-}
-
-static void caninos_video_display_set(struct drm_crtc *crtc,
-                                      u32 sl_x, u32 sl_y,
-                                      u32 ml_x, u32 ml_y,
-                                      u32 out_width, u32 out_height)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	u32 val;
-	
-	val = REG_VAL(sl_y, DE_PATH_SIZE_HEIGHT_END_BIT,
-	              DE_PATH_SIZE_HEIGHT_BEGIN_BIT) |
-	      REG_VAL(sl_x, DE_PATH_SIZE_WIDTH_END_BIT,
-	              DE_PATH_SIZE_WIDTH_BEGIN_BIT);
-	
-	writel(val, pipe->base + DE_SL_COOR(0, 0));
-	
-	val = REG_VAL(ml_y, DE_PATH_SIZE_HEIGHT_END_BIT,
-	              DE_PATH_SIZE_HEIGHT_BEGIN_BIT) |
-	      REG_VAL(ml_x, DE_PATH_SIZE_WIDTH_END_BIT,
-	              DE_PATH_SIZE_WIDTH_BEGIN_BIT);
-	
-	writel(val, pipe->base + DE_PATH_COOR(0, 0));
-
-	val = REG_VAL(out_height - 1, DE_PATH_SIZE_HEIGHT_END_BIT,
-	              DE_PATH_SIZE_HEIGHT_BEGIN_BIT) |
-	      REG_VAL(out_width - 1, DE_PATH_SIZE_WIDTH_END_BIT,
-	              DE_PATH_SIZE_WIDTH_BEGIN_BIT);
-	
-	writel(val, pipe->base + DE_SCALER_OSZIE(0));
-}
-
-enum caninos_blending_type
-{
-	CANINOS_BLENDING_NONE = 0,
-	CANINOS_BLENDING_COVERAGE = 1,
-};
-
-static void caninos_video_alpha_set(struct drm_crtc *crtc,
-                                    enum caninos_blending_type blending,
-                                    u8 alpha)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	u32 val;
-	
-	if (blending == CANINOS_BLENDING_NONE) {
-		alpha = 0xff;
-	}
-	
-	val = readl(pipe->base + DE_SL_CFG(0, 0));
-	
-	/* set global alpha */
-	
-	val = REG_SET_VAL(val, alpha, DE_SL_CFG_GLOBAL_ALPHA_END_BIT,
-	                  DE_SL_CFG_GLOBAL_ALPHA_BEGIN_BIT);
-	
-	if (blending == CANINOS_BLENDING_COVERAGE)
-	{
-		val = REG_SET_VAL(val, 1, DE_SL_CFG_DATA_MODE_BIT,
-		                  DE_SL_CFG_DATA_MODE_BIT);
-	}
-	else
-	{
-		val = REG_SET_VAL(val, 0, DE_SL_CFG_DATA_MODE_BIT,
-		                  DE_SL_CFG_DATA_MODE_BIT);
-	}
-	writel(val, pipe->base + DE_SL_CFG(0, 0));
-}
-
-static void caninos_de_path_enable(struct drm_crtc *crtc, bool enable)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	u32 val;
-	
-	val = readl(pipe->base + DE_PATH_EN(0));
-	val = REG_SET_VAL(val, enable ? 1 : 0,
-	                  DE_PATH_ENABLE_BIT, DE_PATH_ENABLE_BIT);
-	writel(val, pipe->base + DE_PATH_EN(0));
-}
-
-static void caninos_de_path_set_go(struct drm_crtc *crtc)
-{
-	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
-	u32 val;
-	
-	val = readl(pipe->base + DE_PATH_FCR(0));
-    val |= BIT(DE_PATH_FCR_BIT);
-    writel(val, pipe->base + DE_PATH_FCR(0));
-}
-
-static void caninos_de_video_apply_info(struct drm_crtc *crtc,
-                                        int width, int height)
-{	
-	caninos_video_pitch_set(crtc, width * 4);
-	caninos_video_format_set(crtc, DRM_FORMAT_XRGB8888);
-	caninos_video_rotate_set(crtc, false);
-	caninos_video_crop_set(crtc, width, height, width, height);
-	caninos_video_display_set(crtc, 0, 0, 0, 0, width, height);
-	caninos_video_alpha_set(crtc, CANINOS_BLENDING_NONE, 0x0);
 }
 
 static int caninos_connector_get_modes(struct drm_connector *connector)
@@ -299,15 +306,13 @@ static int caninos_connector_get_modes(struct drm_connector *connector)
 static void caninos_crtc_enable(struct drm_crtc *crtc, 
                                 struct drm_crtc_state *old_state)
 {
-    caninos_de_path_enable(crtc, true);
     drm_crtc_vblank_on(crtc);
 }
 
 static void caninos_crtc_disable(struct drm_crtc *crtc,
                                  struct drm_crtc_state *old_state)
 {
-    caninos_de_path_enable(crtc, false);
-    drm_crtc_vblank_off(crtc);
+	drm_crtc_vblank_off(crtc);
 }
 
 static enum drm_mode_status caninos_crtc_mode_valid(struct drm_crtc *crtc,
@@ -336,9 +341,192 @@ static enum drm_mode_status caninos_crtc_mode_valid(struct drm_crtc *crtc,
 
 static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
-    struct drm_display_mode *mode = &crtc->state->adjusted_mode;
-    int width = mode->hdisplay, height = mode->vdisplay;
-    caninos_de_video_apply_info(crtc, width, height);
+	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	struct drm_display_mode *drm_mode = &crtc->state->adjusted_mode;
+	struct hdmi_ip *hdmi_ip = pipe->hdmi_ip;
+	int width, height, vrefresh;
+	struct videomode mode;
+	
+	width = drm_mode->hdisplay;
+	height = drm_mode->vdisplay;
+	vrefresh = drm_mode_vrefresh(drm_mode);
+	
+	if ((width == 640) && (height == 480) && (vrefresh == 60)) //ok
+	{
+		mode.xres = 640;
+		mode.yres = 480;
+		mode.refresh = 60;
+    	mode.pixclock = 39721;
+		mode.hfp = 16;
+		mode.hsw = 96;
+		mode.hbp = 48;
+		mode.vfp = 10;
+		mode.vsw = 2;
+		mode.vbp = 33;
+		mode.sync = 0;
+		
+		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
+    	hdmi_ip->vid = VID640x480P_60_4VS3;
+		hdmi_ip->mode = mode;
+		hdmi_ip->interlace = false;
+		hdmi_ip->vstart = 1;
+		hdmi_ip->repeat = false;
+    }
+    else if ((width == 720) && (height == 480) && (vrefresh == 60))
+    {
+    	mode.xres = 720;
+		mode.yres = 480;
+		mode.refresh = 60;
+		
+		mode.pixclock = 37000;
+		mode.hfp = 16;
+		mode.hbp = 60;
+		mode.vfp = 9;
+		mode.vbp = 30;
+		mode.hsw = 62;
+		mode.vsw = 6;
+		mode.sync = 0;
+		
+		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
+		hdmi_ip->vid = VID720x480P_60_4VS3;
+		hdmi_ip->mode = mode;
+		hdmi_ip->interlace = false;
+		hdmi_ip->vstart = 7;
+		hdmi_ip->repeat = false;
+    }
+    else if ((width == 720) && (height == 576) && (vrefresh == 50))
+    {
+    	mode.xres = 720;
+		mode.yres = 576;
+		mode.refresh = 50;
+		
+		mode.pixclock = 37037;
+		mode.hfp = 12;
+		mode.hbp = 68;
+		mode.vfp = 5;
+		mode.vbp = 39;
+		mode.hsw = 64;
+		mode.vsw = 5;
+		mode.sync = 0;
+		
+		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
+		hdmi_ip->vid = VID720x576P_50_4VS3;
+		hdmi_ip->mode = mode;
+		hdmi_ip->interlace = false;
+		hdmi_ip->vstart = 1;
+		hdmi_ip->repeat = false;
+    }
+    else if ((width == 1280) && (height == 720) && (vrefresh == 60)) //ok
+    {
+    	mode.xres = 1280;
+		mode.yres = 720;
+		mode.refresh = 60;
+		mode.pixclock = 13468;
+		mode.hfp = 110;
+		mode.hsw = 40;
+		mode.hbp = 220;
+		mode.vfp = 5;
+		mode.vsw = 5;
+		mode.vbp = 20;
+		mode.sync = DSS_SYNC_HOR_HIGH_ACT | DSS_SYNC_VERT_HIGH_ACT;
+    	
+    	hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
+    	hdmi_ip->vid = VID1280x720P_60_16VS9;
+		hdmi_ip->mode = mode;
+		hdmi_ip->interlace = false;
+		hdmi_ip->vstart = 1;
+		hdmi_ip->repeat = false;
+    }
+    else if ((width == 1280) && (height == 720) && (vrefresh == 50))
+    {
+    	mode.xres = 1280;
+		mode.yres = 720;
+		mode.refresh = 50;
+		
+		mode.pixclock = 13468;
+		mode.hfp = 440;
+		mode.hbp = 220;
+		mode.vfp = 5;
+		mode.vbp = 20;
+		mode.hsw = 40;
+		mode.vsw = 5;
+		mode.sync = DSS_SYNC_HOR_HIGH_ACT | DSS_SYNC_VERT_HIGH_ACT;
+		
+		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
+		hdmi_ip->vid = VID1280x720P_50_16VS9;
+		hdmi_ip->mode = mode;
+		hdmi_ip->interlace = false;
+		hdmi_ip->vstart = 1;
+		hdmi_ip->repeat = false;
+    }
+    else if ((width == 1920) && (height == 1080) && (vrefresh == 50))
+    {
+    	mode.xres = 1920;
+		mode.yres = 1080;
+		mode.refresh = 50;
+		
+		mode.pixclock = 6734;
+		mode.hfp = 528;
+		mode.hbp = 148;
+		mode.vfp = 4;
+		mode.vbp = 36;
+		mode.hsw = 44;
+		mode.vsw = 5;
+		mode.sync = DSS_SYNC_HOR_HIGH_ACT | DSS_SYNC_VERT_HIGH_ACT;
+		
+		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
+		hdmi_ip->vid = VID1920x1080P_50_16VS9;
+		hdmi_ip->mode = mode;
+		hdmi_ip->interlace = false;
+		hdmi_ip->vstart = 1;
+		hdmi_ip->repeat = false;
+    }
+    else //if ((width == 1920) && (height == 1080) && (vrefresh == 60) //ok 
+    {
+    	mode.xres = 1920;
+		mode.yres = 1080;
+		mode.refresh = 60;
+		mode.pixclock = 6734;
+		mode.hfp = 88;
+		mode.hsw = 44;
+		mode.hbp = 148;
+		mode.vfp = 4;
+		mode.vsw = 5;
+		mode.vbp = 36;
+		mode.sync = DSS_SYNC_HOR_HIGH_ACT | DSS_SYNC_VERT_HIGH_ACT;
+		
+		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
+		hdmi_ip->vid = VID1920x1080P_60_16VS9;
+		hdmi_ip->mode = mode;
+		hdmi_ip->interlace = false;
+		hdmi_ip->vstart = 1;
+		hdmi_ip->repeat = false;
+    }
+	
+	width = hdmi_ip->mode.xres;
+	height = hdmi_ip->mode.yres;
+	vrefresh = hdmi_ip->mode.refresh;
+	
+	hdmi_ip->ops->video_disable(hdmi_ip);
+	
+	caninos_de_reset(crtc);
+	caninos_de_path_set_out_con(crtc, DE_OUTPUT_CON_HDMI);
+	caninos_de_path_set_size(crtc, width, height);
+	caninos_de_path_ilace_enable(crtc, hdmi_ip->interlace);
+	caninos_de_path_yuv_enable(crtc, false);
+	caninos_de_path_set_bk_color(crtc, 0x0);
+	
+	caninos_video_pitch_set(crtc, width * 4);
+	caninos_video_format_set(crtc, DRM_FORMAT_XRGB8888);
+	caninos_video_rotate_set(crtc, false);
+	caninos_video_crop_set(crtc, width, height, width, height);
+	caninos_video_display_set(crtc, 0, 0, 0, 0, width, height);
+	caninos_video_alpha_set(crtc, CANINOS_BLENDING_NONE, 0x0);
+	
+	caninos_de_video_enable(crtc, true);
+	caninos_de_path_enable(crtc, true);
+	
+	hdmi_ip->ops->video_enable(hdmi_ip);
 }
 
 irqreturn_t caninos_gfx_irq_handler(int irq, void *data)
@@ -389,16 +577,15 @@ static void caninos_plane_atomic_update(struct drm_plane *plane,
     if (!fb) {
         return;
     }
-
+    
     gem = drm_fb_cma_get_gem_obj(fb, 0);
     
     if (!gem) {
         return;
     }
     
-    caninos_video_fb_addr_set(crtc, gem->paddr);
-    
-    caninos_de_path_set_go(crtc);
+	caninos_video_fb_addr_set(crtc, gem->paddr);
+	caninos_de_path_set_go(crtc);
 }
 
 static int caninos_crtc_check(struct drm_crtc *crtc,
