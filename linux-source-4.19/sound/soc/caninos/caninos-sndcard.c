@@ -164,6 +164,7 @@ static int caninos_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			chip->codec->dac_playback_mute(1);
 		}
+		pr_err("%s: snd_dmaengine_pcm_trigger returned %d\n", __func__, err);
 		return err;
 	}
 	
@@ -200,12 +201,14 @@ static int caninos_pcm_hw_params
 	err = dmaengine_slave_config(chan, &slave_config);
 	
 	if (err) {
+		pr_err("%s: dmaengine_slave_config returned %d\n", __func__, err);
 		return err;
 	}
 	
 	err = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 	
 	if (err < 0) {
+		pr_err("%s: snd_pcm_lib_malloc_pages returned %d\n", __func__, err);
 		return err;
 	}
 	
@@ -255,6 +258,8 @@ static int caninos_pcm_open(struct snd_pcm_substream *substream)
 	err = caninos_pcm_set_runtime_hwparams(substream);
 	
 	if (err) {
+		pr_err("%s: caninos_pcm_set_runtime_hwparams returned %d\n",
+		       __func__, err);
 		return err;
 	}
 	
@@ -268,6 +273,7 @@ static int caninos_pcm_open(struct snd_pcm_substream *substream)
 	err = snd_dmaengine_pcm_open(substream, chan);
 	
 	if (err) {
+		pr_err("%s: snd_dmaengine_pcm_open returned %d\n", __func__, err);
 		return err;
 	}
 	

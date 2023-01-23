@@ -37,7 +37,7 @@ struct lab_dma_vchan;
 
 #define CANINOS_DMA_FRAME_MAX_LENGTH 0xffff0
 #define CANINOS_INV_DRQ -1
-#define CANINOS_MAX_DRQ 15
+#define CANINOS_MAX_DRQ 43
 
 /* extract the bit field to new shift */
 #define BIT_FIELD(val, width, shift, newshift)	\
@@ -120,6 +120,7 @@ struct lab_dma_lli {
 struct lab_dma_txd {
 	struct virt_dma_desc vd;   /* virtual DMA descriptor */
 	struct list_head lli_list; /* link list of children sg's */
+	bool cyclic;
 };
 
 /**
@@ -167,6 +168,7 @@ struct caninos_dma_config {
 	dma_addr_t dst;
 	u32 len;
 	enum dma_transfer_direction dir;
+	bool cyclic;
 };
 
 static inline void pchan_writel(struct lab_dma_pchan *pchan, u32 val, u32 reg) {
