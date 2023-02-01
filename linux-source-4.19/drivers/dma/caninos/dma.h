@@ -142,6 +142,7 @@ struct lab_dma_pchan {
 	u32	id;                      /* physical index to this channel */
 	void __iomem *base;          /* virtual memory base for the dma channel */
 	struct lab_dma_vchan *vchan; /* virtual channel being served now by pchan */
+	spinlock_t lock;
 };
 
 /**
