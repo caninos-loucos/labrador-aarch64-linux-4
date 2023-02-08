@@ -1,9 +1,7 @@
 #include <linux/linkage.h>
 #include <linux/init.h>
 
-	/* __INIT */
-
-ENTRY(owl_v7_invalidate_l1)
+ENTRY(caninos_v7_invalidate_l1)
 	mov	r0, #0
 	mcr	p15, 0, r0, c7, c5, 0	@ invalidate I cache
 	mcr	p15, 2, r0, c0, c0, 0
@@ -35,16 +33,8 @@ ENTRY(owl_v7_invalidate_l1)
 	dsb
 	isb
 	mov	pc, lr
-ENDPROC(owl_v7_invalidate_l1)
+ENDPROC(caninos_v7_invalidate_l1)
 
-/*
- * GL5202 specific entry point for secondary CPUs.
- */
-/*
- * GL5202 specific entry point for secondary CPU to jump from ROM
- * code.  This routine also provides a holding flag into which
- * secondary core is held until we're ready for it to initialise.
- */
 ENTRY(board_secondary_startup)
 	mrc	p15, 0, r0, c0, c0, 5
 	and	r0, r0, #0xf
@@ -61,8 +51,8 @@ pen:
 	 * we've been released from the holding pen: secondary_stack
 	 * should now contain the SVC stack for this core
 	 */
-	bl owl_v7_invalidate_l1
-	b	secondary_startup
+	bl caninos_v7_invalidate_l1
+	b secondary_startup
 
 1:	.long	.
 	.long	pen_release
