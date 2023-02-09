@@ -35,7 +35,8 @@ ENTRY(caninos_v7_invalidate_l1)
 	mov	pc, lr
 ENDPROC(caninos_v7_invalidate_l1)
 
-ENTRY(board_secondary_startup)
+
+ENTRY(caninos_k5_secondary_startup)
 	mrc	p15, 0, r0, c0, c0, 5
 	and	r0, r0, #0xf
 	adr	r4, 1f
@@ -56,3 +57,4 @@ pen:
 
 1:	.long	.
 	.long	pen_release
+ENDPROC(caninos_k5_secondary_startup)

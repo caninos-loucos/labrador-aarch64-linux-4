@@ -13,7 +13,8 @@ config MACH_CANINOS
 	select ARCH_REQUIRE_GPIOLIB
 	select ARCH_HAS_OPP
 	select ARCH_HAS_CPUFREQ
-	select PM_OPP if PM	
+	select PM_OPP if PM
+	select OF_ADDRESS if OF
 	select VFP
 	select SMP
 
