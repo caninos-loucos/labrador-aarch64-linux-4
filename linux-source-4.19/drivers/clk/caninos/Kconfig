@@ -4,9 +4,9 @@ config CLK_GPU_CANINOS
 
 config CLK_CANINOS
 	bool "Clock driver for Caninos Labrador SoCs"
-	depends on ARCH_CANINOS || COMPILE_TEST
+	depends on ARM64 && (ARCH_CANINOS || COMPILE_TEST)
 	select REGMAP_MMIO
 	select RESET_CONTROLLER
     select CLK_GPU_CANINOS
-	default ARCH_CANINOS
+	default (ARCH_CANINOS && ARM64)
 

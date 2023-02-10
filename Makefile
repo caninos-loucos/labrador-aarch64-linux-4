@@ -3,12 +3,31 @@ CURDIR=$(shell pwd)
 CPUS=$$(($(shell cat /sys/devices/system/cpu/present | awk -F- '{ print $$2 }')+1))
 KERNEL=$(CURDIR)/linux-source-4.19
 BUILD=$(CURDIR)/build
+BUILD32=$(CURDIR)/build32
 OUTPUT=$(CURDIR)/output
 COMPILER=aarch64-linux-gnu-
+COMPILER32=arm-linux-gnueabihf-
 
 .PHONY: all config menuconfig dtbs kernel clean 
 
 all: clean config kernel
+
+
+
+config32:
+	$(Q)mkdir $(BUILD32)
+	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm caninos5_defconfig
+
+menuconfig32:
+	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm menuconfig
+	
+kernel32:
+	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm -j$(CPUS) uImage modules
+	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm -j$(CPUS) INSTALL_MOD_PATH=$(BUILD32) modules_install
+	
+clean32:
+	$(Q)rm -rf $(BUILD32)
+	
 
 config:
 	$(Q)mkdir $(BUILD)
