@@ -54,6 +54,7 @@ struct snd_caninos
 };
 
 
+
 static void snd_caninos_set_rate(struct snd_caninos *chip)
 {
 	unsigned long reg_val;
@@ -65,6 +66,7 @@ static void snd_caninos_set_rate(struct snd_caninos *chip)
 	clk_set_rate(chip->pll_clk, reg_val);
 	clk_set_rate(chip->rx_clk, rate << 8);
 	clk_set_rate(chip->tx_clk, rate << 8);
+	// add hdmi
 }
 
 static void snd_caninos_antipop_clk_set(struct snd_caninos *chip)
@@ -105,38 +107,42 @@ static u32 snd_caninos_soc_readl(struct soc_audio_device *soc, int reg)
 static void snd_caninos_playback_capture_remove(struct snd_caninos *chip)
 {
 	void __iomem *base = chip->base;
-	/* disable i2s tx&rx */
-	writel(readl(base + I2S_CTL) & ~(0x3 << 0), base + I2S_CTL);
+	writel(readl(base + I2S_CTL) & ~(0x3 << I2STEN), base + I2S_CTL);
 }
 
 static void snd_caninos_playback_capture_setup(struct snd_caninos *chip)
 {
 	void __iomem *base = chip->base;
+	/* add config for hdmi */
 
-	/* disable i2s tx&rx */
-	writel(readl(base + I2S_CTL) & ~(0x3 << 0), base + I2S_CTL);
+	writel(readl(base + I2S_CTL) & ~(0x3 << I2STEN), base + I2S_CTL);
 	
-	/* reset i2s rx&&tx fifo, avoid left & right channel wrong */
-	writel(readl(base + I2S_FIFOCTL) & ~(0x3 << 9) & ~0x3, base + I2S_FIFOCTL);
-	writel(readl(base + I2S_FIFOCTL) | (0x3 << 9) | 0x3, base + I2S_FIFOCTL);
+	// fifo reset
+	writel(readl(base + I2S_FIFOCTL) & ~(0x3 << I2SRFR) & ~0x3, base + I2S_FIFOCTL);
+	writel(readl(base + I2S_FIFOCTL) | (0x3 << I2SRFR) | 0x3, base + I2S_FIFOCTL);
+	writel(readl(base + SPDIF_HDMI_CTL) & ~(1 << HDMFR), base + SPDIF_HDMI_CTL);
+	writel(readl(base + SPDIF_HDMI_CTL) | (1 << HDMFR), base + SPDIF_HDMI_CTL);
+
+	// soruce select
+	writel(readl(base + I2S_FIFOCTL) | (0x1 << I2STFSS), base + I2S_FIFOCTL);
+	writel(readl(base + SPDIF_HDMI_CTL) | (1 << HDMFSS), base + SPDIF_HDMI_CTL);
+
+	writel(readl(base + I2STX_SPDIF_HDMI_CTL) | (0x1 << VASS), base + I2STX_SPDIF_HDMI_CTL);
+
+	/* this should before enable rx/tx,	or after suspend, data may be corrupt */
+	writel(readl(base + I2S_CTL) & ~(0x3 << I2SPM), base + I2S_CTL);
+	writel(readl(base + I2S_CTL) | (0x1 << I2SPM), base + I2S_CTL);	
+	writel(readl(base + I2S_CTL) | (0x1 << I2SRCS), base + I2S_CTL);
+	// no hdmi
 	
-	/* this should before enable rx/tx,
-	or after suspend, data may be corrupt */
-	writel(readl(base + I2S_CTL) & ~(0x3 << 11), base + I2S_CTL);
-	writel(readl(base + I2S_CTL) | (0x1 << 11), base + I2S_CTL);
-	
-	/* set i2s mode I2S_RX_ClkSel==1 */
-	writel(readl(base + I2S_CTL) | (0x1 << 10), base + I2S_CTL);
-	
-	/* enable i2s rx/tx at the same time */
-	writel(readl(base + I2S_CTL) | 0x3, base + I2S_CTL);
-	
+	writel(readl(base + I2S_CTL) | (0x3 << I2STEN), base + I2S_CTL);
 	/* i2s rx 00: 2.0-Channel Mode */
 	writel(readl(base + I2S_CTL) & ~(0x3 << 8), base + I2S_CTL);
 	writel(readl(base + I2S_CTL) & ~(0x7 << 4), base + I2S_CTL);
-	
+
 	writel(0x0, base + I2STX_DAT);
 	writel(0x0, base + I2STX_DAT);
+	writel(0x0, base + I2STX_SPDIF_HDMI_DAT);
 }
 
 static int caninos_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
@@ -150,6 +156,7 @@ static int caninos_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_RESUME:
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			chip->codec->dac_playback_mute(0);
+			chip->hdmi->ops->audio_enable(chip->hdmi);
 		}
 		break;
 		
@@ -157,6 +164,7 @@ static int caninos_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			chip->codec->dac_playback_mute(1);
+			chip->hdmi->ops->audio_disable(chip->hdmi);
 		}
 		break;
 	}
@@ -167,6 +175,7 @@ static int caninos_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	{
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			chip->codec->dac_playback_mute(1);
+			chip->hdmi->ops->audio_disable(chip->hdmi);
 		}
 		pr_err("%s: snd_dmaengine_pcm_trigger returned %d\n", __func__, err);
 		return err;
@@ -181,6 +190,7 @@ static int caninos_pcm_hw_params
 	struct snd_caninos *chip = snd_pcm_chip(substream->pcm);
 	struct dma_slave_config slave_config;
 	struct dma_chan *chan;
+
 	int err;
 	
 	memset(&slave_config, 0, sizeof(slave_config));
@@ -188,15 +198,17 @@ static int caninos_pcm_hw_params
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 	{
 		chan = chip->txchan;
-		slave_config.dst_addr = chip->phys_base + I2STX_DAT;
+		slave_config.dst_addr = chip->phys_base + I2STX_SPDIF_HDMI_DAT;
 		slave_config.direction = DMA_MEM_TO_DEV;
 		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		slave_config.device_fc = false;
+		// set hdmi interface with 48kHz and 2 channels
+		chip->hdmi->ops->set_audio_interface(chip->hdmi);
 	}
 	else
 	{
 		chan = chip->rxchan;
-		slave_config.src_addr = chip->phys_base + I2SRX_DAT;
+		slave_config.src_addr = chip->phys_base + I2STX_SPDIF_HDMI_DAT;
 		slave_config.direction = DMA_DEV_TO_MEM;
 		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		slave_config.device_fc = false;
@@ -223,7 +235,7 @@ static int caninos_pcm_set_runtime_hwparams(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_pcm_hardware hw;
-	
+
 	memset(&hw, 0, sizeof(hw));
 	
 	hw.info = SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID |
@@ -360,6 +372,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct platform_device *codec_pdev;
 	struct device_node *codec_np;
+	struct platform_device *hdmi_pdev;
 	struct device_node *hdmi_np;
 	struct snd_card *card;
 	struct snd_caninos *chip;
@@ -477,7 +490,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	}
 	
 	chip->rxchan = dma_request_slave_channel(dev, "rx");
-	
+
 	if (!chip->rxchan)
 	{
 		dev_err(dev, "could not request rx dma channel");
@@ -539,6 +552,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	
 	/* set rate to 48000 */
 	snd_caninos_set_rate(chip);
+	// call hdmi clock
 	
 	/* setup codec playback and capture modes */
 	chip->codec->playback();
@@ -560,7 +574,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	hdmi_pdev = of_find_device_by_node(hdmi_np);
 	
 	if (hdmi_pdev) {
-		chip->codec = platform_get_drvdata(hdmi_pdev);
+		chip->hdmi = platform_get_drvdata(hdmi_pdev);
 	}
 	
 	of_node_put(hdmi_np);

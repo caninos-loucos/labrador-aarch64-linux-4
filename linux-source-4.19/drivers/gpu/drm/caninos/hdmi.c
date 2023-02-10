@@ -607,6 +607,87 @@ static int ip_video_enable(struct hdmi_ip *ip)
 	return 0;
 }
 
+/*
+	@channel
+	@samplerate = samplerate in kHz
+*/
+static int ip_set_audio_interface(struct hdmi_ip *ip) 
+{
+	unsigned int tmp03;
+	unsigned int tmp47;
+	unsigned int CRP_N = 0;
+	unsigned int ASPCR = 0;
+	unsigned int ACACR = 0;
+
+	hdmi_ip_writel(ip, hdmi_ip_readl(ip, HDMI_ICR) & ~(0x1 << 25), HDMI_ICR);
+	hdmi_ip_writel(ip, hdmi_ip_readl(ip, HDMI_ACRPCR) | (0x1 << 31), HDMI_ACRPCR);
+	hdmi_ip_readl(ip, HDMI_ACRPCR); // flush write buffer
+
+	tmp03 = hdmi_ip_readl(ip, HDMI_AICHSTABYTE0TO3);
+	tmp03 &= (~(0xf << 24));
+
+	tmp47 = hdmi_ip_readl(ip, HDMI_AICHSTABYTE4TO7);
+	tmp47 &= (~(0xf << 4));
+	tmp47 |= 0xb;
+
+	/* assume 48KHz samplerate */
+	tmp03 |= (0x2 << 24);
+	tmp47 |= (0xd << 4);
+	CRP_N = 6144;
+
+	hdmi_ip_writel(ip, tmp03, HDMI_AICHSTABYTE0TO3);
+	hdmi_ip_writel(ip, tmp47, HDMI_AICHSTABYTE4TO7);
+
+	hdmi_ip_writel(ip, 0x0, HDMI_AICHSTABYTE8TO11);
+	hdmi_ip_writel(ip, 0x0, HDMI_AICHSTABYTE12TO15);
+	hdmi_ip_writel(ip, 0x0, HDMI_AICHSTABYTE16TO19);
+	hdmi_ip_writel(ip, 0x0, HDMI_AICHSTABYTE20TO23);
+
+	/* assume 2 channels */
+	hdmi_ip_writel(ip, 0x20001, HDMI_AICHSTASCN);
+
+	/* TODO samplesize 16bit, 20bit */
+	/* 24 bit */
+	hdmi_ip_writel(ip, (hdmi_ip_readl(ip, HDMI_AICHSTABYTE4TO7) & ~0xf), HDMI_AICHSTABYTE4TO7);
+	hdmi_ip_writel(ip, hdmi_ip_readl(ip, HDMI_AICHSTABYTE4TO7) | 0xb, HDMI_AICHSTABYTE4TO7);
+
+	// Assume audio is in IEC-60958 format, 2 channels
+	ASPCR = 0x00000011;
+	ACACR = 0xfac688;
+
+	/* enable Audio FIFO_FILL  disable wait cycle */
+	hdmi_ip_writel(ip, hdmi_ip_readl(ip, HDMI_CR) | 0x50, HDMI_CR);
+
+	hdmi_ip_writel(ip, ASPCR, HDMI_ASPCR);
+	hdmi_ip_writel(ip, ACACR, HDMI_ACACR);
+
+    /* Uncompressed format 23~30 bits write 0
+    * If for compressed streams,
+    then the bit[1:0] of HDMI_AICHSTABYTE0TO3 = 0x2 (5005 new addition);
+    * If for linear PCM streams, then HDMI_AICHSTABYTE0TO3
+    bit[1:0]=0x0 (same as 227A);
+    */
+	hdmi_ip_writel(ip, hdmi_ip_readl(ip, HDMI_AICHSTABYTE0TO3) & ~0x3, HDMI_AICHSTABYTE0TO3);
+
+    /* If for compressed streams, then
+    bit[30:23] of HDMI_ASPCR = 0xff (5005 new addition);
+     * If for linear PCM streams,
+     then bit[30:23]=0x0 of HDMI_ASPCR (same as 227A);
+     */
+	hdmi_ip_writel(ip, hdmi_ip_readl(ip, HDMI_ASPCR) & ~(0xff << 23), HDMI_ASPCR);
+
+	hdmi_ip_writel(ip, CRP_N | (0x1 << 31), HDMI_ACRPCR);
+	hdmi_packet_gen_infoframe(ip);
+
+    /* enable CRP */
+	hdmi_ip_writel(ip, hdmi_ip_readl(ip, HDMI_ACRPCR) &	~(0x1 << 31), HDMI_ACRPCR);
+
+    /* enable Audio Interface */
+	hdmi_ip_writel(ip, hdmi_ip_readl(ip, HDMI_ICR) | (0x1 << 25), HDMI_ICR);
+
+	return 0;
+}
+
 static bool ip_cable_status(struct hdmi_ip *ip)
 {
 	bool status = (hdmi_ip_readl(ip, CEC_DDC_HPD) & (0x3 << 14));
@@ -724,6 +805,8 @@ static const struct hdmi_ip_ops ip_sx00_ops = {
 	.video_enable = ip_video_enable,
 	.video_disable = ip_video_disable,
 	.is_video_enabled = ip_is_video_enabled,
+
+	.set_audio_interface = ip_set_audio_interface,
 	
 	.packet_generate = ip_packet_generate,
 	.packet_send = ip_packet_send,
@@ -733,15 +816,15 @@ static const struct hdmi_ip_ops ip_sx00_ops = {
 };
 
 static const struct hdmi_ip_hwdiff ip_sx00 = {
-	.hp_start = 16,
-	.hp_end	= 28,
-	.vp_start = 4,
-	.vp_end	= 15,
+	.hp_start 	= 16,
+	.hp_end		= 28,
+	.vp_start 	= 4,
+	.vp_end		= 15,
 	.mode_start	= 0,
-	.mode_end = 0,
-	.pll_reg = 0x18,
+	.mode_end	= 0,
+	.pll_reg	= 0x18,
 	.pll_24m_en	= 23,
-	.pll_en	= 3,
+	.pll_en		= 3,
 	.pll_debug0_reg = 0xF0,
 	.pll_debug1_reg	= 0xF4,
 };

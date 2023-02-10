@@ -142,6 +142,8 @@ struct hdmi_ip_ops
 	void (*video_disable)(struct hdmi_ip *ip);
 	bool (*is_video_enabled)(struct hdmi_ip *ip);
 	
+	int  (*set_audio_interface)(struct hdmi_ip *ip);
+	
 	int  (*packet_generate)(struct hdmi_ip *ip, uint32_t no, uint8_t *pkt);
 	int  (*packet_send)(struct hdmi_ip *ip, uint32_t no, int period);
 	

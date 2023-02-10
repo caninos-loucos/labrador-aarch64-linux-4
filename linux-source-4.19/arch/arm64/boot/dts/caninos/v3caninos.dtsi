@@ -663,7 +663,7 @@
 			reset-names = "audio_rst";
 			codec = <&atc260x_audio>;
 			hdmi = <&hdmi>;
-			dmas = <&dma DMA_DRQ_I2S_TX>, <&dma DMA_DRQ_I2S_RX>;
+			dmas = <&dma DMA_DRQ_I2STX_SPDIF_HDMI>, <&dma DMA_DRQ_I2S_RX>;
 			dma-names = "tx","rx";
 			status = "okay";
 		};

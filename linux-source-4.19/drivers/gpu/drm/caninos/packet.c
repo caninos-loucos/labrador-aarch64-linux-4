@@ -319,7 +319,7 @@ int hdmi_gen_vs_infoframe(struct hdmi_ip *ip)
 /*
  * HDMI generate audio infoframe
  * Input:
- * Output: 0
+ * Output: 
  *
 */
 int hdmi_gen_audio_infoframe(struct hdmi_ip * ip)
@@ -339,8 +339,8 @@ int hdmi_gen_audio_infoframe(struct hdmi_ip * ip)
 
 	// data
 	pkt[4] = 0x01;			// PB1 : CodingType[3:0] R ChannelCount[2:0]
-									 CT = 000 
-									 CC = 001 = 2 CHANNELS
+							//		 CT = 000 
+							//		 CC = 001 = 2 CHANNELS
 
 	pkt[5] = 0;				// PB2 : R[3] SampleFreq[2:0] SampleSize[1:0]
 							// 		 SF = 000 for LPCM and IEC61937 streams
@@ -348,7 +348,8 @@ int hdmi_gen_audio_infoframe(struct hdmi_ip * ip)
 
 	pkt[6] = 0; 			// PB3 : 0
 
-	// copy from snd_pcm_substream->snd_pcm_runtime->hw
+	// copy from snd_pcm_substream->snd_pcm_runtime->hw maybe
+	
 	pkt[7] = 0x01;			// PB4 : Channel/SpeakerAllocation[7:0]
 							// 		 00 for FRONT LEFT; FRONT RIGHT
 
@@ -369,6 +370,7 @@ int hdmi_gen_audio_infoframe(struct hdmi_ip * ip)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hdmi_gen_audio_infoframe);
 
 int hdmi_packet_gen_infoframe(struct hdmi_ip *ip)
 {
@@ -378,7 +380,7 @@ int hdmi_packet_gen_infoframe(struct hdmi_ip *ip)
 		return -1;
 
 	/* hdmi_gen_gbd_infoframe(ip); */
-	/* hdmi_gen_audio_infoframe(ip); */
+	hdmi_gen_audio_infoframe(ip);
 	hdmi_gen_vs_infoframe(ip);
 
 	return 0;
