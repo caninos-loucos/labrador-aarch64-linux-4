@@ -333,7 +333,6 @@ kernel/drivers/mmc/core/mmc_core.ko
 kernel/drivers/mmc/core/pwrseq_simple.ko
 kernel/drivers/mmc/core/pwrseq_emmc.ko
 kernel/drivers/mmc/core/mmc_block.ko
-kernel/drivers/mmc/host/caninos-mmc.ko
 kernel/drivers/mtd/mtd.ko
 kernel/drivers/mtd/chips/chipreg.ko
 kernel/drivers/mtd/chips/cfi_probe.ko

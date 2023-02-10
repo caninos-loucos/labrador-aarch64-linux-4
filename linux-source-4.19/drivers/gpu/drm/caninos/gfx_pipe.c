@@ -3,6 +3,7 @@
  * DRM/KMS driver for Caninos Labrador
  *
  * Copyright (c) 2022-2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Ana Clara Forcelli <ana.forcelli@lsitec.org.br>
  * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
  *
  * Copyright (c) 2018-2020 LSITEC - Caninos Loucos
@@ -690,10 +691,10 @@ int caninos_gfx_pipe_init(struct drm_device *drm)
     
     drm_mode_config_init(drm);
     
-    drm->mode_config.min_width = 640;
+    drm->mode_config.min_width = 480;
     drm->mode_config.min_height = 480;
     drm->mode_config.max_width = 1920;
-    drm->mode_config.max_height = 1080;
+    drm->mode_config.max_height = 1920;
     
     drm->mode_config.funcs = &caninos_mode_config_funcs;
     
