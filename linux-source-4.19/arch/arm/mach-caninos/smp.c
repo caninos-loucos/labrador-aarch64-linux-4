@@ -230,14 +230,14 @@ static int __init caninos_k5_smp_boot_secondary(unsigned int cpu,
 
 static struct smp_operations caninos_k5_smp_ops __initdata =
 {
-    .smp_init_cpus = caninos_k5_smp_init_cpus,
-    .smp_prepare_cpus = caninos_k5_smp_prepare_cpus,
-    .smp_secondary_init = caninos_k5_smp_secondary_init,
-    .smp_boot_secondary = caninos_k5_smp_boot_secondary,
+	.smp_init_cpus = caninos_k5_smp_init_cpus,
+	.smp_prepare_cpus = caninos_k5_smp_prepare_cpus,
+	.smp_secondary_init = caninos_k5_smp_secondary_init,
+	.smp_boot_secondary = caninos_k5_smp_boot_secondary,
 };
 
 bool __init caninos_k5_smp_init(void)
 {
-    smp_set_ops(&caninos_k5_smp_ops);
-    return true;
+	smp_set_ops(&caninos_k5_smp_ops);
+	return true;
 }

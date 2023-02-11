@@ -20,12 +20,12 @@
 #include <asm/hardware/cache-l2x0.h>
 
 /*
- 1) Instruction prefetch enable
- 2) Data prefetch enable
- 3) Round-robin replacement
- 4) Use AWCACHE attributes for WA
- 5) 32kB way size, 16 way associativity
- 6) Disable exclusive cache
+	1) Instruction prefetch enable
+	2) Data prefetch enable
+	3) Round-robin replacement
+	4) Use AWCACHE attributes for WA
+	5) 32kB way size, 16 way associativity
+	6) Disable exclusive cache
 */
 
 #define L310_MASK 0xc0000fff

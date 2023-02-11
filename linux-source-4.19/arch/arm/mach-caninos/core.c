@@ -23,23 +23,22 @@
 #include <mach/platform.h>
 
 /*
- CPU Recommended Frequency/Voltage Pairs
-
-  408MHz at  950mV
-  720MHz at  975mV
-  900MHz at 1025mV
- 1104MHz at 1175mV
- 1308MHz at 1250mV
-
- PMIC DCDC1 Regulator Operating Limits
-
- Max Voltage : 1400mV
- Min Voltage :  700mV
- Voltage Step:   25mV
- Min Selector:    0
- Max Selector:   28 
- Stable After:  350us
- 
+	CPU Recommended Frequency/Voltage Pairs
+	
+	 408MHz at  950mV
+	 720MHz at  975mV
+	 900MHz at 1025mV
+	1104MHz at 1175mV
+	1308MHz at 1250mV
+	
+	PMIC DCDC1 Regulator Operating Limits
+	
+	Max Voltage : 1400mV
+	Min Voltage :  700mV
+	Voltage Step:   25mV
+	Min Selector:    0
+	Max Selector:   28 
+	Stable After:  350us
 */
 
 #define CPU_CORE_FREQ (1104U) /* MHz */
@@ -77,7 +76,7 @@ void __init caninos_k5_init_irq(void)
 
 static struct of_device_id caninos_k5_dt_match_table[] __initdata = {
 	{ .compatible = "simple-bus", },
-	{}
+	{ /* sentinel */ }
 };
 
 void __init caninos_k5_init(void)
