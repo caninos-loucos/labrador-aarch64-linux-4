@@ -5,13 +5,14 @@ KERNEL=$(CURDIR)/linux-source-4.19
 BUILD=$(CURDIR)/build
 BUILD32=$(CURDIR)/build32
 OUTPUT=$(CURDIR)/output
+OUTPUT32=$(CURDIR)/output32
 COMPILER=aarch64-linux-gnu-
 COMPILER32=arm-linux-gnueabihf-
 
 .PHONY: all config menuconfig dtbs kernel clean 
 
 all: clean config kernel
-
+all32: clean32 config32 kernel32
 
 
 config32:
@@ -21,9 +22,18 @@ config32:
 menuconfig32:
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm menuconfig
 	
-kernel32:
+dtbs32:
+	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm dtbs
+	$(Q)mkdir -p $(OUTPUT32)
+	$(Q)cp $(BUILD32)/arch/arm/boot/dts/caninos-k5.dtb $(OUTPUT32)/
+	
+kernel32: dtbs32
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm -j$(CPUS) uImage modules
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm -j$(CPUS) INSTALL_MOD_PATH=$(BUILD32) modules_install
+	$(Q)rm -rf $(OUTPUT32)/lib
+	$(Q)mkdir -p $(OUTPUT32)/lib
+	$(Q)cp -rf $(BUILD32)/lib/modules $(OUTPUT32)/lib/; find $(OUTPUT32)/lib/ -type l -exec rm -f {} \;
+	$(Q)cp $(BUILD32)/arch/arm/boot/uImage $(OUTPUT32)/
 	
 clean32:
 	$(Q)rm -rf $(BUILD32)

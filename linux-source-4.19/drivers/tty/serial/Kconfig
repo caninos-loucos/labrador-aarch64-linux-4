@@ -1530,7 +1530,7 @@ config SERIAL_OWL_CONSOLE
 	  as the system console.
 
 config SERIAL_CANINOS
-	tristate "Caninos Labrador serial port support"
+	bool "Caninos Labrador serial port support"
 	depends on ARCH_CANINOS || COMPILE_TEST
 	select SERIAL_CORE
 	help

@@ -1233,6 +1233,8 @@ static int caninos_dma_probe(struct platform_device *pdev)
 		pm_runtime_disable(cd->dev);
 		
 		dma_pool_destroy(cd->lli_pool);
+		
+		dev_err(cd->dev, "could not register dma async device\n");
 		return ret;
 	}
 	
@@ -1248,9 +1250,11 @@ static int caninos_dma_probe(struct platform_device *pdev)
 		pm_runtime_disable(cd->dev);
 		
 		dma_pool_destroy(cd->lli_pool);
+		dev_err(cd->dev, "could not register OF dma controller\n");
 		return ret;
 	}
 	
+	dev_info(cd->dev, "probe finished\n");
 	return 0;
 }
 

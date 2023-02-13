@@ -394,7 +394,6 @@ kernel/drivers/spi/spi-gpio.ko
 kernel/drivers/thermal/thermal_sys.ko
 kernel/drivers/tty/serdev/serdev.ko
 kernel/drivers/tty/serial/serial_core.ko
-kernel/drivers/tty/serial/caninos-uart.ko
 kernel/drivers/uio/uio.ko
 kernel/drivers/uio/uio_pdrv_genirq.ko
 kernel/drivers/usb/caninos/aotg.ko

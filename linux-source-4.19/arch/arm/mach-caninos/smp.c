@@ -175,11 +175,13 @@ static int __init caninos_k5_smp_boot_secondary(unsigned int cpu,
 		break;
 		
 	case 2:
+		udelay(250);
 		io_writel(virt_to_phys(caninos_k5_secondary_startup), CPU2_ADDR);
 		io_writel(BOOT_FLAG, CPU2_FLAG);
 		break;
 	
 	case 3:
+		udelay(250);
 		io_writel(virt_to_phys(caninos_k5_secondary_startup), CPU3_ADDR);
 		io_writel(BOOT_FLAG, CPU3_FLAG);
 		break;
