@@ -3,6 +3,7 @@
 /dts-v1/;
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/caninos-clk.h>
 #include <dt-bindings/reset/caninos-rst.h>
 #include <dt-bindings/dma/caninos-dma.h>
 #include <dt-bindings/power/caninos-power.h>
@@ -76,18 +77,6 @@
 		interrupt-affinity = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
 	};
 	
-	hosc: hosc {
-		compatible = "fixed-clock";
-		clock-frequency = <24000000>;
-		#clock-cells = <0>;
-	};
-	
-	uart3_clk: uart-clk {
-		compatible = "fixed-clock";
-		clock-frequency = <921600>;
-		#clock-cells = <0>;
-	};
-	
 	soc {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -105,7 +94,7 @@
 			interrupts = 
 				<GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_EDGE_RISING)>;
 			interrupt-parent = <&gic>;
-			clocks = <&hosc>;
+			clocks = <&cmu CLK_HOSC>;
 			status = "okay";
 		};
 		
@@ -172,6 +161,13 @@
 			status = "okay";
 		};
 		
+		cmu: clock-controller@b0160000 {
+			compatible = "caninos,k5-cmu";
+			reg = <0xb0160000 0x8000>;
+			#clock-cells = <1>;
+			status = "okay";
+		};
+		
 		dma: dma-controller@b0260000 {
 			compatible = "caninos,k5-dma";
 			reg = <0xb0260000 0xd00>;
@@ -180,10 +176,8 @@
 			             <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
 			             <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
 			#dma-cells = <1>;
-			//clocks = <&cmu CLK_DMAC>;
-			//clock-names = "dmac";
-			clocks = <&hosc>;
-			power-domains = <&sps PD_DMAC>;
+			clocks = <&cmu CLK_DMAC>;
+			clock-names = "dmac";
 			status = "okay";
 		};
 		
@@ -229,7 +223,8 @@
 			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst RST_UART3>;
 			reset-names = "uart";
-			clocks = <&uart3_clk>;
+			clocks = <&cmu CLK_UART3>;
+			clock-names = "uart";
 			status = "okay";
 			
 			pinctrl-names = "default";
