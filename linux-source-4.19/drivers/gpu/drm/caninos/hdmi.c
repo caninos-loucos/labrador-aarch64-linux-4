@@ -395,7 +395,7 @@ static int ip_video_enable(struct hdmi_ip *ip)
 	bool vsync_pol, hsync_pol;
 	int preline, retry;
 	int ret;
-	
+
 	ret = ip_update_reg_values(ip);
 	
 	if (ret < 0) {
@@ -603,14 +603,28 @@ static int ip_video_enable(struct hdmi_ip *ip)
 	val = REG_SET_VAL(val, (ip->tx_2 >> 8) & 0xf, 11, 8);
 	val = REG_SET_VAL(val, (ip->tx_2 >> 17) & 0x1, 17, 17);
 	hdmi_ip_writel(ip, HDMI_TX_2, val);
-	
+
 	return 0;
 }
 
-/*
-	@channel
-	@samplerate = samplerate in kHz
-*/
+static int ip_audio_enable(struct hdmi_ip *ip)
+{
+	u32 val = hdmi_ip_readl(ip, HDMI_ICR);
+	val |= (1 << 25);
+	hdmi_ip_writel(ip, HDMI_ICR, val);
+
+	return 0;
+}
+
+static int ip_audio_disable(struct hdmi_ip *ip)
+{
+	u32 val = hdmi_ip_readl(ip, HDMI_ICR);
+	val &= ~(1 << 25);
+	hdmi_ip_writel(ip, HDMI_ICR, val);
+
+	return 0;
+}
+
 static int ip_set_audio_interface(struct hdmi_ip *ip) 
 {
 	unsigned int tmp03;
@@ -776,22 +790,6 @@ static int ip_init(struct hdmi_ip *ip)
 	return ip_power_on(ip);
 }
 
-static int ip_audio_enable(struct hdmi_ip *ip)
-{
-	u32 val = hdmi_ip_readl(ip, HDMI_ICR);
-	val |= (1 << 25);
-	hdmi_ip_writel(ip, HDMI_ICR, val);
-	return 0;
-}
-
-static int ip_audio_disable(struct hdmi_ip *ip)
-{
-	u32 val = hdmi_ip_readl(ip, HDMI_ICR);
-	val &= ~(1 << 25);
-	hdmi_ip_writel(ip, HDMI_ICR, val);
-	return 0;
-}
-
 static const struct hdmi_ip_ops ip_sx00_ops = {
 	.init = ip_init,
 	.exit = ip_exit,
@@ -805,14 +803,13 @@ static const struct hdmi_ip_ops ip_sx00_ops = {
 	.video_enable = ip_video_enable,
 	.video_disable = ip_video_disable,
 	.is_video_enabled = ip_is_video_enabled,
-
-	.set_audio_interface = ip_set_audio_interface,
 	
 	.packet_generate = ip_packet_generate,
 	.packet_send = ip_packet_send,
 	
 	.audio_enable = ip_audio_enable,
 	.audio_disable = ip_audio_disable,
+	.set_audio_interface = ip_set_audio_interface,
 };
 
 static const struct hdmi_ip_hwdiff ip_sx00 = {

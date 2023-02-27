@@ -25,9 +25,9 @@
 #include <sound/info.h>
 #include <sound/dmaengine_pcm.h>
 
-#include "caninos-codec.h"
 #include "../../../drivers/gpu/drm/caninos/hdmi.h"
 #include "../../../drivers/gpu/drm/caninos/ip-sx00.h"
+#include "caninos-codec.h"
 
 struct snd_caninos
 {
@@ -113,7 +113,6 @@ static void snd_caninos_playback_capture_remove(struct snd_caninos *chip)
 static void snd_caninos_playback_capture_setup(struct snd_caninos *chip)
 {
 	void __iomem *base = chip->base;
-	/* add config for hdmi */
 
 	writel(readl(base + I2S_CTL) & ~(0x3 << I2STEN), base + I2S_CTL);
 	
@@ -133,7 +132,6 @@ static void snd_caninos_playback_capture_setup(struct snd_caninos *chip)
 	writel(readl(base + I2S_CTL) & ~(0x3 << I2SPM), base + I2S_CTL);
 	writel(readl(base + I2S_CTL) | (0x1 << I2SPM), base + I2S_CTL);	
 	writel(readl(base + I2S_CTL) | (0x1 << I2SRCS), base + I2S_CTL);
-	// no hdmi
 	
 	writel(readl(base + I2S_CTL) | (0x3 << I2STEN), base + I2S_CTL);
 	/* i2s rx 00: 2.0-Channel Mode */
@@ -479,6 +477,31 @@ static int snd_caninos_probe(struct platform_device *pdev)
 		snd_card_free(card);
 		return -EPROBE_DEFER;
 	}
+
+	/* get hdmi ip device */
+	hdmi_np =  of_parse_phandle(dev->of_node, "hdmi", 0);
+	
+	if (!hdmi_np)
+	{
+		dev_err(dev, "could not find hdmi\n");
+		snd_card_free(card);
+		return -ENXIO;
+	}
+	
+	hdmi_pdev = of_find_device_by_node(hdmi_np);
+	
+	if (hdmi_pdev) {
+		chip->hdmi = platform_get_drvdata(hdmi_pdev);
+	}
+	
+	of_node_put(hdmi_np);
+	
+	if (!hdmi_pdev || !chip->hdmi)
+	{
+		dev_err(dev, "hdmi is not ready\n");
+		snd_card_free(card);
+		return -EPROBE_DEFER;
+	}
 	
 	chip->txchan = dma_request_slave_channel(dev, "tx");
 	
@@ -560,31 +583,6 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	
 	/* setup soc playback and capture modes */
 	snd_caninos_playback_capture_setup(chip);
-
-	/* get hdmi ip device */
-	hdmi_np =  of_parse_phandle(dev->of_node, "hdmi", 0);
-	
-	if (!hdmi_np)
-	{
-		dev_err(dev, "could not find hdmi\n");
-		snd_card_free(card);
-		return -ENXIO;
-	}
-	
-	hdmi_pdev = of_find_device_by_node(hdmi_np);
-	
-	if (hdmi_pdev) {
-		chip->hdmi = platform_get_drvdata(hdmi_pdev);
-	}
-	
-	of_node_put(hdmi_np);
-	
-	if (!hdmi_pdev || !chip->hdmi)
-	{
-		dev_err(dev, "hdmi is not ready\n");
-		snd_card_free(card);
-		return -EPROBE_DEFER;
-	}
 	
 	/* all is good, register our new card! */
 	err = snd_card_register(card);
