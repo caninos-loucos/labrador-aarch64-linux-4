@@ -49,8 +49,6 @@ menuconfig:
 dtbs:
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD) CROSS_COMPILE=$(COMPILER) ARCH=arm64 dtbs
 	$(Q)mkdir -p $(OUTPUT)
-	$(Q)cp $(BUILD)/arch/arm64/boot/dts/caninos/v3sdc.dtb $(OUTPUT)/
-	$(Q)cp $(BUILD)/arch/arm64/boot/dts/caninos/v3emmc.dtb $(OUTPUT)/
 	$(Q)cp $(BUILD)/arch/arm64/boot/dts/caninos/v3psci.dtb $(OUTPUT)/
 	
 kernel: dtbs

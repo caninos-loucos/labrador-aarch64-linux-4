@@ -5,6 +5,7 @@
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/of.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/pinctrl/pinctrl.h>
@@ -63,10 +64,11 @@
 /* pending mask for share intc_ctlr */
 #define GPIO_CTLR_PENDING_MASK (0x42108421)
 
-static struct caninos_gpio_bank caninos_gpio_banks[];
+#define to_caninos_gpio_chip(x) \
+	container_of(x, struct caninos_gpio_chip, gpio_chip)
 
-#define to_caninos_gpio_bank(x) \
-	container_of(x, struct caninos_gpio_bank, gpio_chip)
+#define to_caninos_pinctrl(x) \
+	(struct caninos_pinctrl*) pinctrl_dev_get_drvdata(x)
 
 static int caninos_get_groups_count(struct pinctrl_dev *pctldev)
 {
@@ -132,125 +134,149 @@ static int caninos_pmx_get_fgroups(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-static void caninos_raw_direction_output(struct caninos_gpio_bank *bank,
+static void caninos_raw_direction_output(struct caninos_gpio_chip *chip,
                                          unsigned offset, int value)
 {
+	struct caninos_pinctrl *pinctrl = chip->pinctrl;
 	unsigned long flags = 0;
+	
+	void __iomem *base  = pinctrl->base + (chip->addr * 0xc);
+	void __iomem *inen  = base + GPIO_AINEN;
+	void __iomem *outen = base + GPIO_AOUTEN;
+	void __iomem *dat   = base + GPIO_ADAT;
+	
 	u32 val;
 	
-	if (bank->valid_mask & BIT(offset))
+	if (chip->mask & BIT(offset))
 	{
-		spin_lock_irqsave(&bank->lock, flags);
+		spin_lock_irqsave(&pinctrl->lock, flags);
 		
-		val = readl(bank->base + bank->inen);
-		val &= ~GPIO_BIT(offset);
-		writel(val, bank->base + bank->inen);
+		val = readl(inen);
+		val &= ~BIT(offset);
+		writel(val, inen);
 		
-		val = readl(bank->base + bank->outen);
-		val |= GPIO_BIT(offset);
-		writel(val, bank->base + bank->outen);
+		val = readl(outen);
+		val |= BIT(offset);
+		writel(val, outen);
 		
-		val = readl(bank->base + bank->dat);
+		val = readl(dat);
 		
 		if (value) {
-			val |= GPIO_BIT(offset);
+			val |= BIT(offset);
 		}
 		else {
-			val &= ~GPIO_BIT(offset);
+			val &= ~BIT(offset);
 		}
 		
-		writel(val, bank->base + bank->dat);
+		writel(val, dat);
 		
-		spin_unlock_irqrestore(&bank->lock, flags);
+		spin_unlock_irqrestore(&pinctrl->lock, flags);
 	}
 }
 
-static void caninos_raw_direction_input(struct caninos_gpio_bank *bank,
+static void caninos_raw_direction_input(struct caninos_gpio_chip *chip,
                                         unsigned offset)
 {
+	struct caninos_pinctrl *pinctrl = chip->pinctrl;
 	unsigned long flags = 0;
 	u32 val;
 	
-	if (bank->valid_mask & BIT(offset))
+	void __iomem *base  = pinctrl->base + (chip->addr * 0xc);
+	void __iomem *inen  = base + GPIO_AINEN;
+	void __iomem *outen = base + GPIO_AOUTEN;
+	
+	if (chip->mask & BIT(offset))
 	{
-		spin_lock_irqsave(&bank->lock, flags);
+		spin_lock_irqsave(&pinctrl->lock, flags);
 		
-		val = readl(bank->base + bank->outen);
-		val &= ~GPIO_BIT(offset);
-		writel(val, bank->base + bank->outen);
+		val = readl(outen);
+		val &= ~BIT(offset);
+		writel(val, outen);
 		
-		val = readl(bank->base + bank->inen);
-		val |= GPIO_BIT(offset);
-		writel(val, bank->base + bank->inen);
+		val = readl(inen);
+		val |= BIT(offset);
+		writel(val, inen);
 		
-		spin_unlock_irqrestore(&bank->lock, flags);
+		spin_unlock_irqrestore(&pinctrl->lock, flags);
 	}
 }
 
-static void caninos_raw_direction_device(struct caninos_gpio_bank *bank,
+static void caninos_raw_direction_device(struct caninos_gpio_chip *chip,
                                          unsigned offset)
 {
+	struct caninos_pinctrl *pinctrl = chip->pinctrl;
 	unsigned long flags = 0;
 	u32 val;
 	
-	if (bank->valid_mask & BIT(offset))
+	void __iomem *base  = pinctrl->base + (chip->addr * 0xc);
+	void __iomem *inen  = base + GPIO_AINEN;
+	void __iomem *outen = base + GPIO_AOUTEN;
+	
+	if (chip->mask & BIT(offset))
 	{
-		spin_lock_irqsave(&bank->lock, flags);
+		spin_lock_irqsave(&pinctrl->lock, flags);
 		
-		val = readl(bank->base + bank->outen);
-		val &= ~GPIO_BIT(offset);
-		writel(val, bank->base + bank->outen);
+		val = readl(outen);
+		val &= ~BIT(offset);
+		writel(val, outen);
 		
-		val = readl(bank->base + bank->inen);
-		val &= ~GPIO_BIT(offset);
-		writel(val, bank->base + bank->inen);
+		val = readl(inen);
+		val &= ~BIT(offset);
+		writel(val, inen);
 		
-		spin_unlock_irqrestore(&bank->lock, flags);
+		spin_unlock_irqrestore(&pinctrl->lock, flags);
 	}
 }
 
-static int caninos_raw_gpio_get(struct caninos_gpio_bank *bank, unsigned offset)
+static int caninos_raw_gpio_get(struct caninos_gpio_chip *chip, unsigned offset)
 {
 	u32 val = 0;
+	void __iomem *dat = chip->pinctrl->base + (chip->addr * 0xc) + GPIO_ADAT;
 	
-	if (bank->valid_mask & BIT(offset)) {
-		val = readl(bank->base + bank->dat);
+	if (chip->mask & BIT(offset)) {
+		val = readl(dat);
 	}
-	return !!(val & GPIO_BIT(offset));
+	
+	return !!(val & BIT(offset));
 }
 
-static void caninos_raw_gpio_set(struct caninos_gpio_bank *bank,
+static void caninos_raw_gpio_set(struct caninos_gpio_chip *chip,
                                  unsigned offset, int value)
 {
 	u32 val;
+	void __iomem *dat = chip->pinctrl->base + (chip->addr * 0xc) + GPIO_ADAT;
 	
-	if (bank->valid_mask & BIT(offset))
+	if (chip->mask & BIT(offset))
 	{
-		val = readl(bank->base + bank->dat);
+		val = readl(dat);
 		
 		if (value) {
-			val |= GPIO_BIT(offset);
+			val |= BIT(offset);
 		}
 		else {
-			val &= ~GPIO_BIT(offset);
+			val &= ~BIT(offset);
 		}
 		
-		writel(val, bank->base + bank->dat);
+		writel(val, dat);
 	}
 }
 
-static int caninos_raw_get_direction(struct caninos_gpio_bank *bank,
+static int caninos_raw_get_direction(struct caninos_gpio_chip *chip,
                                      unsigned offset)
 {
+	struct caninos_pinctrl *pinctrl = chip->pinctrl;
 	unsigned long flags = 0;
 	u32 val;
 	
-	if (bank->valid_mask & BIT(offset))
+	void __iomem *inen = pinctrl->base + (chip->addr * 0xc) + GPIO_AINEN;
+	
+	if (chip->mask & BIT(offset))
 	{
-		spin_lock_irqsave(&bank->lock, flags);
-		val = readl(bank->base + bank->inen);
-		spin_unlock_irqrestore(&bank->lock, flags);
-		return !!(val & GPIO_BIT(offset));
+		spin_lock_irqsave(&pinctrl->lock, flags);
+		val = readl(inen);
+		spin_unlock_irqrestore(&pinctrl->lock, flags);
+		
+		return !!(val & BIT(offset));
 	}
 	return 1;
 }
@@ -258,16 +284,19 @@ static int caninos_raw_get_direction(struct caninos_gpio_bank *bank,
 static int caninos_pmx_set_mux(struct pinctrl_dev *pctldev,
                                unsigned func_selector, unsigned group_selector)
 {
-	struct caninos_gpio_bank *bank;
+	struct caninos_pinctrl *pinctrl = to_caninos_pinctrl(pctldev);
 	unsigned num_pins, i;
 	const unsigned *pins;
+	u32 addr, offset;
 	
 	caninos_get_group_pins(pctldev, group_selector, &pins, &num_pins);
 	
 	for (i = 0; i < num_pins; i++)
 	{
-		bank = &caninos_gpio_banks[pins[i] / GPIO_PER_BANK];
-		caninos_raw_direction_device(bank, pins[i] % GPIO_PER_BANK);
+		addr = pins[i] / GPIO_PER_BANK;
+		offset = pins[i] % GPIO_PER_BANK;
+		
+		caninos_raw_direction_device(&pinctrl->banks[addr], offset);
 	}
 	
 	return 0;
@@ -288,19 +317,19 @@ static int caninos_pin_config_set(struct pinctrl_dev *pctldev,
 
 static int caninos_gpio_get(struct gpio_chip *chip, unsigned offset)
 {
-	struct caninos_gpio_bank *bank = to_caninos_gpio_bank(chip);
+	struct caninos_gpio_chip *bank = to_caninos_gpio_chip(chip);
 	return caninos_raw_gpio_get(bank, offset);
 }
 
 static void caninos_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 {
-	struct caninos_gpio_bank *bank = to_caninos_gpio_bank(chip);
+	struct caninos_gpio_chip *bank = to_caninos_gpio_chip(chip);
 	caninos_raw_gpio_set(bank, offset, value);
 }
 
 static int caninos_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
-	struct caninos_gpio_bank *bank = to_caninos_gpio_bank(chip);
+	struct caninos_gpio_chip *bank = to_caninos_gpio_chip(chip);
 	caninos_raw_direction_input(bank, offset);
 	return 0;
 }
@@ -308,14 +337,14 @@ static int caninos_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 static int caninos_gpio_direction_output(struct gpio_chip *chip,
                                          unsigned offset, int value)
 {
-	struct caninos_gpio_bank *bank = to_caninos_gpio_bank(chip);
+	struct caninos_gpio_chip *bank = to_caninos_gpio_chip(chip);
 	caninos_raw_direction_output(bank, offset, value);
 	return 0;
 }
 
 static int caninos_gpio_request(struct gpio_chip *chip, unsigned int offset)
 {
-	struct caninos_gpio_bank *bank = to_caninos_gpio_bank(chip);
+	struct caninos_gpio_chip *bank = to_caninos_gpio_chip(chip);
 	int ret;
 	
 	if ((ret = gpiochip_generic_request(chip, offset)) < 0) {
@@ -328,7 +357,7 @@ static int caninos_gpio_request(struct gpio_chip *chip, unsigned int offset)
 
 static void caninos_gpio_free(struct gpio_chip *chip, unsigned int offset)
 {
-	struct caninos_gpio_bank *bank = to_caninos_gpio_bank(chip);
+	struct caninos_gpio_chip *bank = to_caninos_gpio_chip(chip);
 	
 	caninos_raw_direction_device(bank, offset);
 	gpiochip_generic_free(chip, offset);
@@ -336,7 +365,7 @@ static void caninos_gpio_free(struct gpio_chip *chip, unsigned int offset)
 
 static int caninos_gpio_get_direction(struct gpio_chip *chip, unsigned offset)
 {
-	struct caninos_gpio_bank *bank = to_caninos_gpio_bank(chip);
+	struct caninos_gpio_chip *bank = to_caninos_gpio_chip(chip);
 	return caninos_raw_get_direction(bank, offset);
 }
 
@@ -361,165 +390,221 @@ static const struct pinconf_ops caninos_pconf_ops = {
 	.pin_config_set = caninos_pin_config_set,
 };
 
-static struct pinctrl_desc caninos_desc = {
-	.pins = caninos_pins,
-	.npins = ARRAY_SIZE(caninos_pins),
-	.pctlops = &caninos_pctrl_ops,
-	.pmxops = &caninos_pmxops,
-	.confops = &caninos_pconf_ops,
-	.owner = THIS_MODULE,
-};
-
-#define GPIO_BANK(_bank, _npins, _outen, _inen, _dat, _valid)  \
-	{								                           \
-		.gpio_chip = {                                         \
-			.label = "GPIO" #_bank,                            \
-			.request = caninos_gpio_request,                   \
-			.free = caninos_gpio_free,                         \
-			.get_direction = caninos_gpio_get_direction,       \
-			.direction_input = caninos_gpio_direction_input,   \
-			.direction_output = caninos_gpio_direction_output, \
-			.get = caninos_gpio_get,                           \
-			.set = caninos_gpio_set,                           \
-			.ngpio = _npins,                                   \
-			.base = GPIO_BANK_START(_bank),                    \
-			.owner = THIS_MODULE,                              \
-			.can_sleep = 0,                                    \
-		},                                                     \
-		.outen = _outen,                                       \
-		.inen = _inen,                                         \
-		.dat = _dat,                                           \
-		.valid_mask = _valid,                                  \
-	}
-
-static struct caninos_gpio_bank caninos_gpio_banks[] = {
-	GPIO_BANK(0, 32, GPIO_AOUTEN, GPIO_AINEN, GPIO_ADAT, 0xFFFFF000),
-	GPIO_BANK(1, 32, GPIO_BOUTEN, GPIO_BINEN, GPIO_BDAT, 0xFFFFFFFF),
-	GPIO_BANK(2, 32, GPIO_COUTEN, GPIO_CINEN, GPIO_CDAT, 0xBDBFFFFF),
-	GPIO_BANK(3, 32, GPIO_DOUTEN, GPIO_DINEN, GPIO_DDAT, 0xF3FDB400),
-	GPIO_BANK(4,  8, GPIO_EOUTEN, GPIO_EINEN, GPIO_EDAT, 0x000000FF),
-};
-
-static int caninos_pinctrl_probe(struct platform_device *pdev)
+static int caninos_gpiolib_register_banks(struct caninos_pinctrl *pctl)
 {
-	struct caninos_pinctrl *data;
-	int ret;
+	struct caninos_gpio_chip *bank;
+	struct device *dev = pctl->dev;
+	int i, ret;
 	
-	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
-	
-	if (!data) {
-		return -ENOMEM;
-	}
-	
-	platform_set_drvdata(pdev, data);
-	
-	data->base = of_iomap(pdev->dev.of_node, 0);
-	
-	if (!data->base)
+	for (i = 0; i < pctl->nbanks; i++)
 	{
-		dev_err(&pdev->dev, "could not map memory\n");
-		return -ENOMEM;
-	}
-	
-	/* get GPIO/MFP clock */
-	data->clk = devm_clk_get(&pdev->dev, NULL);
-	
-	if (IS_ERR(data->clk))
-	{
-		dev_err(&pdev->dev, "could not get clock\n");
-		iounmap(data->base);
-		return PTR_ERR(data->clk);
-	}
-	
-	/* enable GPIO/MFP clock (just a formality, it is already enabled) */
-	ret = clk_prepare_enable(data->clk);
-	
-	if (ret)
-	{
-		dev_err(&pdev->dev, "could not enable clock\n");
-		iounmap(data->base);
-		return ret;
-	}
-	
-	spin_lock_init(&data->lock);
-	data->dev = &pdev->dev;
-	
-	caninos_desc.name = dev_name(&pdev->dev);
-	
-	/* This is a temporary solution (until all mux functions are implemented) */
-	writel(0x00000000, data->base + MFP_CTL0);
-	writel(0x2e400060, data->base + MFP_CTL1);
-	writel(0x10000600, data->base + MFP_CTL2);
-	writel(0x40000008, data->base + MFP_CTL3);
-	writel(0x00000000, data->base + PAD_PULLCTL0);
-	writel(0x0003e001, data->base + PAD_PULLCTL1);
-	writel(0x00000000, data->base + PAD_PULLCTL2);
-	writel(0x40401880, data->base + PAD_ST0);
-	writel(0x00000140, data->base + PAD_ST1);
-	writel(0x00000002, data->base + PAD_CTL);
-	writel(0x2ffeeaaa, data->base + PAD_DRV0);
-	writel(0xaacf0800, data->base + PAD_DRV1);
-	writel(0xa9482008, data->base + PAD_DRV2);
-	
-	data->pinctrl = devm_pinctrl_register(&pdev->dev, &caninos_desc, data);
-	
-	if (IS_ERR(data->pinctrl))
-	{
-		dev_err(&pdev->dev, "could not register pin driver\n");
-		iounmap(data->base);
-		return PTR_ERR(data->pinctrl);
+		bank = &pctl->banks[i];
+		
+		if ((ret = devm_gpiochip_add_data(dev, &bank->gpio_chip, bank)) < 0) {
+			dev_err(dev, "could not add gpio bank %s\n", bank->label);
+			return ret;
+		}
+		dev_info(dev, "gpio bank %s added\n", bank->label);
 	}
 	
 	return 0;
 }
 
-static int caninos_gpio_probe(struct platform_device *pdev)
+static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
+                                      struct device_node *np)
 {
-	struct device_node *np = pdev->dev.of_node;
-	struct caninos_gpio_bank *bank;
-	int ret;
-	u32 id;
-	
-	if (of_property_read_u32(np, "caninos,gpio-bank", &id))
+	struct caninos_gpio_chip *bank = &pctl->banks[pctl->nbanks];
+	struct device *dev = pctl->dev;
+	int i = 0, ret, bank_nr, npins;
+	struct of_phandle_args args;
+	const char *label;
+	u32 mask;
+		
+	if (!of_parse_phandle_with_fixed_args(np, "gpio-ranges", 3, i, &args))
 	{
-		dev_err(&pdev->dev, "caninos,gpio-bank property not found\n");
-		return -EINVAL;
+		bank_nr = args.args[1] / GPIO_PER_BANK;
+		
+		bank->gpio_chip.base = args.args[1];
+		npins = args.args[0] + args.args[2];
+		
+		while (!of_parse_phandle_with_fixed_args(np, "gpio-ranges", 3,
+		                                         ++i, &args)) {
+			npins = max(npins, (int)(args.args[0] + args.args[2]));
+		}
 	}
-	
-	if (id >= ARRAY_SIZE(caninos_gpio_banks))
-	{
-		dev_err(&pdev->dev, "invalid caninos,gpio-bank property\n");
-		return -EINVAL;
+	else {
+		dev_err(dev, "missing gpio-ranges property on bank %s\n",
+		        np->full_name);
+		return -ENODEV;
 	}
-	
-	bank = &caninos_gpio_banks[id];
-	bank->gpio_chip.parent = &pdev->dev;
-	bank->gpio_chip.of_node = np;
-	spin_lock_init(&bank->lock);
-	
-	bank->base = of_iomap(np, 0);
-	
-	if (!bank->base)
-	{
-		dev_err(&pdev->dev, "could not map memory\n");
-		return -ENOMEM;
+	if (npins > GPIO_PER_BANK) {
+		dev_err(dev, "number of gpios on bank %s is too large %i\n",
+		        np->full_name, npins);
+		return ret;
 	}
-	
-	ret = devm_gpiochip_add_data(&pdev->dev, &(bank->gpio_chip), bank);
-	
-	if (ret < 0)
+	if ((ret = of_property_read_string(np, "gpio-label", &label)) < 0)
 	{
-		dev_err(&pdev->dev, "could not add gpiochip\n");
-		iounmap(bank->base);
+		dev_err(dev, "missing gpio-label property on bank %s\n", np->full_name);
+		return ret;
+	}
+	if ((ret = of_property_read_u32(np, "gpio-mask", &mask)) < 0)
+	{
+		dev_err(dev, "missing gpio-mask property on bank %s\n", np->full_name);
 		return ret;
 	}
 	
+	strlcpy(bank->label, label, BANK_LABEL_LEN);
+	
+	bank->pinctrl = pctl;
+	bank->addr = bank_nr;
+	bank->npins = npins;
+	bank->mask = mask;
+	
+	memset(&bank->gpio_chip, 0, sizeof(bank->gpio_chip));
+	
+	bank->gpio_chip.label = bank->label;
+	bank->gpio_chip.parent = dev;
+	bank->gpio_chip.of_node = np;
+	
+	bank->gpio_chip.request = caninos_gpio_request;
+	bank->gpio_chip.free = caninos_gpio_free;
+	bank->gpio_chip.get_direction = caninos_gpio_get_direction;
+	bank->gpio_chip.direction_input = caninos_gpio_direction_input;
+	bank->gpio_chip.direction_output = caninos_gpio_direction_output;
+	bank->gpio_chip.get = caninos_gpio_get;
+	bank->gpio_chip.set = caninos_gpio_set;
+	
+	bank->gpio_chip.ngpio = npins;
+	bank->gpio_chip.base = bank_nr * GPIO_PER_BANK;
+	bank->gpio_chip.owner = THIS_MODULE;
+	bank->gpio_chip.can_sleep = false;
+	
+	return 0;
+}
+
+static int caninos_pinctrl_probe(struct platform_device *pdev)
+{
+	struct device_node *np = pdev->dev.of_node;
+	//const struct of_device_id *match;
+	struct device *dev = &pdev->dev;
+	struct caninos_pinctrl *pctl;
+	struct device_node *child;
+	struct resource res;
+	int ret, nbanks = 0;
+	
+	if (!np) {
+		dev_err(dev, "missing device OF node\n");
+		return -EINVAL;
+	}
+	
+	/*match = of_match_device(dev->driver->of_match_table, dev);
+	
+	if (!match || !match->data)
+	{
+		////
+		return -EINVAL;
+	}*/
+	
+	pctl = devm_kzalloc(dev, sizeof(*pctl), GFP_KERNEL);
+	
+	if (!pctl) {
+		dev_err(dev, "pinctrl memory allocation failed\n");
+		return -ENOMEM;
+	}
+	
+	platform_set_drvdata(pdev, pctl);
+	
+	pctl->dev = dev;
+	pctl->nbanks = 0;
+	pctl->pctl_desc.name = dev_name(dev);
+	pctl->pctl_desc.owner = THIS_MODULE;
+	pctl->pctl_desc.pins = caninos_pins;
+	pctl->pctl_desc.npins = ARRAY_SIZE(caninos_pins);
+	pctl->pctl_desc.confops = &caninos_pconf_ops;
+	pctl->pctl_desc.pctlops = &caninos_pctrl_ops;
+	pctl->pctl_desc.pmxops = &caninos_pmxops;
+	
+	spin_lock_init(&pctl->lock);
+	
+	for_each_available_child_of_node(np, child)
+		if (of_property_read_bool(child, "gpio-controller"))
+			nbanks++;
+	
+	if (!nbanks) {
+		dev_err(dev, "at least one GPIO bank is required\n");
+		return -EINVAL;
+	}
+	
+	pctl->banks = devm_kcalloc(dev, nbanks, sizeof(*pctl->banks), GFP_KERNEL);
+	
+	if (!pctl->banks) {
+		dev_err(dev, "gpio banks memory allocation failed\n");
+		return -ENOMEM;
+	}
+	
+	for_each_available_child_of_node(np, child)
+	{
+		if (of_property_read_bool(child, "gpio-controller"))
+		{
+			if ((ret = caninos_gpiolib_parse_bank(pctl, child)) < 0)
+				return ret;
+			
+			pctl->nbanks++;
+		}
+	}
+	
+	if (!of_address_to_resource(np, 0, &res))
+		pctl->base = devm_ioremap(dev, res.start, resource_size(&res));
+	
+	if (!pctl->base) {
+		dev_err(dev, "could not map memory\n");
+		return -ENOMEM;
+	}
+	
+	pctl->clk = devm_clk_get(dev, NULL);
+	
+	if (IS_ERR(pctl->clk)) {
+		dev_err(dev, "could not get clock\n");
+		return PTR_ERR(pctl->clk);
+	}
+	
+	if ((ret = clk_prepare_enable(pctl->clk)) < 0) {
+		dev_err(dev, "could not enable clock\n");
+		return ret;
+	}
+	
+	writel(0x00000000, pctl->base + MFP_CTL0);
+	writel(0x2e400060, pctl->base + MFP_CTL1);
+	writel(0x10000600, pctl->base + MFP_CTL2);
+	writel(0x40000008, pctl->base + MFP_CTL3);
+	writel(0x00000000, pctl->base + PAD_PULLCTL0);
+	writel(0x0003e001, pctl->base + PAD_PULLCTL1);
+	writel(0x00000000, pctl->base + PAD_PULLCTL2);
+	writel(0x40401880, pctl->base + PAD_ST0);
+	writel(0x00000140, pctl->base + PAD_ST1);
+	writel(0x00000002, pctl->base + PAD_CTL);
+	writel(0x2ffeeaaa, pctl->base + PAD_DRV0);
+	writel(0xaacf0800, pctl->base + PAD_DRV1);
+	writel(0xa9482008, pctl->base + PAD_DRV2);
+	
+	pctl->pctl_dev = devm_pinctrl_register(dev, &pctl->pctl_desc, pctl);
+	
+	if (IS_ERR(pctl->pctl_dev)) {
+		dev_err(dev, "could not register pinctrl device\n");
+		return PTR_ERR(pctl->pctl_dev);
+	}
+	
+	if ((ret = caninos_gpiolib_register_banks(pctl)) < 0)
+		return ret;
+	
+	dev_err(dev, "probe finished\n");
 	return 0;
 }
 
 static const struct of_device_id caninos_pinctrl_dt_ids[] = {
-	{ .compatible = "caninos,k7-pinctrl", },
-	{ },
+	{ .compatible = "caninos,k7-pinctrl", .data = (void*)0, },
+	{ .compatible = "caninos,k5-pinctrl", .data = (void*)0, },
+	{ /* sentinel */ },
 };
 
 static struct platform_driver caninos_pinctrl_driver = {
@@ -532,29 +617,9 @@ static struct platform_driver caninos_pinctrl_driver = {
 	.probe = caninos_pinctrl_probe,
 };
 
-static const struct of_device_id caninos_gpio_dt_ids[] = {
-	{ .compatible = "caninos,k7-gpio", },
-	{ },
-};
-
-static struct platform_driver caninos_gpio_driver = {
-	.driver	= {
-		.name = "gpio-caninos",
-		.of_match_table = caninos_gpio_dt_ids,
-		.owner = THIS_MODULE,
-		.suppress_bind_attrs = true,
-	},
-	.probe = caninos_gpio_probe,
-};
-
-static struct platform_driver * const drivers[] = {
-	&caninos_gpio_driver,
-	&caninos_pinctrl_driver,
-};
-
 static int __init caninos_pinctrl_init(void)
 {
-	return platform_register_drivers(drivers, ARRAY_SIZE(drivers));
+	return platform_driver_register(&caninos_pinctrl_driver);
 }
 arch_initcall(caninos_pinctrl_init);
 

@@ -1,8 +1,9 @@
 
-#define GPIO_PER_BANK (32)
-#define GPIO_BIT(gpio) (0x1 << (gpio))
+#define BANK_LABEL_LEN (32)
+#define GPIO_PER_BANK  (32)
 
-#define GPIO_BANK_START(bank) ((bank) * GPIO_PER_BANK)
+//#define GPIO_BIT(gpio) (0x1 << (gpio))
+//#define GPIO_BANK_START(bank) ((bank) * GPIO_PER_BANK)
 
 #define GPIOA(x) (x)
 #define GPIOB(x) (32 + (x))
@@ -22,24 +23,27 @@ struct caninos_pmx_func {
 	unsigned num_groups;
 };
 
-struct caninos_pinctrl
+struct caninos_pinctrl;
+
+struct caninos_gpio_chip
 {
-	void __iomem *base;
-	struct clk *clk;
-	struct device *dev;
-	struct pinctrl_dev *pinctrl;
-	spinlock_t lock;
+	struct caninos_pinctrl *pinctrl;
+	struct gpio_chip gpio_chip;
+	char label[BANK_LABEL_LEN];
+	int addr, npins;
+	u32 mask;
 };
 
-struct caninos_gpio_bank
+struct caninos_pinctrl
 {
-	void __iomem *base;
-	struct gpio_chip gpio_chip;
-	unsigned long outen;
-	unsigned long inen;
-	unsigned long dat;
-	unsigned long valid_mask;
+	struct device *dev;
 	spinlock_t lock;
+	void __iomem *base;
+	struct clk *clk;
+	struct pinctrl_desc pctl_desc;
+	struct pinctrl_dev *pctl_dev;
+	struct caninos_gpio_chip *banks;
+	int nbanks;
 };
 
 const static struct pinctrl_pin_desc caninos_pins[] = {
