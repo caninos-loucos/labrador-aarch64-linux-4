@@ -711,28 +711,7 @@ static int ip_audio_disable(struct hdmi_ip *ip)
 	return 0;
 }
 
-static const struct hdmi_ip_ops ip_sx00_ops = {
-	.init = ip_init,
-	.exit = ip_exit,
-	
-	.hpd_enable = ip_hpd_enable,
-	.hpd_disable = ip_hpd_disable,
-	.hpd_is_pending = ip_hpd_is_pending,
-	.hpd_clear_pending = ip_hpd_clear_pending,
-	.cable_status = ip_cable_status,
-	
-	.video_enable = ip_video_enable,
-	.video_disable = ip_video_disable,
-	.is_video_enabled = ip_is_video_enabled,
-	
-	.packet_generate = ip_packet_generate,
-	.packet_send = ip_packet_send,
-	
-	.audio_enable = ip_audio_enable,
-	.audio_disable = ip_audio_disable,
-};
-
-static const struct hdmi_ip_hwdiff ip_sx00 = {
+static const struct hdmi_ip_hwdiff ip_hwdiff_k7 = {
 	.hp_start = 16,
 	.hp_end	= 28,
 	.vp_start = 4,
@@ -748,73 +727,138 @@ static const struct hdmi_ip_hwdiff ip_sx00 = {
 
 static int caninos_hdmi_ip_probe(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
+	const struct of_device_id *match;
+	struct device *dev = &pdev->dev;
+	struct hdmi_ip_hwdiff *hwdiff;
+	struct hdmi_ip_ops *ip_ops;
 	struct resource *res;
 	struct hdmi_ip *ip;
     int ret;
     
-    ip = devm_kzalloc(&pdev->dev, sizeof(*ip), GFP_KERNEL);
+    if (!np) {
+		dev_err(dev, "missing device OF node\n");
+		return -EINVAL;
+	}
+    
+    match = of_match_device(dev->driver->of_match_table, dev);
+	
+	if (!match || !match->data)
+	{
+		dev_err(dev, "could not get hardware specific data\n");
+		return -EINVAL;
+	}
+    
+    ip = devm_kzalloc(dev, sizeof(*ip), GFP_KERNEL);
 
     if (!ip) {
+    	dev_err(dev, "could not alloc ip data structure\n");
         return -ENOMEM;
     }
     
+    hwdiff = devm_kzalloc(dev, sizeof(*hwdiff), GFP_KERNEL);
+    
+    if (!hwdiff) {
+    	dev_err(dev, "could not alloc hwdiff data structure\n");
+        return -ENOMEM;
+    }
+    
+    ip_ops = devm_kzalloc(dev, sizeof(*ip_ops), GFP_KERNEL);
+    
+    if (!ip_ops) {
+    	dev_err(dev, "could not alloc ip ops data structure\n");
+        return -ENOMEM;
+    }
+    
+    platform_set_drvdata(pdev, ip);
+    
+    ip->ops = ip_ops;
+    ip->hwdiff = hwdiff;
+    
+    *hwdiff = *((const struct hdmi_ip_hwdiff*)(match->data));
+    
+    ip_ops->init = ip_init;
+	ip_ops->exit = ip_exit;
+	ip_ops->hpd_enable = ip_hpd_enable;
+	ip_ops->hpd_disable = ip_hpd_disable;
+	ip_ops->hpd_is_pending = ip_hpd_is_pending;
+	ip_ops->hpd_clear_pending = ip_hpd_clear_pending;
+	ip_ops->cable_status = ip_cable_status;
+	ip_ops->video_enable = ip_video_enable;
+	ip_ops->video_disable = ip_video_disable;
+	ip_ops->is_video_enabled = ip_is_video_enabled;
+	ip_ops->packet_generate = ip_packet_generate;
+	ip_ops->packet_send = ip_packet_send;
+	ip_ops->audio_enable = ip_audio_enable;
+	ip_ops->audio_disable = ip_audio_disable;
+	
     ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
     
-    if (ret)
-    {
-        dev_err(&pdev->dev, "failed to set DMA mask: %d\n", ret);
+    if (ret) {
+        dev_err(&pdev->dev, "failed to set DMA mask\n");
         return ret;
     }
     
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cmu");
-	ip->cmu_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	
-	if (IS_ERR(ip->cmu_base)) {
-		return PTR_ERR(ip->cmu_base);
+	if (res) {
+		ip->cmu_base = devm_ioremap(dev, res->start, resource_size(res));
+	}
+	if (IS_ERR_OR_NULL(ip->cmu_base))
+	{
+		dev_err(dev, "could not map cmu registers\n");
+		return (!ip->cmu_base) ? -ENODEV : PTR_ERR(ip->cmu_base);
 	}
 	
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "hdmi");
-	ip->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	
-	if (IS_ERR(ip->base)) {
-		return PTR_ERR(ip->base);
+	if (res) {
+		ip->base = devm_ioremap(dev, res->start, resource_size(res));
+	}
+	if (IS_ERR_OR_NULL(ip->base))
+	{
+		dev_err(dev, "could not map hdmi registers\n");
+		return (!ip->base) ? -ENODEV : PTR_ERR(ip->base);
 	}
 	
-	ip->hdmi_dev_clk = devm_clk_get(&pdev->dev, "hdmi");
+	ip->hdmi_dev_clk = devm_clk_get(dev, "hdmi");
 	
 	if (IS_ERR(ip->hdmi_dev_clk)) {
-		return -EINVAL;
+		dev_err(dev, "could not get hdmi clock\n");
+		return -ENODEV;
 	}
 	
-	ip->hdmi_rst = devm_reset_control_get(&pdev->dev, "hdmi");
+	ip->hdmi_rst = devm_reset_control_get(dev, "hdmi");
 	
 	if (IS_ERR(ip->hdmi_rst)) {
+		dev_err(dev, "could not get hdmi reset control\n");
 		return PTR_ERR(ip->hdmi_rst);
 	}
-	
-	ip->hwdiff = &ip_sx00;
-	ip->ops = &ip_sx00_ops;
 	
 	ret = ip->ops->init(ip);
 	
 	if (ret) {
+		dev_err(dev, "hdmi ip init failed\n");
 		return ret;
 	}
 	
-	platform_set_drvdata(pdev, ip);
+	dev_info(dev, "probe finished\n");
 	return 0;
 }
 
 static int caninos_hdmi_ip_remove(struct platform_device *pdev)
 {
 	struct hdmi_ip *ip = platform_get_drvdata(pdev);
-	ip->ops->exit(ip);
+	
+	if (ip && ip->ops)
+		ip->ops->exit(ip);
+	
 	return 0;
 }
 
 static const struct of_device_id caninos_hdmi_ip_match[] = {
-	{ .compatible = "caninos,k7-hdmi" },
-	{ }
+	{ .compatible = "caninos,k7-hdmi", .data = (void*)&ip_hwdiff_k7 },
+	{ /* sentinel */ },
 };
 
 MODULE_DEVICE_TABLE(of, caninos_hdmi_ip_match);

@@ -18,6 +18,9 @@
 #include "../pinctrl-utils.h"
 #include "pinctrl-caninos.h"
 
+#define BANK_LABEL_LEN (32)
+#define GPIO_PER_BANK  (32)
+
 #define GPIO_AOUTEN  0x00
 #define GPIO_AINEN   0x04
 #define GPIO_ADAT    0x08
@@ -64,6 +67,56 @@
 /* pending mask for share intc_ctlr */
 #define GPIO_CTLR_PENDING_MASK (0x42108421)
 
+struct caninos_pinctrl;
+
+struct caninos_gpio_chip
+{
+	struct caninos_pinctrl *pinctrl;
+	struct gpio_chip gpio_chip;
+	char label[BANK_LABEL_LEN];
+	int addr, npins;
+	u32 mask;
+};
+
+struct caninos_pinctrl
+{
+	struct device *dev;
+	spinlock_t lock;
+	void __iomem *base;
+	struct clk *clk;
+	struct pinctrl_desc pctl_desc;
+	struct pinctrl_dev *pctl_dev;
+	struct caninos_gpio_chip *banks;
+	int nbanks;
+	
+	const struct caninos_pmx_func *functions;
+	int nfuncs;
+	
+	const struct caninos_group *groups;
+	int ngroups;
+};
+
+struct caninos_pinctrl_hwdiff
+{
+	const struct caninos_pmx_func *functions;
+	int nfuncs;
+	
+	const struct caninos_group *groups;
+	int ngroups;
+	
+	const struct pinctrl_pin_desc *pins;
+	int npins;
+};
+
+static struct caninos_pinctrl_hwdiff k7_pinctrl_hw = {
+	.functions = caninos_functions_k7,
+	.nfuncs = ARRAY_SIZE(caninos_functions_k7),
+	.groups = caninos_groups_k7,
+	.ngroups = ARRAY_SIZE(caninos_groups_k7),
+	.pins = caninos_pins_k7,
+	.npins = ARRAY_SIZE(caninos_pins_k7),
+};
+
 #define to_caninos_gpio_chip(x) \
 	container_of(x, struct caninos_gpio_chip, gpio_chip)
 
@@ -72,56 +125,38 @@
 
 static int caninos_get_groups_count(struct pinctrl_dev *pctldev)
 {
-	return ARRAY_SIZE(caninos_groups);
+	struct caninos_pinctrl *pctl = to_caninos_pinctrl(pctldev);
+	return pctl->ngroups;
 }
 
 static const char *caninos_get_group_name(struct pinctrl_dev *pctldev,
                                           unsigned selector)
 {
-	return caninos_groups[selector].name;
+	struct caninos_pinctrl *pctl = to_caninos_pinctrl(pctldev);
+	return pctl->groups[selector].name;
 }
 
 static int caninos_get_group_pins(struct pinctrl_dev *pctldev, unsigned selector,
                                 const unsigned ** pins,
                                 unsigned * num_pins)
 {
-	*pins = caninos_groups[selector].pins;
-	*num_pins = caninos_groups[selector].num_pins;
+	struct caninos_pinctrl *pctl = to_caninos_pinctrl(pctldev);
+	*pins = pctl->groups[selector].pins;
+	*num_pins = pctl->groups[selector].num_pins;
 	return 0;
 }
 
-static const struct caninos_pmx_func caninos_functions[] = {
-	{
-		.name = "uart0",
-		.groups = uart0_groups,
-		.num_groups = ARRAY_SIZE(uart0_groups),
-	},
-	{
-		.name = "i2c2",
-		.groups = i2c2_groups,
-		.num_groups = ARRAY_SIZE(i2c2_groups),
-	},
-	{
-		.name = "pwm",
-		.groups = pwm_groups,
-		.num_groups = ARRAY_SIZE(pwm_groups),
-	},
-	{
-		.name = "eth",
-		.groups = eth_groups,
-		.num_groups = ARRAY_SIZE(eth_groups),
-	},
-};
-
 int caninos_pmx_get_functions_count(struct pinctrl_dev *pctldev)
 {
-	return ARRAY_SIZE(caninos_functions);
+	struct caninos_pinctrl *pctl = to_caninos_pinctrl(pctldev);
+	return pctl->nfuncs;
 }
 
 const char *caninos_pmx_get_fname(struct pinctrl_dev *pctldev,
                                   unsigned selector)
 {
-	return caninos_functions[selector].name;
+	struct caninos_pinctrl *pctl = to_caninos_pinctrl(pctldev);
+	return pctl->functions[selector].name;
 }
 
 static int caninos_pmx_get_fgroups(struct pinctrl_dev *pctldev,
@@ -129,8 +164,9 @@ static int caninos_pmx_get_fgroups(struct pinctrl_dev *pctldev,
                                    const char * const **groups,
                                    unsigned * num_groups)
 {
-	*groups = caninos_functions[selector].groups;
-	*num_groups = caninos_functions[selector].num_groups;
+	struct caninos_pinctrl *pctl = to_caninos_pinctrl(pctldev);
+	*groups = pctl->functions[selector].groups;
+	*num_groups = pctl->functions[selector].num_groups;
 	return 0;
 }
 
@@ -485,7 +521,8 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 static int caninos_pinctrl_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	//const struct of_device_id *match;
+	const struct caninos_pinctrl_hwdiff *pinctrl_hw;
+	const struct of_device_id *match;
 	struct device *dev = &pdev->dev;
 	struct caninos_pinctrl *pctl;
 	struct device_node *child;
@@ -497,13 +534,15 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	
-	/*match = of_match_device(dev->driver->of_match_table, dev);
+	match = of_match_device(dev->driver->of_match_table, dev);
 	
 	if (!match || !match->data)
 	{
-		////
+		dev_err(dev, "could not get hardware specific data\n");
 		return -EINVAL;
-	}*/
+	}
+	
+	pinctrl_hw = (const struct caninos_pinctrl_hwdiff*)(match->data);
 	
 	pctl = devm_kzalloc(dev, sizeof(*pctl), GFP_KERNEL);
 	
@@ -516,10 +555,17 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 	
 	pctl->dev = dev;
 	pctl->nbanks = 0;
+	
+	pctl->functions = pinctrl_hw->functions;
+	pctl->nfuncs = pinctrl_hw->nfuncs;
+	
+	pctl->groups = pinctrl_hw->groups;
+	pctl->ngroups = pinctrl_hw->ngroups;
+	
 	pctl->pctl_desc.name = dev_name(dev);
 	pctl->pctl_desc.owner = THIS_MODULE;
-	pctl->pctl_desc.pins = caninos_pins;
-	pctl->pctl_desc.npins = ARRAY_SIZE(caninos_pins);
+	pctl->pctl_desc.pins = pinctrl_hw->pins;
+	pctl->pctl_desc.npins = pinctrl_hw->npins;
 	pctl->pctl_desc.confops = &caninos_pconf_ops;
 	pctl->pctl_desc.pctlops = &caninos_pctrl_ops;
 	pctl->pctl_desc.pmxops = &caninos_pmxops;
@@ -597,13 +643,12 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 	if ((ret = caninos_gpiolib_register_banks(pctl)) < 0)
 		return ret;
 	
-	dev_err(dev, "probe finished\n");
+	dev_info(dev, "probe finished\n");
 	return 0;
 }
 
 static const struct of_device_id caninos_pinctrl_dt_ids[] = {
-	{ .compatible = "caninos,k7-pinctrl", .data = (void*)0, },
-	{ .compatible = "caninos,k5-pinctrl", .data = (void*)0, },
+	{ .compatible = "caninos,k7-pinctrl", .data = (void*)&k7_pinctrl_hw, },
 	{ /* sentinel */ },
 };
 

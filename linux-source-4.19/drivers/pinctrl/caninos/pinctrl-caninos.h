@@ -1,10 +1,4 @@
 
-#define BANK_LABEL_LEN (32)
-#define GPIO_PER_BANK  (32)
-
-//#define GPIO_BIT(gpio) (0x1 << (gpio))
-//#define GPIO_BANK_START(bank) ((bank) * GPIO_PER_BANK)
-
 #define GPIOA(x) (x)
 #define GPIOB(x) (32 + (x))
 #define GPIOC(x) (64 + (x))
@@ -23,30 +17,46 @@ struct caninos_pmx_func {
 	unsigned num_groups;
 };
 
-struct caninos_pinctrl;
-
-struct caninos_gpio_chip
-{
-	struct caninos_pinctrl *pinctrl;
-	struct gpio_chip gpio_chip;
-	char label[BANK_LABEL_LEN];
-	int addr, npins;
-	u32 mask;
+static const char * const uart0_groups[] = {
+	"uart0_extio_grp", "uart0_dummy_grp"
 };
 
-struct caninos_pinctrl
-{
-	struct device *dev;
-	spinlock_t lock;
-	void __iomem *base;
-	struct clk *clk;
-	struct pinctrl_desc pctl_desc;
-	struct pinctrl_dev *pctl_dev;
-	struct caninos_gpio_chip *banks;
-	int nbanks;
+static const char * const i2c2_groups[] = {
+	"i2c2_extio_grp", "i2c2_dummy_grp"
 };
 
-const static struct pinctrl_pin_desc caninos_pins[] = {
+static const char * const pwm_groups[] = {
+	"pwm_extio_grp", "pwm_dummy_grp"
+};
+
+static const char * const eth_groups[] = {
+	"eth_rmii_grp", "eth_rgmii_grp"
+};
+
+static const struct caninos_pmx_func caninos_functions_k7[] = {
+	{
+		.name = "uart0",
+		.groups = uart0_groups,
+		.num_groups = ARRAY_SIZE(uart0_groups),
+	},
+	{
+		.name = "i2c2",
+		.groups = i2c2_groups,
+		.num_groups = ARRAY_SIZE(i2c2_groups),
+	},
+	{
+		.name = "pwm",
+		.groups = pwm_groups,
+		.num_groups = ARRAY_SIZE(pwm_groups),
+	},
+	{
+		.name = "eth",
+		.groups = eth_groups,
+		.num_groups = ARRAY_SIZE(eth_groups),
+	},
+};
+
+static const struct pinctrl_pin_desc caninos_pins_k7[] = {
 	PINCTRL_PIN(0, "DUMMY0"),            // GPIOA0
 	PINCTRL_PIN(1, "DUMMY1"),            // GPIOA1
 	PINCTRL_PIN(2, "DUMMY2"),            // GPIOA2
@@ -185,20 +195,20 @@ const static struct pinctrl_pin_desc caninos_pins[] = {
 	PINCTRL_PIN(135, "D3_ETH_RXD3"),     // GPIOE7
 };
 
-const static unsigned int uart0_extio_pins[] = { GPIOC(27), GPIOC(26) };
-const static unsigned int i2c2_extio_pins[]  = { GPIOE(3), GPIOE(2) };
-const static unsigned int pwm_extio_pins[]   = { GPIOB(8) };
+static const unsigned int uart0_extio_pins[] = { GPIOC(27), GPIOC(26) };
+static const unsigned int i2c2_extio_pins[]  = { GPIOE(3), GPIOE(2) };
+static const unsigned int pwm_extio_pins[]   = { GPIOB(8) };
 
-const static unsigned int uart0_dummy_pins[] = { GPIOA(0), GPIOA(1) };
-const static unsigned int i2c2_dummy_pins[]  = { GPIOA(2), GPIOA(3) };
-const static unsigned int pwm_dummy_pins[]   = { GPIOA(4) };
+static const unsigned int uart0_dummy_pins[] = { GPIOA(0), GPIOA(1) };
+static const unsigned int i2c2_dummy_pins[]  = { GPIOA(2), GPIOA(3) };
+static const unsigned int pwm_dummy_pins[]   = { GPIOA(4) };
 
-const static unsigned int eth_rmii_pins[] = {
+static const unsigned int eth_rmii_pins[] = {
 	GPIOA(21), GPIOA(15), GPIOA(14), GPIOA(16), GPIOA(17), 
 	GPIOA(19), GPIOA(20), GPIOA(18), GPIOA(22), GPIOA(23)
 };
 
-const static unsigned int eth_rgmii_pins[] = {
+static const unsigned int eth_rgmii_pins[] = {
 	GPIOA(21), GPIOE(5), GPIOE(4), GPIOA(15), GPIOA(14), GPIOA(16), GPIOA(17),
 	GPIOE(7), GPIOE(6), GPIOA(19), GPIOA(20), GPIOA(18), GPIOA(22), GPIOA(23)
 };
@@ -219,7 +229,7 @@ const static unsigned int eth_rgmii_pins[] = {
 // MDC          -- MDC           --> GPIOA22
 // MDIO         -- MDIO          --> GPIOA23
 
-const static struct caninos_group caninos_groups[] = {
+static const struct caninos_group caninos_groups_k7[] = {
 	{
 		.name = "uart0_extio_grp",
 		.pins = uart0_extio_pins,
@@ -261,16 +271,4 @@ const static struct caninos_group caninos_groups[] = {
 		.num_pins = ARRAY_SIZE(eth_rgmii_pins),
 	},
 };
-
-const static char * const uart0_groups[] =
-{ "uart0_extio_grp", "uart0_dummy_grp" };
-
-const static char * const i2c2_groups[] =
-{ "i2c2_extio_grp", "i2c2_dummy_grp" };
-
-const static char * const pwm_groups[] = 
-{ "pwm_extio_grp", "pwm_dummy_grp" };
-
-const static char * const eth_groups[] =
-{ "eth_rmii_grp", "eth_rgmii_grp" };
 
