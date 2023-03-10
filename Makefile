@@ -25,7 +25,8 @@ menuconfig32:
 dtbs32:
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm dtbs
 	$(Q)mkdir -p $(OUTPUT32)
-	$(Q)cp $(BUILD32)/arch/arm/boot/dts/caninos-k5.dtb $(OUTPUT32)/
+	$(Q)rm -rf $(OUTPUT32)/*.dtb
+	$(Q)cp $(BUILD32)/arch/arm/boot/dts/*.dtb $(OUTPUT32)/
 	
 kernel32: dtbs32
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm -j$(CPUS) uImage modules
@@ -33,6 +34,7 @@ kernel32: dtbs32
 	$(Q)rm -rf $(OUTPUT32)/lib
 	$(Q)mkdir -p $(OUTPUT32)/lib
 	$(Q)cp -rf $(BUILD32)/lib/modules $(OUTPUT32)/lib/; find $(OUTPUT32)/lib/ -type l -exec rm -f {} \;
+	$(Q)rm -f $(OUTPUT32)/uImage
 	$(Q)cp $(BUILD32)/arch/arm/boot/uImage $(OUTPUT32)/
 	
 clean32:
@@ -49,7 +51,8 @@ menuconfig:
 dtbs:
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD) CROSS_COMPILE=$(COMPILER) ARCH=arm64 dtbs
 	$(Q)mkdir -p $(OUTPUT)
-	$(Q)cp $(BUILD)/arch/arm64/boot/dts/caninos/v3psci.dtb $(OUTPUT)/
+	$(Q)rm -rf $(OUTPUT)/*.dtb
+	$(Q)cp $(BUILD)/arch/arm64/boot/dts/caninos/*.dtb $(OUTPUT)/
 	
 kernel: dtbs
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD) CROSS_COMPILE=$(COMPILER) ARCH=arm64 -j$(CPUS) Image modules
@@ -57,6 +60,7 @@ kernel: dtbs
 	$(Q)rm -rf $(OUTPUT)/lib
 	$(Q)mkdir -p $(OUTPUT)/lib
 	$(Q)cp -rf $(BUILD)/lib/modules $(OUTPUT)/lib/; find $(OUTPUT)/lib/ -type l -exec rm -f {} \;
+	$(Q)rm -f $(OUTPUT)/Image
 	$(Q)cp $(BUILD)/arch/arm64/boot/Image $(OUTPUT)/
 
 clean:

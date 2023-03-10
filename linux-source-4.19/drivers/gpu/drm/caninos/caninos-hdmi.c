@@ -28,7 +28,216 @@
 #include "hdmi.h"
 #include "ip-sx00.h"
 
-extern int hdmi_packet_gen_infoframe(struct hdmi_ip *ip);
+#define PACKET_PERIOD 1
+
+static int hdmi_gen_spd_infoframe(struct hdmi_ip *ip)
+{
+	static uint8_t pkt[32];
+	static char spdname[8] = "Vienna";
+	static char spddesc[16] = "DTV SetTop Box";
+	
+	unsigned int checksum = 0;
+	unsigned int i;
+	
+	/* clear buffer */
+	for (i = 0; i < 32; i++)
+		pkt[i] = 0;
+		
+	/* header */
+	pkt[0] = 0x80 | 0x03;	/* HB0: Packet Type = 0x83 */
+	pkt[1] = 1;		/* HB1: version = 1 */
+	pkt[2] = 0x1f & 25;	/* HB2: len = 25 */
+	pkt[3] = 0x00;		/* PB0: checksum = 0 */
+
+	/*
+	 * data
+	 */
+
+	/* Vendor Name, 8 bytes */
+	memcpy(&pkt[4], spdname, 8);
+
+	/* Product Description, 16 bytes */
+	memcpy(&pkt[12], spddesc, 16);
+
+	/* Source Device Information, Digital STB */
+	pkt[28] = 0x1;
+
+	/* checksum */
+	for (i = 0; i < 31; i++)
+		checksum += pkt[i];
+	pkt[3] = (~checksum + 1)  & 0xff;
+
+	/* set to RAM Packet */
+	ip->ops.packet_generate(ip, PACKET_SPD_SLOT, pkt);
+	ip->ops.packet_send(ip, PACKET_SPD_SLOT, PACKET_PERIOD);
+
+	return 0;
+}
+
+static int hdmi_gen_avi_infoframe(struct hdmi_ip *ip)
+{
+	static uint8_t pkt[32];
+	uint8_t AR = 2;
+	uint32_t checksum = 0, i = 0;
+
+	/* clear buffer */
+	for (i = 0; i < 32; i++)
+		pkt[i] = 0;
+
+	/* header */
+	pkt[0] = 0x80 | 0x02;	/* header = 0x82 */
+	pkt[1] = 2;		/* version = 2 */
+	pkt[2] = 0x1f & 13;	/* len = 13 */
+	pkt[3] = 0x00;		/* checksum = 0 */
+
+	/*
+	 * data
+	 */
+
+	/*
+	 * PB1--Y1:Y0 = colorformat; R3:R1 is invalid;
+	 * no bar info and scan info
+	 */
+	pkt[4] = (ip->settings.pixel_encoding << 5) | (0 << 4) | (0 << 2) | (0);
+
+	/* 0--Normal YCC601 or YCC709; 1--xvYCC601; 2--xvYCC709 */
+	if (ip->settings.color_xvycc == 0) {
+		/*
+		 * PB2--Colorimetry: SMPTE 170M | ITU601;
+		 * Picture aspect Ratio; same as picture aspect ratio
+		 */
+		pkt[5] = (0x1<<6) | (AR << 4) | (0x8);
+
+		/* PB3--No known non-uniform scaling */
+		pkt[6] = 0x0;
+	} else if (ip->settings.color_xvycc == 1) {
+		/*
+		 * PB2--Colorimetry: SMPTE 170M | ITU601;
+		 * Picture aspect Ratio; same as picture aspect ratio
+		 */
+		pkt[5] = (0x3 << 6) | (AR << 4) | (0x8);
+
+		/* PB3--xvYCC601;No known non-uniform scaling */
+		pkt[6] = 0x0;
+
+	} else {
+		/*
+		 * PB2--Colorimetry: SMPTE 170M | ITU601;
+		 * Picture aspect Ratio; same as picture aspect ratio
+		 */
+		pkt[5] = (0x3 << 6) | (AR << 4) | (0x8);
+
+		/* PB3--xvYCC709;No known non-uniform scaling */
+		pkt[6] = 0x1 << 4;
+	}
+
+	/* PB4--Video Id */
+	
+		pkt[7] = ip->vid;
+
+	/* PB5--Pixel repeat time */
+	pkt[8] = 0;
+
+	/* PB6--PB13: Bar Info, no bar info */
+	pkt[9] = 0;
+	pkt[10] = 0;
+	pkt[11] = 0;
+	pkt[12] = 0;
+	pkt[13] = 0;
+	pkt[14] = 0;
+	pkt[15] = 0;
+	pkt[16] = 0;
+
+	/* checksum */
+	for (i = 0; i < 31; i++)
+		checksum += pkt[i];
+	pkt[3] = (~checksum + 1) & 0xff;
+
+	/* set to RAM Packet */
+	ip->ops.packet_generate(ip, PACKET_AVI_SLOT, pkt);
+	ip->ops.packet_send(ip, PACKET_AVI_SLOT, PACKET_PERIOD);
+
+	return 0;
+}
+
+static int hdmi_gen_vs_infoframe(struct hdmi_ip *ip)
+{
+	static uint8_t pkt[32];
+	uint32_t checksum = 0;
+	int i;
+
+	/* clear buffer */
+	for (i = 0; i < 32; i++)
+		pkt[i] = 0;
+
+	/* header */
+	pkt[0] = 0x81;	/* header */
+	pkt[1] = 0x1;	/* Version */
+	pkt[2] = 0x6;	/* length */
+	pkt[3] = 0x00;	/* checksum */
+
+	/*
+	 * data
+	 */
+
+	/* PB1--PB3:24bit IEEE Registration Identifier */
+	pkt[4] = 0x03;
+	pkt[5] = 0x0c;
+	pkt[6] = 0x00;
+
+
+	if (ip->settings.mode_3d != 0)
+	{
+		pkt[7] = 0x2 << 5;	/* 3D format */
+
+		switch (ip->settings.mode_3d) {
+		case HDMI_3D_FRAME:
+			pkt[8] = 0x0 << 4;
+			pkt[9] = 0x0;
+			break;
+
+		case HDMI_3D_LR_HALF:
+			pkt[8] = 0x8 << 4;
+			pkt[9] = 0x1 << 4;
+			break;
+
+		case HDMI_3D_TB_HALF:
+			pkt[8] = 0x6 << 4;
+			pkt[9] = 0x0;
+			break;
+
+		default:
+			break;
+		}
+	} else {
+		/* not (3D and 4kx2k@24/25/30/24SMPTE) format, stop vs packet */
+		ip->ops.packet_send(ip, PACKET_VS_SLOT, 0);
+		return 0;
+	}
+
+	for (i = 0; i < 31; i++)
+		checksum += pkt[i];
+	pkt[3] = (~checksum + 1) & 0xff;
+
+	/* set to RAM Packet */
+	ip->ops.packet_generate(ip, PACKET_VS_SLOT, pkt);
+	ip->ops.packet_send(ip, PACKET_VS_SLOT, PACKET_PERIOD);
+
+	return 0;
+}
+
+static int hdmi_packet_gen_infoframe(struct hdmi_ip *ip)
+{
+	hdmi_gen_spd_infoframe(ip);
+
+	if (hdmi_gen_avi_infoframe(ip))
+		return -1;
+
+	/* hdmi_gen_gbd_infoframe(ip); */
+	hdmi_gen_vs_infoframe(ip);
+
+	return 0;
+}
 
 static inline void hdmi_ip_writel(struct hdmi_ip *ip, const uint16_t idx, uint32_t val) {
 	writel(val, ip->base + idx);
@@ -391,10 +600,8 @@ static void __ip_video_format_config(struct hdmi_ip *ip)
 
 static int ip_video_enable(struct hdmi_ip *ip)
 {
-	uint32_t val, mode, val_hp, val_vp;
-	bool vsync_pol, hsync_pol;
-	int preline, retry;
-	int ret;
+	uint32_t val, mode;
+	int preline, ret;
 	
 	ret = ip_update_reg_values(ip);
 	
@@ -625,26 +832,26 @@ static bool ip_hpd_is_pending(struct hdmi_ip *ip)
 static void ip_hpd_clear_pending(struct hdmi_ip *ip)
 {
 	u32 val = hdmi_ip_readl(ip, HDMI_CR);
-	val = REG_SET_VAL(val, 0x01, 30, 30);	/* clear pending bit */
+	val = REG_SET_VAL(val, 0x01, 30, 30); /* clear pending bit */
 	hdmi_ip_writel(ip, HDMI_CR, val);
 }
 
 static void ip_hpd_enable(struct hdmi_ip *ip)
 {
 	u32 val = hdmi_ip_readl(ip, HDMI_CR);
-	val = REG_SET_VAL(val, 0x0f, 27, 24);	/* hotplug debounce */
-	val = REG_SET_VAL(val, 0x01, 31, 31);	/* enable hotplug interrupt */
-	val = REG_SET_VAL(val, 0x01, 28, 28);	/* enable hotplug function */
-	val = REG_SET_VAL(val, 0x00, 30, 30);	/* not clear pending bit */
+	val = REG_SET_VAL(val, 0x0f, 27, 24); /* hotplug debounce */
+	val = REG_SET_VAL(val, 0x01, 31, 31); /* enable hotplug interrupt */
+	val = REG_SET_VAL(val, 0x01, 28, 28); /* enable hotplug function */
+	val = REG_SET_VAL(val, 0x00, 30, 30); /* not clear pending bit */
 	hdmi_ip_writel(ip, HDMI_CR, val);
 }
 
 static void ip_hpd_disable(struct hdmi_ip *ip)
 {
 	u32 val = hdmi_ip_readl(ip, HDMI_CR);
-	val = REG_SET_VAL(val, 0x00, 31, 31);	/* disable hotplug interrupt */
-	val = REG_SET_VAL(val, 0x00, 28, 28);	/* enable hotplug function */
-	val = REG_SET_VAL(val, 0x01, 30, 30);	/* clear pending bit */
+	val = REG_SET_VAL(val, 0x00, 31, 31); /* disable hotplug interrupt */
+	val = REG_SET_VAL(val, 0x00, 28, 28); /* enable hotplug function */
+	val = REG_SET_VAL(val, 0x01, 30, 30); /* clear pending bit */
 	hdmi_ip_writel(ip, HDMI_CR, val);
 }
 
@@ -666,7 +873,7 @@ static int ip_power_on(struct hdmi_ip *ip)
 	if (!ip_is_video_enabled(ip)) {
 		reset_control_assert(ip->hdmi_rst);
 	}
-
+	
 	clk_prepare_enable(ip->hdmi_dev_clk);
 	mdelay(1);
 	
@@ -691,7 +898,6 @@ static int ip_init(struct hdmi_ip *ip)
 	ip->settings.prelines = 0;
 	ip->settings.channel_invert = 0;
 	ip->settings.bit_invert = 0;
-	
 	return ip_power_on(ip);
 }
 
@@ -713,16 +919,16 @@ static int ip_audio_disable(struct hdmi_ip *ip)
 
 static const struct hdmi_ip_hwdiff ip_hwdiff_k7 = {
 	.hp_start = 16,
-	.hp_end	= 28,
+	.hp_end = 28,
 	.vp_start = 4,
-	.vp_end	= 15,
-	.mode_start	= 0,
+	.vp_end = 15,
+	.mode_start = 0,
 	.mode_end = 0,
 	.pll_reg = 0x18,
-	.pll_24m_en	= 23,
-	.pll_en	= 3,
+	.pll_24m_en = 23,
+	.pll_en = 3,
 	.pll_debug0_reg = 0xF0,
-	.pll_debug1_reg	= 0xF4,
+	.pll_debug1_reg = 0xF4,
 };
 
 static int caninos_hdmi_ip_probe(struct platform_device *pdev)
@@ -730,75 +936,55 @@ static int caninos_hdmi_ip_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	const struct of_device_id *match;
 	struct device *dev = &pdev->dev;
-	struct hdmi_ip_hwdiff *hwdiff;
-	struct hdmi_ip_ops *ip_ops;
 	struct resource *res;
 	struct hdmi_ip *ip;
-    int ret;
-    
-    if (!np) {
+	int ret;
+	
+	if (!np) {
 		dev_err(dev, "missing device OF node\n");
 		return -EINVAL;
 	}
-    
-    match = of_match_device(dev->driver->of_match_table, dev);
+	
+	match = of_match_device(dev->driver->of_match_table, dev);
 	
 	if (!match || !match->data)
 	{
 		dev_err(dev, "could not get hardware specific data\n");
 		return -EINVAL;
 	}
-    
-    ip = devm_kzalloc(dev, sizeof(*ip), GFP_KERNEL);
-
-    if (!ip) {
-    	dev_err(dev, "could not alloc ip data structure\n");
-        return -ENOMEM;
-    }
-    
-    hwdiff = devm_kzalloc(dev, sizeof(*hwdiff), GFP_KERNEL);
-    
-    if (!hwdiff) {
-    	dev_err(dev, "could not alloc hwdiff data structure\n");
-        return -ENOMEM;
-    }
-    
-    ip_ops = devm_kzalloc(dev, sizeof(*ip_ops), GFP_KERNEL);
-    
-    if (!ip_ops) {
-    	dev_err(dev, "could not alloc ip ops data structure\n");
-        return -ENOMEM;
-    }
-    
-    platform_set_drvdata(pdev, ip);
-    
-    ip->ops = ip_ops;
-    ip->hwdiff = hwdiff;
-    
-    *hwdiff = *((const struct hdmi_ip_hwdiff*)(match->data));
-    
-    ip_ops->init = ip_init;
-	ip_ops->exit = ip_exit;
-	ip_ops->hpd_enable = ip_hpd_enable;
-	ip_ops->hpd_disable = ip_hpd_disable;
-	ip_ops->hpd_is_pending = ip_hpd_is_pending;
-	ip_ops->hpd_clear_pending = ip_hpd_clear_pending;
-	ip_ops->cable_status = ip_cable_status;
-	ip_ops->video_enable = ip_video_enable;
-	ip_ops->video_disable = ip_video_disable;
-	ip_ops->is_video_enabled = ip_is_video_enabled;
-	ip_ops->packet_generate = ip_packet_generate;
-	ip_ops->packet_send = ip_packet_send;
-	ip_ops->audio_enable = ip_audio_enable;
-	ip_ops->audio_disable = ip_audio_disable;
 	
-    ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
-    
-    if (ret) {
-        dev_err(&pdev->dev, "failed to set DMA mask\n");
-        return ret;
-    }
-    
+	ip = devm_kzalloc(dev, sizeof(*ip), GFP_KERNEL);
+	
+	if (!ip) {
+		dev_err(dev, "could not alloc ip data structure\n");
+		return -ENOMEM;
+	}
+	
+	ip->hwdiff = devm_kzalloc(dev, sizeof(struct hdmi_ip_hwdiff), GFP_KERNEL);
+	
+	if (!ip->hwdiff) {
+		dev_err(dev, "could not alloc hwdiff data structure\n");
+		return -ENOMEM;
+	}
+	
+	memcpy(ip->hwdiff, match->data, sizeof(struct hdmi_ip_hwdiff));
+	
+	ip->dev = dev;
+	ip->ops.init = ip_init;
+	ip->ops.exit = ip_exit;
+	ip->ops.hpd_enable = ip_hpd_enable;
+	ip->ops.hpd_disable = ip_hpd_disable;
+	ip->ops.hpd_is_pending = ip_hpd_is_pending;
+	ip->ops.hpd_clear_pending = ip_hpd_clear_pending;
+	ip->ops.cable_status = ip_cable_status;
+	ip->ops.video_enable = ip_video_enable;
+	ip->ops.video_disable = ip_video_disable;
+	ip->ops.is_video_enabled = ip_is_video_enabled;
+	ip->ops.packet_generate = ip_packet_generate;
+	ip->ops.packet_send = ip_packet_send;
+	ip->ops.audio_enable = ip_audio_enable;
+	ip->ops.audio_disable = ip_audio_disable;
+	
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cmu");
 	
 	if (res) {
@@ -835,12 +1021,14 @@ static int caninos_hdmi_ip_probe(struct platform_device *pdev)
 		return PTR_ERR(ip->hdmi_rst);
 	}
 	
-	ret = ip->ops->init(ip);
+	ret = ip->ops.init(ip);
 	
 	if (ret) {
 		dev_err(dev, "hdmi ip init failed\n");
 		return ret;
 	}
+	
+	platform_set_drvdata(pdev, ip);
 	
 	dev_info(dev, "probe finished\n");
 	return 0;
@@ -849,10 +1037,8 @@ static int caninos_hdmi_ip_probe(struct platform_device *pdev)
 static int caninos_hdmi_ip_remove(struct platform_device *pdev)
 {
 	struct hdmi_ip *ip = platform_get_drvdata(pdev);
-	
-	if (ip && ip->ops)
-		ip->ops->exit(ip);
-	
+	if (ip && ip->ops.exit)
+		ip->ops.exit(ip);
 	return 0;
 }
 
@@ -876,6 +1062,5 @@ static struct platform_driver caninos_hdmi_ip_driver = {
 module_platform_driver(caninos_hdmi_ip_driver);
 
 MODULE_AUTHOR("Edgar Bernardi Righi <edgar.righi@lsitec.org.br>");
-MODULE_DESCRIPTION("Caninos HDMI IP Driver");
+MODULE_DESCRIPTION("Caninos HDMI Video Driver");
 MODULE_LICENSE("GPL v2");
-

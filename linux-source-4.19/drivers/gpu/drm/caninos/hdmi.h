@@ -25,8 +25,8 @@
 #include <linux/clk.h>
 
 /* horizontal and vertical sync active high */
-#define DSS_SYNC_HOR_HIGH_ACT		(1 << 0)
-#define DSS_SYNC_VERT_HIGH_ACT		(1 << 1)
+#define DSS_SYNC_HOR_HIGH_ACT  (1 << 0)
+#define DSS_SYNC_VERT_HIGH_ACT (1 << 1)
 
 struct videomode
 {
@@ -115,12 +115,12 @@ enum hdmi_vid_table {
 };
 
 enum hdmi_packet_type {
-	PACKET_AVI_SLOT		= 0,
-	PACKET_AUDIO_SLOT	= 1,
-	PACKET_SPD_SLOT		= 2,
-	PACKET_GBD_SLOT		= 3,
-	PACKET_VS_SLOT		= 4,
-	PACKET_HFVS_SLOT	= 5,
+	PACKET_AVI_SLOT   = 0,
+	PACKET_AUDIO_SLOT = 1,
+	PACKET_SPD_SLOT   = 2,
+	PACKET_GBD_SLOT   = 3,
+	PACKET_VS_SLOT    = 4,
+	PACKET_HFVS_SLOT  = 5,
 	PACKET_MAX,
 };
 
@@ -186,16 +186,16 @@ struct hdmi_ip
 	void __iomem *base;
 	void __iomem *cmu_base;
 	
+	struct device *dev;
 	struct reset_control *hdmi_rst;
 	struct clk *hdmi_dev_clk;
 	
-	struct hdmi_ip_settings	settings;
+	struct hdmi_ip_settings settings;
 	int vid; /* video mode */
-	
 	struct videomode mode;
 	
 	bool interlace;
-	int	vstart;	/* vsync start line */
+	int vstart; /* vsync start line */
 	bool repeat;
 	
 	/* used for registers setting */
@@ -208,10 +208,10 @@ struct hdmi_ip
 	uint32_t phyctrl_2;
 	
 	/* ip functions */
-	const struct hdmi_ip_ops *ops;
+	struct hdmi_ip_ops ops;
 	
 	/* used for hardware specific configurations */
-	const struct hdmi_ip_hwdiff *hwdiff;
+	struct hdmi_ip_hwdiff *hwdiff;
 };
 
 #endif

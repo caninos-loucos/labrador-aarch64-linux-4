@@ -1,17 +1,31 @@
 # SPDX-License-Identifier: GPL-2.0-only
-config DRM_CANINOS_HDMI
-	bool
-	depends on DRM_CANINOS
-	
 config DRM_CANINOS
-	bool "DRM driver for Caninos"
-	depends on DRM && OF
-	depends on (COMPILE_TEST || ARCH_CANINOS)
+	tristate "DRM Support for Caninos Labrador Display Engine"
+	depends on DRM && OF && (COMPILE_TEST || ARCH_CANINOS)
+	select DRM_GEM_CMA_HELPER
 	select DRM_KMS_HELPER
 	select DRM_KMS_CMA_HELPER
-	select DMA_CMA if HAVE_DMA_CONTIGUOUS
-	select CMA if HAVE_DMA_CONTIGUOUS
-	select DRM_CANINOS_HDMI
+	select VIDEOMODE_HELPERS
 	help
-	 This is a KMS driver for Caninos
+	 This is a KMS driver for Caninos Labrador Display Engine.
+	 If M is selected the module will be called caninos-drm.
 
+if DRM_CANINOS
+
+config DRM_CANINOS_HDMI
+	tristate "Caninos Labrador HDMI Video Interface Support"
+	default DRM_CANINOS
+	help
+	 Support the HDMI Video Interface of Caninos Labrador SBCs.
+	 If M is selected the module will be called caninos-hdmi.
+
+config DRM_CANINOS_HDMI_AUDIO
+	tristate "Caninos Labrador HDMI Audio Interface Support"
+	depends on SND_SOC
+	depends on DRM_CANINOS_HDMI
+	select SND_SOC_HDMI_CODEC
+	help
+	 Support the HDMI Audio Interface of Caninos Labrador SBCs.
+	 If M is selected the module will be called caninos-hdmi-audio.
+
+endif

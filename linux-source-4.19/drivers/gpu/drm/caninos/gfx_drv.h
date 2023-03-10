@@ -194,22 +194,23 @@ enum caninos_blending_type
 
 struct caninos_gfx
 {
-    struct drm_connector connector;
-    struct drm_encoder encoder;
-    struct drm_plane plane;
-    struct drm_crtc crtc;
-    
-    void __iomem *base;
-    void __iomem *cvbs_base;
-    void __iomem *dcu_base;
-    
-    struct clk *clk, *parent_clk;
-    struct clk *tvout_clk, *cvbspll_clk;
-    
-    struct reset_control *cvbs_rst;
-    struct reset_control *de_rst;
-    
-    struct hdmi_ip *hdmi_ip;
+	struct drm_connector connector;
+	struct drm_encoder encoder;
+	struct drm_plane plane;
+	struct drm_crtc crtc;
+	struct device *dev;
+	
+	void __iomem *base;
+	void __iomem *cvbs_base;
+	void __iomem *dcu_base;
+	
+	struct clk *clk, *parent_clk;
+	struct clk *tvout_clk, *cvbspll_clk;
+	
+	struct reset_control *cvbs_rst;
+	struct reset_control *de_rst;
+	
+	struct hdmi_ip *hdmi_ip;
 };
 
 extern int caninos_gfx_pipe_init(struct drm_device *drm);
