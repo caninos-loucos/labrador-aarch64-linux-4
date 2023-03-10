@@ -59,6 +59,7 @@ static int caninos_gfx_load(struct drm_device *drm, struct hdmi_ip *hdmi_ip)
     }
     
     drm->dev_private = priv;
+    priv->dev = &pdev->dev;
     priv->hdmi_ip = hdmi_ip;
     
     ret = dma_set_mask_and_coherent(drm->dev, DMA_BIT_MASK(32));
@@ -170,51 +171,42 @@ static struct drm_driver caninos_gfx_driver = {
     .gem_prime_mmap = drm_gem_cma_prime_mmap,
     
     .fops = &fops,
-    .name = "caninosdrm",
+    .name = "caninos-drm",
     .desc = "CANINOS DRM",
     .date = "20200121",
     .major = 1,
     .minor = 0,
 };
 
-static const struct of_device_id caninos_gfx_match[] = {
-	{ .compatible = "caninos,k7-drm" },
-	{ }
-};
-
 static int caninos_gfx_probe(struct platform_device *pdev)
 {
-	struct hdmi_ip *hdmi_ip = NULL;
 	struct platform_device *hdmi_pdev;
+	struct hdmi_ip *hdmi_ip = NULL;
 	struct device_node *hdmi_np;
 	struct drm_device *drm;
 	int ret;
 	
 	hdmi_np = of_parse_phandle(pdev->dev.of_node, "hdmi-phy", 0);
 	
-	if (!hdmi_np)
-	{
+	if (!hdmi_np) {
 		dev_err(&pdev->dev, "could not get hdmi-phy node\n");
 		return -ENXIO;
 	}
 	
-	hdmi_pdev = of_find_device_by_node(hdmi_np);
-	
-	if (hdmi_pdev) {
+	if ((hdmi_pdev = of_find_device_by_node(hdmi_np)) != NULL) {
 		hdmi_ip = platform_get_drvdata(hdmi_pdev);
 	}
 	
 	of_node_put(hdmi_np);
 	
-	if (!hdmi_pdev || !hdmi_ip)
-	{
+	if (hdmi_ip == NULL) {
 		dev_err(&pdev->dev, "hdmi-phy is not ready\n");
 		return -EPROBE_DEFER;
 	}
 	
 	drm = drm_dev_alloc(&caninos_gfx_driver, &pdev->dev);
 	
-    if (IS_ERR(drm)) {
+	if (IS_ERR(drm)) {
 		return PTR_ERR(drm);
 	}
 	
@@ -223,7 +215,7 @@ static int caninos_gfx_probe(struct platform_device *pdev)
 	if (ret) {
 		goto err_free;
 	}
-
+	
 	ret = drm_dev_register(drm, 0);
 	
 	if (ret) {
@@ -231,11 +223,9 @@ static int caninos_gfx_probe(struct platform_device *pdev)
 	}
 	
 	drm_mode_config_reset(drm);
-	
 	drm_fbdev_generic_setup(drm, 32);
-
 	return 0;
-
+	
 err_unload:
 	caninos_gfx_unload(drm);
 err_free:
@@ -245,21 +235,27 @@ err_free:
 
 static int caninos_gfx_remove(struct platform_device *pdev)
 {
-    struct drm_device *drm = platform_get_drvdata(pdev);
-    
-    drm_dev_unregister(drm);
-    caninos_gfx_unload(drm);
-    drm_dev_put(drm);
-
-    return 0;
+	struct drm_device *drm = platform_get_drvdata(pdev);
+	drm_dev_unregister(drm);
+	caninos_gfx_unload(drm);
+	drm_dev_put(drm);
+	return 0;
 }
 
+static const struct of_device_id caninos_gfx_match[] = {
+	{ .compatible = "caninos,k7-drm" },
+	{ /* sentinel */ }
+};
+
+MODULE_DEVICE_TABLE(of, caninos_gfx_match);
+
 static struct platform_driver caninos_gfx_platform_driver = {
-    .probe		= caninos_gfx_probe,
-    .remove		= caninos_gfx_remove,
+    .probe = caninos_gfx_probe,
+    .remove = caninos_gfx_remove,
     .driver = {
-        .name = "caninosdrm",
+        .name = "caninos-drm",
         .of_match_table = caninos_gfx_match,
+        .owner = THIS_MODULE,
     },
 };
 
@@ -267,5 +263,4 @@ module_platform_driver(caninos_gfx_platform_driver);
 
 MODULE_AUTHOR("Edgar Bernardi Righi <edgar.righi@lsitec.org.br>");
 MODULE_DESCRIPTION("CANINOS DRM/KMS driver");
-MODULE_LICENSE("GPL");
-
+MODULE_LICENSE("GPL v2");

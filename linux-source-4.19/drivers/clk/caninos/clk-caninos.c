@@ -73,6 +73,37 @@ caninos_clk_register_fixed(struct caninos_clk_provider *ctx,
 }
 
 void __init
+caninos_clk_register_fixed_factor(struct caninos_clk_provider *ctx,
+                                  const struct caninos_fixed_factor_clock *clks,
+                                  int num)
+{
+	struct clk *clk;
+	int i, ret;
+	
+	for (i = 0; i < num; i++)
+	{
+		const struct caninos_fixed_factor_clock *info = &clks[i];
+		
+		clk = clk_register_fixed_factor(NULL, info->name, info->parent_name,
+		                                info->flags, info->mult, info->div);
+		
+		if (IS_ERR(clk))
+		{
+			pr_err("%s: failed to register clock %s\n", __func__, info->name);
+			continue;
+		}
+		
+		caninos_clk_add_lookup(ctx, clk, info->id);
+		
+		ret = clk_register_clkdev(clk, info->name, NULL);
+		
+		if (ret) {
+			pr_err("%s: failed to register lookup %s\n",__func__, info->name);
+		}
+	}
+}
+
+void __init
 caninos_clk_register_mux(struct caninos_clk_provider *ctx,
                          const struct caninos_mux_clock *clks, int num)
 {
@@ -278,5 +309,18 @@ caninos_clk_init(struct device_node *np,
     }
     
     return ctx;
+}
+
+void __init
+caninos_register_clk_tree(struct caninos_clk_provider *ctx,
+                          const struct caninos_clock_tree *tree)
+{
+	caninos_clk_register_fixed(ctx, tree->fixed.clks, tree->fixed.num);
+	caninos_clk_register_fixed_factor(ctx, tree->factor.clks, tree->factor.num);
+	caninos_clk_register_pll(ctx, tree->pll.clks, tree->pll.num);
+	caninos_clk_register_div(ctx, tree->div.clks, tree->div.num);
+	caninos_clk_register_mux(ctx, tree->mux.clks, tree->mux.num);
+	caninos_clk_register_gate(ctx, tree->gate.clks, tree->gate.num);
+	caninos_clk_register_composite(ctx, tree->comp.clks, tree->comp.num);
 }
 

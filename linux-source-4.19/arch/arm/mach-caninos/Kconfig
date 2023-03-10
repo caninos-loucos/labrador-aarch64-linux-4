@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MACH_CANINOS
+	bool
+	select ARM_AMBA
+	select ARM_GIC
+	select ARM_GLOBAL_TIMER
+	select SMP
+	select PM
+	select CACHE_L2X0
+	select CLKSRC_ARM_GLOBAL_TIMER_SCHED_CLOCK
+	select GENERIC_IRQ_CHIP
+	select HAVE_ARM_SCU
+	select HAVE_ARM_TWD
+	select HAVE_ARM_ARCH_TIMER
+	select HAS_DMA
+	select DMADEVICES
+	select ARCH_REQUIRE_GPIOLIB
+	select ARCH_HAS_OPP
+	select ARCH_HAS_CPUFREQ
+	select OF_ADDRESS
+	select HIGHMEM
+	select VFP
+	select CANINOS_TIMER
+	select RESET_CONTROLLER
+	select CANINOS_PM_DOMAINS
+	select DMA_CANINOS
+

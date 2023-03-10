@@ -55,7 +55,7 @@ static void caninos_dma_free_txd(struct lab_dma *cd, struct lab_dma_txd *txd)
 	kfree(txd);
 }
 
-static inline void caninos_dma_desc_free(struct virt_dma_desc *vd)
+static void caninos_dma_desc_free(struct virt_dma_desc *vd)
 {
 	struct lab_dma *cd = to_lab_dma(vd->tx.chan->device);
 	struct lab_dma_txd *txd = to_lab_txd(&vd->tx);
@@ -72,25 +72,28 @@ static inline void caninos_dma_put_pchan(struct lab_dma *cd,
 static void caninos_dma_terminate_pchan(struct lab_dma *cd,
                                         struct lab_dma_pchan *pchan)
 {
-	unsigned long flags, tmp;
+	unsigned long flags;
+	u32 tmp;
 	/* note: this is a forced termination, so we do not care about the data */
 	
 	/* stop dma operation */
-	pchan_writel(pchan, 0, DMAX_START);
+	pchan_writel(pchan, 0U, DMAX_START);
 	
 	/* clear interrupt status */
-	pchan_writel(pchan, pchan_readl(pchan, DMAX_INT_STATUS), DMAX_INT_STATUS);
+	tmp = pchan_readl(pchan, DMAX_INT_STATUS);
+	pchan_writel(pchan, tmp, DMAX_INT_STATUS);
 	
 	spin_lock_irqsave(&cd->lock, flags);
 	
 	/* disable channel interrupt */
-	dma_writel(cd, dma_readl(cd, DMA_IRQ_EN0) & ~BIT(pchan->id), DMA_IRQ_EN0);
+	tmp = dma_readl(cd, DMA_IRQ_EN0) & ~(1U << pchan->id);
+	dma_writel(cd, tmp, DMA_IRQ_EN0);
 	
 	/* clear interrupt pending flag */
 	tmp = dma_readl(cd, DMA_IRQ_PD0);
 	
-	if (tmp & BIT(pchan->id)) {
-		dma_writel(cd, BIT(pchan->id), DMA_IRQ_PD0);
+	if (tmp & (1U << pchan->id)) {
+		dma_writel(cd, (1U << pchan->id), DMA_IRQ_PD0);
 	}
 	
 	spin_unlock_irqrestore(&cd->lock, flags);
@@ -99,26 +102,30 @@ static void caninos_dma_terminate_pchan(struct lab_dma *cd,
 static void caninos_dma_pchan_pause(struct lab_dma *cd, 
                                     struct lab_dma_pchan *pchan)
 {
+	u32 tmp;
+	
 	if(cd->devid == DEVID_K5_DMAC)
 	{
-		u32 tmp = dma_readl(cd, DMA_DBGSEL);
-		dma_writel(cd, tmp | BIT(pchan->id + 16), DMA_DBGSEL);
+		tmp = dma_readl(cd, DMA_DBGSEL) | (1U << (pchan->id + 16));
+		dma_writel(cd, tmp, DMA_DBGSEL);
 	}
 	else {
-		pchan_writel(pchan, 0x1, DMAX_PAUSE_K7_K9);
+		pchan_writel(pchan, 1U, DMAX_PAUSE_K7_K9);
 	}
 }
 
 static void caninos_dma_pchan_resume(struct lab_dma *cd,
                                      struct lab_dma_pchan *pchan)
 {
+	u32 tmp;
+	
 	if(cd->devid == DEVID_K5_DMAC)
 	{
-		u32 tmp = dma_readl(cd, DMA_DBGSEL);
-		dma_writel(cd, tmp & ~BIT(pchan->id + 16), DMA_DBGSEL);
+		tmp = dma_readl(cd, DMA_DBGSEL) | ~(1U << (pchan->id + 16));
+		dma_writel(cd, tmp, DMA_DBGSEL);
 	}
 	else {
-		pchan_writel(pchan, 0x0, DMAX_PAUSE_K7_K9);
+		pchan_writel(pchan, 0U, DMAX_PAUSE_K7_K9);
 	}
 }
 
@@ -136,7 +143,7 @@ static int caninos_dma_pchan_busy(struct lab_dma *cd,
 	}
 	
 	val = dma_readl(cd, DMA_IDLE_STAT);
-	return !(val & BIT(pchan->id));
+	return !(val & (1U << pchan->id));
 }
 
 static int caninos_dma_start_next_txd(struct lab_dma_vchan *vchan)
@@ -177,12 +184,12 @@ static int caninos_dma_start_next_txd(struct lab_dma_vchan *vchan)
 	spin_lock_irqsave(&cd->lock, flags);
 	
 	/* enable channel interrupt */
-	dma_writel(cd, dma_readl(cd, DMA_IRQ_EN0) | BIT(pchan->id), DMA_IRQ_EN0);
+	dma_writel(cd, dma_readl(cd, DMA_IRQ_EN0) | (1U << pchan->id), DMA_IRQ_EN0);
 	
 	spin_unlock_irqrestore(&cd->lock, flags);
 	
 	/* start dma operation */
-	pchan_writel(pchan, 0x1, DMAX_START);
+	pchan_writel(pchan, 1U, DMAX_START);
 	
 	return 0;
 }
@@ -229,16 +236,18 @@ retry:
 		spin_lock(&next->vc.lock);
 		
 		/* Re-check the state now that we have the lock */
-		success = next->state == CANINOS_VCHAN_WAITING;
+		success = (next->state == CANINOS_VCHAN_WAITING);
 		
-		if (success)
+		if (success) {
 			caninos_dma_phy_reassign_start(cd, next, vchan->pchan);
+		}
 		
 		spin_unlock(&next->vc.lock);
 
 		/* If the state changed, try to find another channel */
-		if (!success)
+		if (!success) {
 			goto retry;
+		}
 	}
 	else
 	{
@@ -261,16 +270,16 @@ static struct lab_dma_pchan *caninos_dma_get_pchan(struct lab_dma *cd,
 	{
 		pchan = &cd->pchans[i];
 		
-		spin_lock_irqsave(&cd->lock, flags);
+		spin_lock_irqsave(&pchan->lock, flags);
 		
 		if (!pchan->vchan)
 		{
 			pchan->vchan = vchan;
-			spin_unlock_irqrestore(&cd->lock, flags);
+			spin_unlock_irqrestore(&pchan->lock, flags);
 			break;
 		}
 		
-		spin_unlock_irqrestore(&cd->lock, flags);
+		spin_unlock_irqrestore(&pchan->lock, flags);
 	}
 	
 	if (i == cd->nr_pchans)
@@ -282,19 +291,67 @@ static struct lab_dma_pchan *caninos_dma_get_pchan(struct lab_dma *cd,
 	return pchan;
 }
 
-static struct lab_dma_lli *caninos_dma_alloc_lli
-	(struct dma_chan *chan, struct caninos_dma_config *config)
+static struct lab_dma_lli *caninos_dma_alloc_lli(struct lab_dma *cd)
+{
+	struct lab_dma_lli *lli;
+	dma_addr_t phys;
+	
+	lli = dma_pool_alloc(cd->lli_pool, GFP_ATOMIC, &phys);
+	
+	if (!lli) {
+		return NULL;
+	}
+	
+	memset(lli, 0, sizeof(*lli));
+	
+	INIT_LIST_HEAD(&lli->node);
+	lli->phys = phys;
+	return lli;
+}
+
+static struct lab_dma_lli *caninos_dma_add_lli
+	(struct dma_chan *chan, struct lab_dma_txd *txd, struct lab_dma_lli *prev,
+	 struct lab_dma_lli *next, bool close_cyclic)
 {
 	struct lab_dma *cd = to_lab_dma(chan->device);
-	struct lab_dma_vchan *vchan = to_lab_vchan(chan);
-	struct dma_slave_config *sconfig = &vchan->cfg;
-	struct lab_dma_lli *lli;
+	
+	if (!close_cyclic) {
+		list_add_tail(&next->node, &txd->lli_list);
+	}
+	if (!prev) {
+		return next;
+	}
+	switch(cd->devid)
+	{
+	case DEVID_K7_DMAC:
+		prev->hw.hw_s7.next_lli = next->phys;
+		prev->hw.hw_s7.ctrla |= llc_hw_ctrla(DMA_MODE_LME, 0);
+		break;
+		
+	case DEVID_K9_DMAC:
+		prev->hw.hw_s9.next_lli = next->phys;
+		prev->hw.hw_s9.ctrla |= llc_hw_ctrla(DMA_MODE_LME, 0);
+		break;
+		
+	case DEVID_K5_DMAC:
+		prev->hw.hw_s5.next_lli = next->phys;
+		prev->hw.hw_s5.ctrla |= llc_hw_ctrla(DMA_MODE_LME, 0);
+		break;
+	}
+	return next;
+}
+
+static int caninos_dma_cfg_lli
+	(struct lab_dma_vchan *vchan, struct lab_dma_lli *lli,
+	 dma_addr_t src, dma_addr_t dst, u32 len, enum dma_transfer_direction dir,
+	 struct dma_slave_config *sconfig, bool is_cyclic)
+{
+	struct lab_dma *cd = to_lab_dma(vchan->vc.chan.device);
 	u32 mode, ctrla, ctrlb;
-	dma_addr_t phys;
 	
 	mode = DMA_MODE_PW(0);
 	
-	switch (config->dir)
+	switch(dir)
 	{
 	case DMA_MEM_TO_MEM:
 		mode |= DMA_MODE_TS(0) | DMA_MODE_ST_DCU | DMA_MODE_DT_DCU;
@@ -322,43 +379,27 @@ static struct lab_dma_lli *caninos_dma_alloc_lli
 		break;
 		
 	default:
-		return ERR_PTR(-EINVAL);
+		return -EINVAL;
 	}
 	
-	if (config->len > CANINOS_DMA_FRAME_MAX_LENGTH) {
-		return ERR_PTR(-EINVAL);
-	}
-	
-	ctrla = llc_hw_ctrla(mode, DMA_LLC_SAV_LOAD_NEXT | DMA_LLC_DAV_LOAD_NEXT);
-	
-	if (config->cyclic) {
+	if (is_cyclic) {
 		ctrlb = llc_hw_ctrlb(DMA_INTCTL_BLOCK, cd->devid);
 	}
 	else {
 		ctrlb = llc_hw_ctrlb(DMA_INTCTL_SUPER_BLOCK, cd->devid);
 	}
 	
-	lli = dma_pool_alloc(cd->lli_pool, GFP_ATOMIC, &phys);
-	
-	if (!lli) {
-		return ERR_PTR(-ENOMEM);
-	}
-	
-	memset(lli, 0, sizeof(*lli));
-	
-	INIT_LIST_HEAD(&lli->node);
-	
-	lli->phys = phys;
+	ctrla = llc_hw_ctrla(mode, DMA_LLC_SAV_LOAD_NEXT | DMA_LLC_DAV_LOAD_NEXT);
 	
 	/* frame count fixed as 1, and max frame length is 20bit */
 	switch(cd->devid)
 	{
 	case DEVID_K7_DMAC:
 		lli->hw.hw_s7.next_lli = 0;
-		lli->hw.hw_s7.saddr = config->src;
-		lli->hw.hw_s7.daddr = config->dst;
+		lli->hw.hw_s7.saddr = src;
+		lli->hw.hw_s7.daddr = dst;
 		lli->hw.hw_s7.fcnt = 1;
-		lli->hw.hw_s7.flen = config->len;
+		lli->hw.hw_s7.flen = len;
 		lli->hw.hw_s7.src_stride = 0;
 		lli->hw.hw_s7.dst_stride = 0;
 		lli->hw.hw_s7.ctrla = ctrla;
@@ -367,10 +408,10 @@ static struct lab_dma_lli *caninos_dma_alloc_lli
 		
 	case DEVID_K9_DMAC:
 		lli->hw.hw_s9.next_lli = 0;
-		lli->hw.hw_s9.saddr = config->src;
-		lli->hw.hw_s9.daddr = config->dst;
+		lli->hw.hw_s9.saddr = src;
+		lli->hw.hw_s9.daddr = dst;
 		lli->hw.hw_s9.fcnt = 1;
-		lli->hw.hw_s9.flen = config->len;
+		lli->hw.hw_s9.flen = len;
 		lli->hw.hw_s9.src_stride = 0;
 		lli->hw.hw_s9.dst_stride = 0;
 		lli->hw.hw_s9.ctrla = ctrla;
@@ -379,50 +420,21 @@ static struct lab_dma_lli *caninos_dma_alloc_lli
 		
 	case DEVID_K5_DMAC:
 		lli->hw.hw_s5.next_lli = 0;
-		lli->hw.hw_s5.saddr = config->src;
-		lli->hw.hw_s5.daddr = config->dst;
+		lli->hw.hw_s5.saddr = src;
+		lli->hw.hw_s5.daddr = dst;
 		lli->hw.hw_s5.fcnt = 1;
-		lli->hw.hw_s5.flen = config->len;
+		lli->hw.hw_s5.flen = len;
 		lli->hw.hw_s5.src_stride = 0;
 		lli->hw.hw_s5.dst_stride = 0;
 		lli->hw.hw_s5.ctrla = ctrla;
 		lli->hw.hw_s5.ctrlb = ctrlb;
 		break;
-	}
-	return lli;
-}
-
-static struct lab_dma_lli *caninos_dma_add_lli
-	(struct dma_chan *chan, struct lab_dma_txd *txd, struct lab_dma_lli *prev,
-	 struct lab_dma_lli *next, bool close_cyclic)
-{
-	struct lab_dma *cd = to_lab_dma(chan->device);
 	
-	if (!close_cyclic) {
-		list_add_tail(&next->node, &txd->lli_list);
-	}
-	if (!prev) {
-		return next;
+	default:
+		return -EINVAL;
 	}
 	
-	switch(cd->devid)
-	{
-	case DEVID_K7_DMAC:
-		prev->hw.hw_s7.next_lli = next->phys;
-		prev->hw.hw_s7.ctrla |= llc_hw_ctrla(DMA_MODE_LME, 0);
-		break;
-		
-	case DEVID_K9_DMAC:
-		prev->hw.hw_s9.next_lli = next->phys;
-		prev->hw.hw_s9.ctrla |= llc_hw_ctrla(DMA_MODE_LME, 0);
-		break;
-		
-	case DEVID_K5_DMAC:
-		prev->hw.hw_s5.next_lli = next->phys;
-		prev->hw.hw_s5.ctrla |= llc_hw_ctrla(DMA_MODE_LME, 0);
-		break;
-	}
-	return next;
+	return 0;
 }
 
 static struct dma_async_tx_descriptor *caninos_device_prep_dma_cyclic
@@ -432,13 +444,13 @@ static struct dma_async_tx_descriptor *caninos_device_prep_dma_cyclic
 	struct lab_dma *cd = to_lab_dma(chan->device);
 	struct lab_dma_vchan *vchan = to_lab_vchan(chan);
 	struct dma_slave_config *sconfig = &vchan->cfg;
-	struct lab_dma_lli *lli, *prev, *first;
-	struct caninos_dma_config config;
+	struct lab_dma_lli *lli, *prev = NULL, *first = NULL;
 	struct lab_dma_txd *txd;
 	size_t idx, periods;
+	dma_addr_t src = 0, dst = 0;
 	int ret;
 	
-	if (unlikely(!buf_len || !period_len)) {
+	if (unlikely(!period_len)) {
 		return NULL;
 	}
 	
@@ -452,32 +464,33 @@ static struct dma_async_tx_descriptor *caninos_device_prep_dma_cyclic
 	
 	INIT_LIST_HEAD(&txd->lli_list);
 	txd->cyclic = true;
-	prev = NULL;
-	first = NULL;
 	
 	for (idx = 0; idx < periods; idx++)
 	{
-		config.dir = dir;
-		config.len = period_len;
-		config.cyclic = true;
+		lli = caninos_dma_alloc_lli(cd);
 		
-		if (config.dir == DMA_MEM_TO_DEV)
-		{
-			config.src = buf_addr + (period_len * idx);
-			config.dst = sconfig->dst_addr;
-		}
-		else if (config.dir == DMA_DEV_TO_MEM)
-		{
-			config.src = sconfig->src_addr;
-			config.dst = buf_addr + (period_len * idx);
+		if (!lli) {
+			dev_err(chan2dev(chan), "failed to alloc lli");
+			caninos_dma_free_txd(cd, txd);
+			return NULL;
 		}
 		
-		lli = caninos_dma_alloc_lli(chan, &config);
-		
-		if (IS_ERR(lli))
+		if (dir == DMA_MEM_TO_DEV)
 		{
-			ret = (int) PTR_ERR(lli);
-			dev_err(chan2dev(chan), "failed to alloc lli, ret=%d", ret);
+			src = buf_addr + (period_len * idx);
+			dst = sconfig->dst_addr;
+		}
+		else if (dir == DMA_DEV_TO_MEM)
+		{
+			src = sconfig->src_addr;
+			dst = buf_addr + (period_len * idx);
+		}
+		
+		ret = caninos_dma_cfg_lli(vchan, lli, src, dst, period_len, dir,
+		                          sconfig, txd->cyclic);
+		
+		if (ret) {
+			dev_err(chan2dev(chan), "failed to config lli");
 			caninos_dma_free_txd(cd, txd);
 			return NULL;
 		}
@@ -492,7 +505,6 @@ static struct dma_async_tx_descriptor *caninos_device_prep_dma_cyclic
 	/* close the cyclic list */
 	caninos_dma_add_lli(chan, txd, prev, first, true);
 	
-	smp_wmb();
 	return vchan_tx_prep(&vchan->vc, &txd->vd, flags);
 }
 
@@ -505,8 +517,9 @@ static struct dma_async_tx_descriptor *caninos_dma_prep_slave_sg
 	struct dma_slave_config *sconfig = &vchan->cfg;
 	struct lab_dma_txd *txd;
 	struct lab_dma_lli *lli, *prev = NULL;
-	struct caninos_dma_config config;
 	struct scatterlist *sg;
+	dma_addr_t addr, src = 0, dst = 0;
+	size_t len;
 	int i, ret;
 	
 	if (unlikely(!sgl || !sg_len)) {
@@ -524,27 +537,38 @@ static struct dma_async_tx_descriptor *caninos_dma_prep_slave_sg
 	
 	for_each_sg(sgl, sg, sg_len, i)
 	{
-		config.dir = dir;
-		config.len = sg_dma_len(sg);
-		config.cyclic = false;
+		addr = sg_dma_address(sg);
+		len = sg_dma_len(sg);
 		
-		if (config.dir == DMA_MEM_TO_DEV)
-		{
-			config.src = sg_dma_address(sg);
-			config.dst = sconfig->dst_addr;
-		}
-		else if (config.dir == DMA_DEV_TO_MEM)
-		{
-			config.src = sconfig->src_addr;
-			config.dst = sg_dma_address(sg);
+		if (len > CANINOS_DMA_FRAME_MAX_LENGTH) {
+			caninos_dma_free_txd(cd, txd);
+			return NULL;
 		}
 		
-		lli = caninos_dma_alloc_lli(chan, &config);
+		lli = caninos_dma_alloc_lli(cd);
 		
-		if (IS_ERR(lli))
+		if (!lli) {
+			dev_err(chan2dev(chan), "failed to alloc lli");
+			caninos_dma_free_txd(cd, txd);
+			return NULL;
+		}
+		
+		if (dir == DMA_MEM_TO_DEV)
 		{
-			ret = (int) PTR_ERR(lli);
-			dev_err(chan2dev(chan), "failed to alloc lli, ret=%d", ret);
+			src = addr;
+			dst = sconfig->dst_addr;
+		}
+		else if (dir == DMA_DEV_TO_MEM)
+		{
+			src = sconfig->src_addr;
+			dst = addr;
+		}
+		
+		ret = caninos_dma_cfg_lli(vchan, lli, src, dst, len, dir,
+		                          sconfig, txd->cyclic);
+		
+		if (ret) {
+			dev_err(chan2dev(chan), "failed to config lli");
 			caninos_dma_free_txd(cd, txd);
 			return NULL;
 		}
@@ -552,7 +576,6 @@ static struct dma_async_tx_descriptor *caninos_dma_prep_slave_sg
 		prev = caninos_dma_add_lli(chan, txd, prev, lli, false);
 	}
 	
-	smp_wmb();
 	return vchan_tx_prep(&vchan->vc, &txd->vd, flags);
 }
 
@@ -563,7 +586,7 @@ static struct dma_async_tx_descriptor *
 	struct lab_dma *cd = to_lab_dma(chan->device);
 	struct lab_dma_vchan *vchan = to_lab_vchan(chan);
 	struct lab_dma_lli *lli, *prev = NULL;
-	struct caninos_dma_config config;
+	struct dma_slave_config *sconfig = &vchan->cfg;
 	struct lab_dma_txd *txd;
 	size_t offset, bytes;
 	int ret;
@@ -583,20 +606,21 @@ static struct dma_async_tx_descriptor *
 	
 	for (offset = 0; offset < len; offset += bytes)
 	{
+		lli = caninos_dma_alloc_lli(cd);
+		
+		if (!lli) {
+			dev_err(chan2dev(chan), "failed to alloc lli");
+			caninos_dma_free_txd(cd, txd);
+			return NULL;
+		}
+		
 		bytes = min_t(size_t, (len - offset), CANINOS_DMA_FRAME_MAX_LENGTH);
 		
-		config.src = src + offset;
-		config.dst = dst + offset;
-		config.len = bytes;
-		config.dir = DMA_MEM_TO_MEM;
-		config.cyclic = false;
+		ret = caninos_dma_cfg_lli(vchan, lli, src + offset, dst + offset,
+		                          bytes, DMA_MEM_TO_MEM, sconfig, txd->cyclic);
 		
-		lli = caninos_dma_alloc_lli(chan, &config);
-		
-		if (IS_ERR(lli))
-		{
-			ret = (int) PTR_ERR(lli);
-			dev_err(chan2dev(chan), "failed to alloc lli, ret=%d", ret);
+		if (ret) {
+			dev_err(chan2dev(chan), "failed to config lli");
 			caninos_dma_free_txd(cd, txd);
 			return NULL;
 		}
@@ -605,6 +629,32 @@ static struct dma_async_tx_descriptor *
 	}
 	
 	return vchan_tx_prep(&vchan->vc, &txd->vd, flags);
+}
+
+static int caninos_dma_alloc_chan_resources(struct dma_chan *chan)
+{
+	return 0;
+}
+
+static void caninos_dma_free_chan_resources(struct dma_chan *chan)
+{
+	struct lab_dma_vchan *vchan = to_lab_vchan(chan);
+	
+	/* Ensure all queued descriptors are freed */
+	vchan_free_chan_resources(&vchan->vc);
+}
+
+static inline void caninos_dma_free(struct lab_dma *cd)
+{
+	struct lab_dma_vchan *vchan = NULL;
+	struct lab_dma_vchan *next;
+	
+	list_for_each_entry_safe(vchan, next, &cd->dma.channels,
+	                         vc.chan.device_node)
+	{
+		list_del(&vchan->vc.chan.device_node);
+		tasklet_kill(&vchan->vc.task);
+	}
 }
 
 static int caninos_device_config(struct dma_chan *chan,
@@ -836,7 +886,7 @@ static size_t caninos_dma_getbytes_chan(struct lab_dma_vchan *vchan)
 	unsigned long next_phys;
 	bool start_counting;
 	size_t bytes;
-	int i;
+	int i = 0;
 	
 	if (unlikely(!pchan || !txd)) {
 		return 0;
@@ -851,7 +901,6 @@ static size_t caninos_dma_getbytes_chan(struct lab_dma_vchan *vchan)
 	}
 	
 	next_phys = pchan_readl(pchan, DMAX_NEXT_DESCRIPTOR);
-	
 	start_counting = false;
 	
 	/* get the linked list chain remain count */
@@ -868,7 +917,6 @@ static size_t caninos_dma_getbytes_chan(struct lab_dma_vchan *vchan)
 			bytes += lli_get_frame_len(lli, cd->devid);
 		}
 		i++;
-		smp_rmb();
 	}
 	return bytes;
 }
@@ -932,14 +980,6 @@ static enum dma_status caninos_dma_tx_status(struct dma_chan *chan,
 	return ret;
 }
 
-static void caninos_dma_free_chan_resources(struct dma_chan *chan)
-{
-	struct lab_dma_vchan *vchan = to_lab_vchan(chan);
-	
-	/* Ensure all queued descriptors are freed */
-	vchan_free_chan_resources(&vchan->vc);
-}
-
 struct caninos_dma_of_filter_args
 {
 	struct lab_dma *cd;
@@ -979,19 +1019,6 @@ static struct dma_chan *caninos_of_dma_xlate(struct of_phandle_args *dma_spec,
 	dma_cap_set(DMA_SLAVE, cap);
 	
 	return dma_request_channel(cap, caninos_dma_of_filter, &fargs);
-}
-
-static inline void caninos_dma_free(struct lab_dma *cd)
-{
-	struct lab_dma_vchan *vchan = NULL;
-	struct lab_dma_vchan *next;
-	
-	list_for_each_entry_safe(vchan, next, &cd->dma.channels,
-	                         vc.chan.device_node)
-	{
-		list_del(&vchan->vc.chan.device_node);
-		tasklet_kill(&vchan->vc.task);
-	}
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -1104,6 +1131,7 @@ static int caninos_dma_probe(struct platform_device *pdev)
 	cd->dma.copy_align = DMAENGINE_ALIGN_4_BYTES;
 	
 	cd->dma.dev = cd->dev;
+	cd->dma.device_alloc_chan_resources = caninos_dma_alloc_chan_resources;
 	cd->dma.device_free_chan_resources = caninos_dma_free_chan_resources;
 	cd->dma.device_tx_status = caninos_dma_tx_status;
 	cd->dma.device_issue_pending = caninos_dma_issue_pending;
@@ -1146,6 +1174,7 @@ static int caninos_dma_probe(struct platform_device *pdev)
 		
 		pchan->id = i;
 		pchan->base = cd->base + DMA_CHAN_BASE(i);
+		spin_lock_init(&pchan->lock);
 	}
 	
 	/* Init virtual channels */
@@ -1204,6 +1233,8 @@ static int caninos_dma_probe(struct platform_device *pdev)
 		pm_runtime_disable(cd->dev);
 		
 		dma_pool_destroy(cd->lli_pool);
+		
+		dev_err(cd->dev, "could not register dma async device\n");
 		return ret;
 	}
 	
@@ -1219,9 +1250,11 @@ static int caninos_dma_probe(struct platform_device *pdev)
 		pm_runtime_disable(cd->dev);
 		
 		dma_pool_destroy(cd->lli_pool);
+		dev_err(cd->dev, "could not register OF dma controller\n");
 		return ret;
 	}
 	
+	dev_info(cd->dev, "probe finished\n");
 	return 0;
 }
 

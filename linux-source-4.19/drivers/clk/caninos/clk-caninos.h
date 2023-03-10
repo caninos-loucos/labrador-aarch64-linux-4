@@ -54,6 +54,16 @@ struct caninos_fixed_clock
     unsigned long flags;
 };
 
+struct caninos_fixed_factor_clock
+{
+    int id;
+    const char *name;
+    const char *parent_name;
+    unsigned int mult;
+    unsigned int div;
+    unsigned long flags;
+};
+
 struct caninos_gate_clock
 {
     int id;
@@ -148,6 +158,44 @@ struct caninos_composite_clock
 	struct caninos_composite_data data;
 };
 
+struct caninos_clock_tree
+{
+	struct {
+		const struct caninos_gate_clock *clks;
+		int num;
+	} gate;
+	
+	struct {
+		const struct caninos_mux_clock *clks;
+		int num;
+	} mux;
+	
+	struct {
+		const struct caninos_pll_clock *clks;
+		int num;
+	} pll;
+	
+	struct {
+		const struct caninos_fixed_clock *clks;
+		int num;
+	} fixed;
+	
+	struct {
+		const struct caninos_fixed_factor_clock *clks;
+		int num;
+	} factor;
+	
+	struct {
+		const struct caninos_div_clock *clks;
+		int num;
+	} div;
+	
+	struct {
+		const struct caninos_composite_clock *clks;
+		int num;
+	} comp;
+};
+
 #define CANINOS_CLK_PLL_READ_ONLY  BIT(0)
 
 #define CANINOS_FIXED_RATE(i, n, p, rate, f) \
@@ -211,6 +259,16 @@ struct caninos_composite_clock
     .div_flags = df,                            \
     .table = t,                                 \
     .flags = f,                                 \
+}
+
+#define CANINOS_FIXED_FACTOR(i, n, p, f, m, d) \
+{                                              \
+	.id = i,                                   \
+	.name = n,                                 \
+	.parent_name = p,                          \
+	.mult = m,                                 \
+	.div = d,                                  \
+	.flags = f,                                \
 }
 
 #define CANINOS_COMPOSITE(i, n, p, f, m, g, r) \
@@ -307,6 +365,11 @@ caninos_clk_register_fixed(struct caninos_clk_provider *ctx,
                            const struct caninos_fixed_clock *clks,
                            int num);
 
+extern void __init
+caninos_clk_register_fixed_factor(struct caninos_clk_provider *ctx,
+                                  const struct caninos_fixed_factor_clock *clks,
+                                  int num);
+
 extern void __init 
 caninos_clk_register_composite(struct caninos_clk_provider *ctx,
                                const struct caninos_composite_clock *clks,
@@ -316,6 +379,10 @@ extern struct clk * __init
 caninos_register_composite(const struct caninos_composite_clock *info,
                            struct device *dev, void __iomem *reg_base,
                            spinlock_t *lock);
+
+extern void __init
+caninos_register_clk_tree(struct caninos_clk_provider *ctx,
+                          const struct caninos_clock_tree *tree);
 
 #endif
 

@@ -1,6 +1,6 @@
 config RESET_CANINOS
 	bool "Caninos Labrador reset controller"
-	depends on ARCH_CANINOS || COMPILE_TEST
+	depends on (ARCH_CANINOS || COMPILE_TEST)
 	default ARCH_CANINOS
 	help
 	  This enables the reset controller driver for Caninos Labrador boards.

@@ -169,8 +169,8 @@ config DWMAC_SUN8I
 
 config DWMAC_CANINOS
 	tristate "Caninos Labrador DWMAC support"
-	default ARCH_CANINOS
-	depends on OF && (ARCH_CANINOS || COMPILE_TEST)
+	default (ARCH_CANINOS && ARM64)
+	depends on OF && ARM64 && (ARCH_CANINOS || COMPILE_TEST)
 	---help---
 	  Support for Caninos Labrador ethernet controllers.
 

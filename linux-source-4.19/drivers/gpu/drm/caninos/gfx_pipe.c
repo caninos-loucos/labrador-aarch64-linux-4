@@ -3,6 +3,7 @@
  * DRM/KMS driver for Caninos Labrador
  *
  * Copyright (c) 2022-2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Ana Clara Forcelli <ana.forcelli@lsitec.org.br>
  * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
  *
  * Copyright (c) 2018-2020 LSITEC - Caninos Loucos
@@ -46,9 +47,9 @@ static void caninos_de_reset(struct drm_crtc *crtc)
 	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
 	
 	reset_control_assert(pipe->de_rst);
-	usleep_range(100, 200);
+	udelay(200);
 	reset_control_deassert(pipe->de_rst);
-	msleep(1);
+	udelay(1000);
 	
 	writel(0x3f, pipe->base + DE_MAX_OUTSTANDING);
 	writel(0x0f, pipe->base + DE_QOS);
@@ -57,7 +58,7 @@ static void caninos_de_reset(struct drm_crtc *crtc)
 	writel(0x100, pipe->dcu_base + 0x68);
 	
 	writel(0x80000000, pipe->dcu_base);
-	msleep(1);
+	udelay(1000);
 	writel(0x80000004, pipe->dcu_base);
 }
 
@@ -306,12 +307,18 @@ static int caninos_connector_get_modes(struct drm_connector *connector)
 static void caninos_crtc_enable(struct drm_crtc *crtc, 
                                 struct drm_crtc_state *old_state)
 {
+	//struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	//dev_info(pipe->dev, "%s routine called\n", __FUNCTION__);
+	
     drm_crtc_vblank_on(crtc);
 }
 
 static void caninos_crtc_disable(struct drm_crtc *crtc,
                                  struct drm_crtc_state *old_state)
 {
+	//struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	//dev_info(pipe->dev, "%s routine called\n", __FUNCTION__);
+	
 	drm_crtc_vblank_off(crtc);
 }
 
@@ -320,6 +327,9 @@ static enum drm_mode_status caninos_crtc_mode_valid(struct drm_crtc *crtc,
 {
     int w = mode->hdisplay, h = mode->vdisplay;
     int vrefresh = drm_mode_vrefresh(mode);
+    
+    //struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	//dev_info(pipe->dev, "%s routine called\n", __FUNCTION__);
     
     if ((w == 640) && (h == 480) && (vrefresh == 60)) {
     	return MODE_OK;
@@ -346,6 +356,8 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	struct hdmi_ip *hdmi_ip = pipe->hdmi_ip;
 	int width, height, vrefresh;
 	struct videomode mode;
+	
+	//dev_info(pipe->dev, "%s routine called\n", __FUNCTION__);
 	
 	width = drm_mode->hdisplay;
 	height = drm_mode->vdisplay;
@@ -507,7 +519,7 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	height = hdmi_ip->mode.yres;
 	vrefresh = hdmi_ip->mode.refresh;
 	
-	hdmi_ip->ops->video_disable(hdmi_ip);
+	hdmi_ip->ops.video_disable(hdmi_ip);
 	
 	caninos_de_reset(crtc);
 	caninos_de_path_set_out_con(crtc, DE_OUTPUT_CON_HDMI);
@@ -526,7 +538,7 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	caninos_de_video_enable(crtc, true);
 	caninos_de_path_enable(crtc, true);
 	
-	hdmi_ip->ops->video_enable(hdmi_ip);
+	hdmi_ip->ops.video_enable(hdmi_ip);
 }
 
 irqreturn_t caninos_gfx_irq_handler(int irq, void *data)
@@ -592,6 +604,9 @@ static int caninos_crtc_check(struct drm_crtc *crtc,
                               struct drm_crtc_state *state)
 {
     bool has_primary = state->plane_mask & drm_plane_mask(crtc->primary);
+    
+    //struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
+	//dev_info(pipe->dev, "%s routine called\n", __FUNCTION__);
     
     /* We always want to have an active plane with an active CRTC */
     if (has_primary != state->enable) {
@@ -690,10 +705,10 @@ int caninos_gfx_pipe_init(struct drm_device *drm)
     
     drm_mode_config_init(drm);
     
-    drm->mode_config.min_width = 640;
+    drm->mode_config.min_width = 480;
     drm->mode_config.min_height = 480;
     drm->mode_config.max_width = 1920;
-    drm->mode_config.max_height = 1080;
+    drm->mode_config.max_height = 1920;
     
     drm->mode_config.funcs = &caninos_mode_config_funcs;
     
