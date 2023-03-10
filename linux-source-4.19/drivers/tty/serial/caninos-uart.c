@@ -1,5 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Caninos UART
+ * Caninos UART driver
+ *
+ * Copyright (c) 2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
  *
  * Copyright (c) 2019 LSI-TEC - Caninos Loucos
  * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
@@ -792,10 +796,8 @@ static int caninos_uart_probe(struct platform_device *pdev)
 
 	port->rst = devm_reset_control_get(&pdev->dev, NULL);
 	
-	if (IS_ERR(port->rst))
-	{
-		pr_err("Could not get uart%d reset control.\n", pdev->id);
-		return PTR_ERR(port->rst);
+	if (IS_ERR(port->rst)) {
+		port->rst = NULL; // it is optional
 	}
 	
 	port->pctl = devm_pinctrl_get(&pdev->dev);
@@ -832,7 +834,9 @@ static int caninos_uart_probe(struct platform_device *pdev)
 	
 	clk_set_rate(port->clk, 115200 * 8);
 	
-	reset_control_deassert(port->rst);
+	if (port->rst) {
+		reset_control_deassert(port->rst);
+	}
 	
 	port->port.dev = &pdev->dev;
 	port->port.line = pdev->id;
@@ -910,5 +914,7 @@ static void __init caninos_uart_exit(void)
 module_init(caninos_uart_init);
 module_exit(caninos_uart_exit);
 
+MODULE_AUTHOR("Edgar Bernardi Righi <edgar.righi@lsitec.org.br>");
+MODULE_DESCRIPTION("Caninos UART driver");
 MODULE_LICENSE("GPL");
 

@@ -244,6 +244,9 @@ kernel/drivers/gpio/gpio-syscon.ko
 kernel/drivers/gpu/drm/drm_kms_helper.ko
 kernel/drivers/gpu/drm/drm.ko
 kernel/drivers/gpu/drm/drm_panel_orientation_quirks.ko
+kernel/drivers/gpu/drm/caninos/caninos-drm.ko
+kernel/drivers/gpu/drm/caninos/caninos-hdmi.ko
+kernel/drivers/gpu/drm/caninos/caninos-hdmi-audio.ko
 kernel/drivers/gpu/drm/lima/lima.ko
 kernel/drivers/gpu/drm/scheduler/gpu-sched.ko
 kernel/drivers/gpu/drm/ttm/ttm.ko
@@ -394,7 +397,6 @@ kernel/drivers/spi/spi-gpio.ko
 kernel/drivers/thermal/thermal_sys.ko
 kernel/drivers/tty/serdev/serdev.ko
 kernel/drivers/tty/serial/serial_core.ko
-kernel/drivers/tty/serial/caninos-uart.ko
 kernel/drivers/uio/uio.ko
 kernel/drivers/uio/uio_pdrv_genirq.ko
 kernel/drivers/usb/caninos/aotg.ko
@@ -467,6 +469,7 @@ kernel/sound/core/seq/snd-seq-dummy.ko
 kernel/sound/core/seq/snd-seq-midi.ko
 kernel/sound/core/seq/snd-seq-midi-event.ko
 kernel/sound/soc/snd-soc-core.ko
+kernel/sound/soc/codecs/snd-soc-hdmi-codec.ko
 kernel/net/802/p8022.ko
 kernel/net/802/psnap.ko
 kernel/net/802/stp.ko

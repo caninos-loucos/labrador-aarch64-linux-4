@@ -24,12 +24,6 @@
 		serial5 = &uart5;
 		serial6 = &uart6;
 		
-		gpio0 = &gpioa;
-		gpio1 = &gpiob;
-		gpio2 = &gpioc;
-		gpio3 = &gpiod;
-		gpio4 = &gpioe;
-		
 		mmc0 = &mmc0;
 		mmc1 = &mmc1;
 		mmc2 = &mmc2;
@@ -192,6 +186,41 @@
 			#gpio-range-cells = <3>;
 			status = "okay";
 			
+			gpioa: bank@0 {
+				gpio-label = "GPIOA";
+				gpio-mask = <0xFFFFF000>;
+				gpio-ranges = <&pinctrl 0 0 32>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+			gpiob: bank@1 {
+				gpio-label = "GPIOB";
+				gpio-mask = <0xFFFFFFFF>;
+				gpio-ranges = <&pinctrl 0 32 32>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+			gpioc: bank@2 {
+				gpio-label = "GPIOC";
+				gpio-mask = <0xBDBFFFFF>;
+				gpio-ranges = <&pinctrl 0 64 32>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+			gpiod: bank@3 {
+				gpio-label = "GPIOD";
+				gpio-mask = <0xF3FDB400>;
+				gpio-ranges = <&pinctrl 0 96 32>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+			gpioe: bank@4 {
+				gpio-label = "GPIOE";
+				gpio-mask = <0x000000FF>;
+				gpio-ranges = <&pinctrl 0 128 8>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
 			i2c2_state_gpio: i2c2_gpio {
 				function = "i2c2";
 				groups = "i2c2_dummy_grp";
@@ -224,71 +253,6 @@
 				function = "eth";
 				groups = "eth_rgmii_grp";
 			};
-		};
-		
-		gpioa: gpioa@e01b0000 {
-			compatible = "caninos,k7-gpio";
-			reg = <0 0xe01b0000 0 0x1000>;
-			//interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
-			caninos,gpio-bank = <0>;
-			gpio-ranges = <&pinctrl 0 0 32>;
-			gpio-controller;
-			//interrupt-controller;
-			status = "okay";
-			//#interrupt-cells = <1>;
-			#gpio-cells = <2>;
-		};
-		
-		gpiob: gpiob@e01b0000 {
-			compatible = "caninos,k7-gpio";
-			reg = <0 0xe01b0000 0 0x1000>;
-			//interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
-			caninos,gpio-bank = <1>;
-			gpio-ranges = <&pinctrl 0 32 32>;
-			gpio-controller;
-			//interrupt-controller;
-			status = "okay";
-			//#interrupt-cells = <1>;
-			#gpio-cells = <2>;
-		};
-		
-		gpioc: gpioc@e01b0000 {
-			compatible = "caninos,k7-gpio";
-			reg = <0 0xe01b0000 0 0x1000>;
-			//interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
-			caninos,gpio-bank = <2>;
-			gpio-ranges = <&pinctrl 0 64 32>;
-			gpio-controller;
-			//interrupt-controller;
-			status = "okay";
-			//#interrupt-cells = <1>;
-			#gpio-cells = <2>;
-		};
-		
-		gpiod: gpiod@e01b0000 {
-			compatible = "caninos,k7-gpio";
-			reg = <0 0xe01b0000 0 0x1000>;
-			//interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
-			caninos,gpio-bank = <3>;
-			gpio-ranges = <&pinctrl 0 96 32>;
-			gpio-controller;
-			//interrupt-controller;
-			status = "okay";
-			//#interrupt-cells = <1>;
-			#gpio-cells = <2>;
-		};
-		
-		gpioe: gpioe@e01b0000 {
-			compatible = "caninos,k7-gpio";
-			reg = <0 0xe01b0000 0 0x1000>;
-			//interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
-			caninos,gpio-bank = <4>;
-			gpio-ranges = <&pinctrl 0 128 8>;
-			gpio-controller;
-			//interrupt-controller;
-			status = "okay";
-			//#interrupt-cells = <1>;
-			#gpio-cells = <2>;
 		};
 		
 		pwm: pwm@e01b0000 {

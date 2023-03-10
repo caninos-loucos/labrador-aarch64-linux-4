@@ -80,15 +80,15 @@
 #define CMU_TVOUTPLL_DEBUG1  (0x00F4)
 
 static const char * const cpu_clk_mux_p[] __initdata = {
-    "losc", "hosc", "core_pll", "noc1_clk_div"
+	"losc", "hosc", "core_pll", "noc1_clk_div"
 };
 
 static const char * const dev_clk_p[] __initdata = {
-    "hosc", "dev_pll"
+	"hosc", "dev_pll"
 };
 
 static const char * const noc_clk_mux_p[] __initdata = {
-    "dev_clk", "display_pll", "nand_pll", "ddr_pll", "cvbs_pll"
+	"dev_clk", "display_pll", "nand_pll", "ddr_pll", "cvbs_pll"
 };
 
 static const char * const csi_clk_mux_p[] __initdata = { 
@@ -100,11 +100,11 @@ static const char * const de_clk_mux_p[] __initdata = {
 };
 
 static const char * const codec_clk_mux_p[] __initdata = {
-    "dev_clk", "display_pll", "nand_pll", "ddr_pll"
+	"dev_clk", "display_pll", "nand_pll", "ddr_pll"
 };
 
 static const char * const nand_clk_mux_p[] __initdata = {
-    "nand_pll", "display_pll", "dev_clk", "ddr_pll"
+	"nand_pll", "display_pll", "dev_clk", "ddr_pll"
 };
 
 static const char * const sd_clk_mux_p[] __initdata = { 
@@ -120,7 +120,7 @@ static const char * const pwm_clk_mux_p[] __initdata = {
 };
 
 static const char * const gpu_clk_mux_p[] __initdata = {
-    "dev_clk", "display_pll", "nand_pll", "ddr_pll", "cvbs_pll"
+	"dev_clk", "display_pll", "nand_pll", "ddr_pll", "cvbs_pll"
 };
 
 static const char * const lcd_clk_mux_p[] __initdata = {
@@ -280,8 +280,8 @@ static const struct clk_factor_table codec_gpu_factor_table[] __initdata = {
 };
 
 /* fixed rate clocks */
-static const struct caninos_fixed_clock k7_fixed_clks[] __initdata = {
-
+static const struct caninos_fixed_clock k7_fixed_clks[] __initdata =
+{
 	CANINOS_FIXED_RATE(CLK_LOSC, "losc", NULL, 32768, CLK_IS_CRITICAL),
 	
 	CANINOS_FIXED_RATE(CLK_HOSC, "hosc", NULL, 24000000, CLK_IS_CRITICAL),
@@ -431,8 +431,8 @@ static const struct caninos_gate_clock k7_gate_clks[] __initdata = {
 };
 
 /* pll clocks */
-static const struct caninos_pll_clock k7_pll_clks[] __initdata = {
-
+static const struct caninos_pll_clock k7_pll_clks[] __initdata = 
+{
     CANINOS_PLL(CLK_CORE_PLL, "core_pll", "hosc",
                 CMU_COREPLL, 12000000, 9, 0, 8, 4, 174,
                 CANINOS_CLK_PLL_READ_ONLY, NULL,

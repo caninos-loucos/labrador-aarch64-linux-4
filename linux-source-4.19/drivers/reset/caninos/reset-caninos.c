@@ -1,5 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Caninos Reset
+ * Caninos Reset driver
+ *
+ * Copyright (c) 2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
  *
  * Copyright (c) 2019 LSI-TEC - Caninos Loucos
  * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
@@ -29,76 +33,82 @@
 #define DRIVER_NAME "caninos-reset"
 #define DRIVER_DESC "Caninos Labrador Reset Controller Driver"
 
-#define K7_DEVRST0 0x00
-#define K7_DEVRST1 0x04
+#define DEVRST0 0x00
+#define DEVRST1 0x04
 
-struct caninos_rcu_reset_reg_data {
+struct caninos_rcu_reset_reg_data
+{
 	u32 offset;
 	u32 deassert;
 	u32 assert;
 	u32 mask;
 };
 
-#define CANINOS_RST_REG_DATA(_off,_deassert,_assert,_mask) \
-	{ .offset = _off, .deassert = _deassert, .assert = _assert, .mask = _mask }
+#define CANINOS_RST_REG_DATA(_off,_deassert) \
+	{ .offset = _off, .deassert = _deassert, .assert = 0x0, .mask = _deassert }
 
-static struct caninos_rcu_reset_reg_data k7_reg_data[] = {
+static struct caninos_rcu_reset_reg_data k5_reg_data[] =
+{
+	[RST_UART0]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(5)),
+	[RST_UART1]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(6)),
+	[RST_UART2]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(7)),
+	[RST_UART3]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(15)),
+	[RST_UART4]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(16)),
+	[RST_UART5]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(17)),
+	[RST_UART6]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(4)),
+	[RST_SDC0]     = CANINOS_RST_REG_DATA(DEVRST0, BIT(4)),
+	[RST_SDC1]     = CANINOS_RST_REG_DATA(DEVRST0, BIT(5)),
+	[RST_SDC2]     = CANINOS_RST_REG_DATA(DEVRST0, BIT(9)),
+	[RST_HDCP2]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(3)),
+	[RST_USBH0]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(0)),
+	[RST_USBH1]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(22)),
+	[RST_PCM1]     = CANINOS_RST_REG_DATA(DEVRST0, BIT(6)),
+	[RST_PCM0]     = CANINOS_RST_REG_DATA(DEVRST0, BIT(18)),
+	[RST_AUDIO]    = CANINOS_RST_REG_DATA(DEVRST0, BIT(17)),
+	[RST_ETHERNET] = CANINOS_RST_REG_DATA(DEVRST1, BIT(20)),
+	[RST_VDE]      = CANINOS_RST_REG_DATA(DEVRST0, BIT(19)),
+	[RST_VCE]      = CANINOS_RST_REG_DATA(DEVRST0, BIT(20)),
+	[RST_GPU3D]    = CANINOS_RST_REG_DATA(DEVRST0, BIT(22)),
+	[RST_TVOUT]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(1)),
+	[RST_HDMI]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(2)),
+	[RST_DE]       = CANINOS_RST_REG_DATA(DEVRST0, BIT(7)),
+	[RST_USB3]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(14)),
+	[RST_TWI0]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(12)),
+	[RST_TWI1]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(13)),
+	[RST_TWI2]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(18)),
+	[RST_TWI3]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(19)),
+};
 
-	[RST_UART0] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(8), 0x0, BIT(8)),
-	
-	[RST_UART1] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(9), 0x0, BIT(9)),
-	
-	[RST_UART2] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(10), 0x0, BIT(10)),
-	
-	[RST_UART3] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(11), 0x0, BIT(11)),
-	
-	[RST_UART4] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(12), 0x0, BIT(12)),
-	
-	[RST_UART5] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(13), 0x0, BIT(13)),
-	
-	[RST_UART6] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(14), 0x0, BIT(14)),
-	
-	[RST_SDC0] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(22), 0x0, BIT(22)),
-	
-	[RST_SDC1] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(23), 0x0, BIT(23)),
-	
-	[RST_SDC2] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(24), 0x0, BIT(24)),
-	
-	[RST_HDCP2] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(6), 0x0, BIT(6)),
-	
-	[RST_USBH0] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(26), 0x0, BIT(26)),
-	
-	[RST_USBH1] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(27), 0x0, BIT(27)),
-	
-	[RST_PCM1] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(31), 0x0, BIT(31)),
-	
-	[RST_PCM0] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(30), 0x0, BIT(30)),
-	
-	[RST_AUDIO] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(29), 0x0, BIT(29)),
-	
-	[RST_ETHERNET] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(23), 0x0, BIT(23)),
-	
-	[RST_VDE] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(10), 0x0, BIT(10)),
-	
-	[RST_VCE] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(11), 0x0, BIT(11)),
-	
-	[RST_GPU3D] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(8), 0x0, BIT(8)),
-	
-	[RST_TVOUT] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(3), 0x0, BIT(3)),
-	
-	[RST_HDMI] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(5), 0x0, BIT(5)),
-	
-	[RST_DE] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(0), 0x0, BIT(0)),
-	
-	[RST_USB3] = CANINOS_RST_REG_DATA(K7_DEVRST0, BIT(25), 0x0, BIT(25)),
-	
-	[RST_TWI0] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(0), 0x0, BIT(0)),
-	
-	[RST_TWI1] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(1), 0x0, BIT(1)),
-	
-	[RST_TWI2] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(2), 0x0, BIT(2)),
-	
-	[RST_TWI3] = CANINOS_RST_REG_DATA(K7_DEVRST1, BIT(3), 0x0, BIT(3)),
+static struct caninos_rcu_reset_reg_data k7_reg_data[] = 
+{
+	[RST_UART0]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(8)),
+	[RST_UART1]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(9)),
+	[RST_UART2]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(10)),
+	[RST_UART3]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(11)),
+	[RST_UART4]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(12)),
+	[RST_UART5]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(13)),
+	[RST_UART6]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(14)),
+	[RST_SDC0]     = CANINOS_RST_REG_DATA(DEVRST0, BIT(22)),
+	[RST_SDC1]     = CANINOS_RST_REG_DATA(DEVRST0, BIT(23)),
+	[RST_SDC2]     = CANINOS_RST_REG_DATA(DEVRST0, BIT(24)),
+	[RST_HDCP2]    = CANINOS_RST_REG_DATA(DEVRST0, BIT(6)),
+	[RST_USBH0]    = CANINOS_RST_REG_DATA(DEVRST0, BIT(26)),
+	[RST_USBH1]    = CANINOS_RST_REG_DATA(DEVRST0, BIT(27)),
+	[RST_PCM1]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(31)),
+	[RST_PCM0]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(30)),
+	[RST_AUDIO]    = CANINOS_RST_REG_DATA(DEVRST1, BIT(29)),
+	[RST_ETHERNET] = CANINOS_RST_REG_DATA(DEVRST1, BIT(23)),
+	[RST_VDE]      = CANINOS_RST_REG_DATA(DEVRST0, BIT(10)),
+	[RST_VCE]      = CANINOS_RST_REG_DATA(DEVRST0, BIT(11)),
+	[RST_GPU3D]    = CANINOS_RST_REG_DATA(DEVRST0, BIT(8)),
+	[RST_TVOUT]    = CANINOS_RST_REG_DATA(DEVRST0, BIT(3)),
+	[RST_HDMI]     = CANINOS_RST_REG_DATA(DEVRST0, BIT(5)),
+	[RST_DE]       = CANINOS_RST_REG_DATA(DEVRST0, BIT(0)),
+	[RST_USB3]     = CANINOS_RST_REG_DATA(DEVRST0, BIT(25)),
+	[RST_TWI0]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(0)),
+	[RST_TWI1]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(1)),
+	[RST_TWI2]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(2)),
+	[RST_TWI3]     = CANINOS_RST_REG_DATA(DEVRST1, BIT(3)),
 };
 
 struct caninos_rcu_reset_priv
@@ -203,8 +213,9 @@ static const struct reset_control_ops caninos_rcu_reset_ops = {
 };
 
 static const struct of_device_id caninos_rcu_reset_dt_ids[] = {
+	{ .compatible = "caninos,k5-reset", .data = &k5_reg_data },
 	{ .compatible = "caninos,k7-reset", .data = &k7_reg_data },
-	{ },
+	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, caninos_rcu_reset_dt_ids);
 
@@ -215,12 +226,13 @@ static int caninos_rcu_reset_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	u32 aux;
+	int ret;
 	
 	of_id = of_match_node(caninos_rcu_reset_dt_ids, dev->of_node);
 	
 	if (!of_id)
 	{
-		dev_err(dev, "could not match device type.\n");
+		dev_err(dev, "could not match device type\n");
 		return -ENODEV;
 	}
 	
@@ -228,7 +240,7 @@ static int caninos_rcu_reset_probe(struct platform_device *pdev)
 	
 	if (!res)
 	{
-		dev_err(dev, "could not get register base from DTS.\n");
+		dev_err(dev, "could not get register base from DTS\n");
 		return -ENOMEM;
 	}
 	
@@ -236,7 +248,7 @@ static int caninos_rcu_reset_probe(struct platform_device *pdev)
 	
 	if (IS_ERR(priv))
 	{
-		dev_err(dev, "could not allocate private memory.\n");
+		dev_err(dev, "could not allocate private memory\n");
 		return PTR_ERR(priv);
 	}
 	
@@ -250,27 +262,44 @@ static int caninos_rcu_reset_probe(struct platform_device *pdev)
 	priv->rcdev.nr_resets = NR_RESETS;
 	priv->data = of_id->data;
 	
+	if (!priv->data)
+	{
+		dev_err(dev, "invalid device specific data\n");
+		return -EINVAL;
+	}
+	
 	priv->cmu_base = devm_ioremap(dev, res->start, resource_size(res));
 	
 	if (IS_ERR(priv->cmu_base))
 	{
-		dev_err(dev, "could not map cmu-base registers.\n");
+		dev_err(dev, "could not map cmu-base registers\n");
 		return PTR_ERR(priv->cmu_base);
 	}
 	
 	/* Set ethernet gmac delays */
 	
-	aux = readl(priv->cmu_base + K7_DEVRST1);
-	aux &= 0xff807fff;
-	writel(aux, priv->cmu_base + K7_DEVRST1);
-	
-	if (aux != readl(priv->cmu_base + K7_DEVRST1))
+	if (priv->data == &k7_reg_data)
 	{
-		dev_err(dev, "could not set ethernet gmac delays.\n");
-		return -EINVAL;
+		aux = readl(priv->cmu_base + DEVRST1);
+		aux &= 0xff807fff;
+		writel(aux, priv->cmu_base + DEVRST1);
+	
+		if (aux != readl(priv->cmu_base + DEVRST1))
+		{
+			dev_err(dev, "could not set ethernet gmac delays\n");
+			return -EINVAL;
+		}
 	}
 	
-	return devm_reset_controller_register(dev, &priv->rcdev);
+	ret = devm_reset_controller_register(dev, &priv->rcdev);
+	
+	if (!ret) {
+		dev_info(dev, "probe finished\n");
+	}
+	else {
+		dev_err(dev, "could not register reset controller\n");
+	}
+	return ret;
 }
 
 static struct platform_driver caninos_rcu_reset_driver = {
@@ -282,5 +311,7 @@ static struct platform_driver caninos_rcu_reset_driver = {
 };
 module_platform_driver(caninos_rcu_reset_driver);
 
+MODULE_AUTHOR("Edgar Bernardi Righi <edgar.righi@lsitec.org.br>");
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
+

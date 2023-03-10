@@ -1,12 +1,8 @@
 if ARCH_CANINOS || COMPILE_TEST
 
-config CANINOS_PM_DOMAINS_HELPER
-	bool
-
 config CANINOS_PM_DOMAINS
 	bool "Caninos SPS power domains"
 	depends on PM
-	select CANINOS_PM_DOMAINS_HELPER
 	select PM_GENERIC_DOMAINS
 	help
 	  Say 'y' here to enable support for Smart Power System (SPS)
