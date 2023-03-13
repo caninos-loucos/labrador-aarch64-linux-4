@@ -181,16 +181,110 @@
 			status = "okay";
 		};
 		
+		pinctrl: pinctrl@b01b0000 {    
+			compatible = "caninos,k5-pinctrl";
+			reg = <0xb01b0000 0x1000>;
+			clocks = <&cmu CLK_GPIO>;
+			clock-names = "mfp";
+			#gpio-range-cells = <3>;
+			status = "okay";
+			
+			gpioa: bank@0 {
+				gpio-label = "GPIOA";
+				gpio-mask = <0xFFFFF000>;
+				gpio-ranges = <&pinctrl 0 0 32>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+			gpiob: bank@1 {
+				gpio-label = "GPIOB";
+				gpio-mask = <0xFFFFFFFF>;
+				gpio-ranges = <&pinctrl 0 32 32>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+			gpioc: bank@2 {
+				gpio-label = "GPIOC";
+				gpio-mask = <0xBFFFFFFF>;
+				gpio-ranges = <&pinctrl 0 64 32>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+			gpiod: bank@3 {
+				gpio-label = "GPIOD";
+				gpio-mask = <0xF3FFF400>;
+				gpio-ranges = <&pinctrl 0 96 32>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+			gpioe: bank@4 {
+				gpio-label = "GPIOE";
+				gpio-mask = <0x0000000F>;
+				gpio-ranges = <&pinctrl 0 128 4>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+			i2c2_state_gpio: i2c2_gpio {
+				function = "i2c2";
+				groups = "i2c2_dummy_grp";
+			};
+			i2c2_state_extio: i2c2_extio {
+				function = "i2c2";
+				groups = "i2c2_extio_grp";
+			};
+			uart0_state_gpio: uart0_gpio {
+				function = "uart0";
+				groups = "uart0_dummy_grp";
+			};
+			uart0_state_extio: uart0_extio {
+				function = "uart0";
+				groups = "uart0_extio_grp";
+			};
+			pwm_state_gpio: pwm_gpio {
+				function = "pwm";
+				groups = "pwm_dummy_grp";
+			};
+			pwm_state_extio: pwm_extio {
+				function = "pwm";
+				groups = "pwm_extio_grp";
+			};
+			eth_state_rmii: eth_rmii {
+				function = "eth";
+				groups = "eth_rmii_grp";
+			};
+		};
+		
+		leds {
+			compatible = "gpio-leds";
+			
+			led@1 {
+				label = "led1"; //LVDS_RXOC_P - GPIOB12
+				gpios = <&gpiob 12 GPIO_ACTIVE_HIGH>;
+				linux,default-trigger = "default-on";
+				default-state = "ON";
+			};
+			
+			led@2 {
+				label = "led2"; //LCD0_D17 - GPIOB31
+				gpios = <&gpiob 31 GPIO_ACTIVE_HIGH>;
+				linux,default-trigger = "heartbeat";
+				default-state = "ON";
+			};
+		};
+		
 		uart0: serial@b0120000 {
 			compatible = "caninos,k5-uart", "caninos,early-uart";
 			reg = <0xb0120000 0x2000>;
-			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_UART0>;
+			clock-names = "uart";
 			resets = <&rst RST_UART0>;
 			reset-names = "uart";
-			status = "disabled";
+			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
+			status = "okay";
 			
-			pinctrl-names = "default";
-			pinctrl-0 = <>;
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <&uart0_state_gpio>;
+			pinctrl-1 = <&uart0_state_extio>;
 		};
 		
 		uart1: serial@b0122000 {
