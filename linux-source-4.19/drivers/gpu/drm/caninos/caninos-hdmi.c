@@ -26,11 +26,17 @@
 #include <linux/dma-mapping.h>
 
 #include "hdmi.h"
-#include "ip-sx00.h"
+#include "hdmi-regs.h"
 
 #define PACKET_PERIOD 1
 
-static int hdmi_gen_spd_infoframe(struct hdmi_ip *ip)
+#define REG_MASK(start, end) (((1 << ((start) - (end) + 1)) - 1) << (end))
+#define REG_VAL(val, start, end) (((val) << (end)) & REG_MASK(start, end))
+#define REG_GET_VAL(val, start, end) (((val) & REG_MASK(start, end)) >> (end))
+#define REG_SET_VAL(orig, val, start, end) (((orig) & ~REG_MASK(start, end))\
+						 | REG_VAL(val, start, end))
+
+static int hdmi_gen_spd_infoframe(struct caninos_hdmi *hdmi)
 {
 	static uint8_t pkt[32];
 	static char spdname[8] = "Vienna";
@@ -68,13 +74,13 @@ static int hdmi_gen_spd_infoframe(struct hdmi_ip *ip)
 	pkt[3] = (~checksum + 1)  & 0xff;
 
 	/* set to RAM Packet */
-	ip->ops.packet_generate(ip, PACKET_SPD_SLOT, pkt);
-	ip->ops.packet_send(ip, PACKET_SPD_SLOT, PACKET_PERIOD);
+	hdmi->ops.packet_generate(hdmi, PACKET_SPD_SLOT, pkt);
+	hdmi->ops.packet_send(hdmi, PACKET_SPD_SLOT, PACKET_PERIOD);
 
 	return 0;
 }
 
-static int hdmi_gen_avi_infoframe(struct hdmi_ip *ip)
+static int hdmi_gen_avi_infoframe(struct caninos_hdmi *hdmi)
 {
 	static uint8_t pkt[32];
 	uint8_t AR = 2;
@@ -98,10 +104,10 @@ static int hdmi_gen_avi_infoframe(struct hdmi_ip *ip)
 	 * PB1--Y1:Y0 = colorformat; R3:R1 is invalid;
 	 * no bar info and scan info
 	 */
-	pkt[4] = (ip->settings.pixel_encoding << 5) | (0 << 4) | (0 << 2) | (0);
+	pkt[4] = (hdmi->settings.pixel_encoding << 5) | (0 << 4) | (0 << 2) | (0);
 
 	/* 0--Normal YCC601 or YCC709; 1--xvYCC601; 2--xvYCC709 */
-	if (ip->settings.color_xvycc == 0) {
+	if (hdmi->settings.color_xvycc == 0) {
 		/*
 		 * PB2--Colorimetry: SMPTE 170M | ITU601;
 		 * Picture aspect Ratio; same as picture aspect ratio
@@ -110,7 +116,7 @@ static int hdmi_gen_avi_infoframe(struct hdmi_ip *ip)
 
 		/* PB3--No known non-uniform scaling */
 		pkt[6] = 0x0;
-	} else if (ip->settings.color_xvycc == 1) {
+	} else if (hdmi->settings.color_xvycc == 1) {
 		/*
 		 * PB2--Colorimetry: SMPTE 170M | ITU601;
 		 * Picture aspect Ratio; same as picture aspect ratio
@@ -133,7 +139,7 @@ static int hdmi_gen_avi_infoframe(struct hdmi_ip *ip)
 
 	/* PB4--Video Id */
 	
-		pkt[7] = ip->vid;
+		pkt[7] = hdmi->vid;
 
 	/* PB5--Pixel repeat time */
 	pkt[8] = 0;
@@ -154,13 +160,13 @@ static int hdmi_gen_avi_infoframe(struct hdmi_ip *ip)
 	pkt[3] = (~checksum + 1) & 0xff;
 
 	/* set to RAM Packet */
-	ip->ops.packet_generate(ip, PACKET_AVI_SLOT, pkt);
-	ip->ops.packet_send(ip, PACKET_AVI_SLOT, PACKET_PERIOD);
+	hdmi->ops.packet_generate(hdmi, PACKET_AVI_SLOT, pkt);
+	hdmi->ops.packet_send(hdmi, PACKET_AVI_SLOT, PACKET_PERIOD);
 
 	return 0;
 }
 
-static int hdmi_gen_vs_infoframe(struct hdmi_ip *ip)
+static int hdmi_gen_vs_infoframe(struct caninos_hdmi *hdmi)
 {
 	static uint8_t pkt[32];
 	uint32_t checksum = 0;
@@ -186,11 +192,11 @@ static int hdmi_gen_vs_infoframe(struct hdmi_ip *ip)
 	pkt[6] = 0x00;
 
 
-	if (ip->settings.mode_3d != 0)
+	if (hdmi->settings.mode_3d != 0)
 	{
 		pkt[7] = 0x2 << 5;	/* 3D format */
 
-		switch (ip->settings.mode_3d) {
+		switch (hdmi->settings.mode_3d) {
 		case HDMI_3D_FRAME:
 			pkt[8] = 0x0 << 4;
 			pkt[9] = 0x0;
@@ -211,7 +217,7 @@ static int hdmi_gen_vs_infoframe(struct hdmi_ip *ip)
 		}
 	} else {
 		/* not (3D and 4kx2k@24/25/30/24SMPTE) format, stop vs packet */
-		ip->ops.packet_send(ip, PACKET_VS_SLOT, 0);
+		hdmi->ops.packet_send(hdmi, PACKET_VS_SLOT, 0);
 		return 0;
 	}
 
@@ -220,40 +226,26 @@ static int hdmi_gen_vs_infoframe(struct hdmi_ip *ip)
 	pkt[3] = (~checksum + 1) & 0xff;
 
 	/* set to RAM Packet */
-	ip->ops.packet_generate(ip, PACKET_VS_SLOT, pkt);
-	ip->ops.packet_send(ip, PACKET_VS_SLOT, PACKET_PERIOD);
+	hdmi->ops.packet_generate(hdmi, PACKET_VS_SLOT, pkt);
+	hdmi->ops.packet_send(hdmi, PACKET_VS_SLOT, PACKET_PERIOD);
 
 	return 0;
 }
 
-static int hdmi_packet_gen_infoframe(struct hdmi_ip *ip)
+static int hdmi_packet_gen_infoframe(struct caninos_hdmi *hdmi)
 {
-	hdmi_gen_spd_infoframe(ip);
+	hdmi_gen_spd_infoframe(hdmi);
 
-	if (hdmi_gen_avi_infoframe(ip))
+	if (hdmi_gen_avi_infoframe(hdmi))
 		return -1;
 
-	/* hdmi_gen_gbd_infoframe(ip); */
-	hdmi_gen_vs_infoframe(ip);
+	/* hdmi_gen_gbd_infoframe(hdmi); */
+	hdmi_gen_vs_infoframe(hdmi);
 
 	return 0;
 }
 
-static inline void hdmi_ip_writel(struct hdmi_ip *ip, const uint16_t idx, uint32_t val) {
-	writel(val, ip->base + idx);
-}
-
-static inline uint32_t hdmi_ip_readl(struct hdmi_ip *ip, const uint16_t idx) {
-	return readl(ip->base + idx);
-}
-
-#define REG_MASK(start, end) (((1 << ((start) - (end) + 1)) - 1) << (end))
-#define REG_VAL(val, start, end) (((val) << (end)) & REG_MASK(start, end))
-#define REG_GET_VAL(val, start, end) (((val) & REG_MASK(start, end)) >> (end))
-#define REG_SET_VAL(orig, val, start, end) (((orig) & ~REG_MASK(start, end))\
-						 | REG_VAL(val, start, end))
-
-static int ip_packet_send(struct hdmi_ip *ip, uint32_t no, int period)
+static int caninos_packet_send(struct caninos_hdmi *hdmi, uint32_t no, int period)
 {
 	uint32_t val;
 	
@@ -265,30 +257,30 @@ static int ip_packet_send(struct hdmi_ip *ip, uint32_t no, int period)
 		return -1;
 	}
 	
-	val = hdmi_ip_readl(ip, HDMI_RPCR);
+	val = caninos_hdmi_readl(hdmi, HDMI_RPCR);
 	val &= (~(1 << no));
-	hdmi_ip_writel(ip, HDMI_RPCR,  val);
+	caninos_hdmi_writel(hdmi, HDMI_RPCR,  val);
 	
-	val = hdmi_ip_readl(ip, HDMI_RPCR);
+	val = caninos_hdmi_readl(hdmi, HDMI_RPCR);
 	val &= (~(0xf << (no * 4 + 8)));
-	hdmi_ip_writel(ip, HDMI_RPCR, val);
+	caninos_hdmi_writel(hdmi, HDMI_RPCR, val);
 	
 	/* enable and set period */
 	if (period)
 	{
-		val = hdmi_ip_readl(ip, HDMI_RPCR);
+		val = caninos_hdmi_readl(hdmi, HDMI_RPCR);
 		val |= (period << (no * 4 + 8));
-		hdmi_ip_writel(ip, HDMI_RPCR,  val);
+		caninos_hdmi_writel(hdmi, HDMI_RPCR,  val);
 		
-		val = hdmi_ip_readl(ip, HDMI_RPCR);
+		val = caninos_hdmi_readl(hdmi, HDMI_RPCR);
 		val |= (0x1 << no);
-		hdmi_ip_writel(ip, HDMI_RPCR,  val);
+		caninos_hdmi_writel(hdmi, HDMI_RPCR,  val);
 	}
 	
 	return 0;
 }
 
-static int ip_packet_generate(struct hdmi_ip *ip, uint32_t no, uint8_t *pkt)
+static int caninos_packet_generate(struct caninos_hdmi *hdmi, uint32_t no, uint8_t *pkt)
 {
 	uint32_t addr = 126 + no * 14;
 	uint32_t reg[9], val;
@@ -363,26 +355,26 @@ static int ip_packet_generate(struct hdmi_ip *ip, uint32_t no, uint8_t *pkt)
 		}
 	}
 
-	hdmi_ip_writel(ip, HDMI_OPCR, (1 << 8) | (addr & 0xff));
-	hdmi_ip_writel(ip, HDMI_ORP6PH,  reg[0]);
-	hdmi_ip_writel(ip, HDMI_ORSP6W0, reg[1]);
-	hdmi_ip_writel(ip, HDMI_ORSP6W1, reg[2]);
-	hdmi_ip_writel(ip, HDMI_ORSP6W2, reg[3]);
-	hdmi_ip_writel(ip, HDMI_ORSP6W3, reg[4]);
-	hdmi_ip_writel(ip, HDMI_ORSP6W4, reg[5]);
-	hdmi_ip_writel(ip, HDMI_ORSP6W5, reg[6]);
-	hdmi_ip_writel(ip, HDMI_ORSP6W6, reg[7]);
-	hdmi_ip_writel(ip, HDMI_ORSP6W7, reg[8]);
+	caninos_hdmi_writel(hdmi, HDMI_OPCR, (1 << 8) | (addr & 0xff));
+	caninos_hdmi_writel(hdmi, HDMI_ORP6PH,  reg[0]);
+	caninos_hdmi_writel(hdmi, HDMI_ORSP6W0, reg[1]);
+	caninos_hdmi_writel(hdmi, HDMI_ORSP6W1, reg[2]);
+	caninos_hdmi_writel(hdmi, HDMI_ORSP6W2, reg[3]);
+	caninos_hdmi_writel(hdmi, HDMI_ORSP6W3, reg[4]);
+	caninos_hdmi_writel(hdmi, HDMI_ORSP6W4, reg[5]);
+	caninos_hdmi_writel(hdmi, HDMI_ORSP6W5, reg[6]);
+	caninos_hdmi_writel(hdmi, HDMI_ORSP6W6, reg[7]);
+	caninos_hdmi_writel(hdmi, HDMI_ORSP6W7, reg[8]);
 	
-	val = hdmi_ip_readl(ip, HDMI_OPCR);
+	val = caninos_hdmi_readl(hdmi, HDMI_OPCR);
 	val |= (0x1 << 31);
-	hdmi_ip_writel(ip, HDMI_OPCR, val);
+	caninos_hdmi_writel(hdmi, HDMI_OPCR, val);
 	
 	i = 100;
 	
 	while (i--)
 	{
-		val = hdmi_ip_readl(ip, HDMI_OPCR);
+		val = caninos_hdmi_readl(hdmi, HDMI_OPCR);
 		val = val >> 31;
 		
 		if (val == 0) {
@@ -395,90 +387,90 @@ static int ip_packet_generate(struct hdmi_ip *ip, uint32_t no, uint8_t *pkt)
 	return 0;
 }
 
-static bool ip_is_video_enabled(struct hdmi_ip *ip)
+static bool caninos_is_video_enabled(struct caninos_hdmi *hdmi)
 {
-	return (hdmi_ip_readl(ip, HDMI_CR) & 0x01) != 0;
+	return (caninos_hdmi_readl(hdmi, HDMI_CR) & 0x01) != 0;
 }
 
-static void ip_video_disable(struct hdmi_ip *ip)
+static void caninos_video_disable(struct caninos_hdmi *hdmi)
 {
 	uint32_t val;
 	
-	val = hdmi_ip_readl(ip, HDMI_TX_2);
+	val = caninos_hdmi_readl(hdmi, HDMI_TX_2);
 	val = REG_SET_VAL(val, 0x0, 11, 8);
 	val = REG_SET_VAL(val, 0x0, 17, 17);
-	hdmi_ip_writel(ip, HDMI_TX_2, val);
+	caninos_hdmi_writel(hdmi, HDMI_TX_2, val);
 	
-	val = hdmi_ip_readl(ip, HDMI_CR);
+	val = caninos_hdmi_readl(hdmi, HDMI_CR);
 	val = REG_SET_VAL(val, 0, 0, 0);
-	hdmi_ip_writel(ip, HDMI_CR, val);
+	caninos_hdmi_writel(hdmi, HDMI_CR, val);
 	
-	val = readl(ip->cmu_base + ip->hwdiff->pll_reg);
-	val &= ~(0x1 << ip->hwdiff->pll_24m_en);
-	val &= ~(0x1 << ip->hwdiff->pll_en);
-	writel(val, ip->cmu_base + ip->hwdiff->pll_reg);
+	val = readl(hdmi->cmu_base + hdmi->hwdiff->pll_reg);
+	val &= ~(0x1 << hdmi->hwdiff->pll_24m_en);
+	val &= ~(0x1 << hdmi->hwdiff->pll_en);
+	writel(val, hdmi->cmu_base + hdmi->hwdiff->pll_reg);
 	
 	/* reset TVOUTPLL */
-	writel(0, ip->cmu_base + ip->hwdiff->pll_reg);
+	writel(0, hdmi->cmu_base + hdmi->hwdiff->pll_reg);
 	
 	/* reset TVOUTPLL_DEBUG0 & TVOUTPLL_DEBUG1 */
-	writel(0x0, ip->cmu_base + ip->hwdiff->pll_debug0_reg);
-	writel(0x2614a, ip->cmu_base + ip->hwdiff->pll_debug1_reg);
+	writel(0x0, hdmi->cmu_base + hdmi->hwdiff->pll_debug0_reg);
+	writel(0x2614a, hdmi->cmu_base + hdmi->hwdiff->pll_debug1_reg);
 	
 	/* TMDS Encoder */
-	val = hdmi_ip_readl(ip, TMDS_EODR0);
+	val = caninos_hdmi_readl(hdmi, TMDS_EODR0);
 	val = REG_SET_VAL(val, 0, 31, 31);
-	hdmi_ip_writel(ip, TMDS_EODR0, val);
+	caninos_hdmi_writel(hdmi, TMDS_EODR0, val);
 	
 	/* txpll_pu */
-	val = hdmi_ip_readl(ip, HDMI_TX_1);
+	val = caninos_hdmi_readl(hdmi, HDMI_TX_1);
 	val = REG_SET_VAL(val, 0, 23, 23);
-	hdmi_ip_writel(ip, HDMI_TX_1, val);
+	caninos_hdmi_writel(hdmi, HDMI_TX_1, val);
 	
 	/* internal TMDS LDO */
-	val = hdmi_ip_readl(ip, HDMI_TX_2);
+	val = caninos_hdmi_readl(hdmi, HDMI_TX_2);
 	val = REG_SET_VAL(val, 0, 27, 27); /* LDO_TMDS power off */
-	hdmi_ip_writel(ip, HDMI_TX_2, val);
+	caninos_hdmi_writel(hdmi, HDMI_TX_2, val);
 }
 
-static int ip_update_reg_values(struct hdmi_ip *ip)
+static int caninos_update_reg_values(struct caninos_hdmi *hdmi)
 {
-	ip->pll_val = 0;
+	hdmi->pll_val = 0;
 	
 	/* bit31 = 0, debug mode disable, default value if it is not set */
-	ip->pll_debug0_val = 0;
-	ip->pll_debug1_val = 0;
+	hdmi->pll_debug0_val = 0;
+	hdmi->pll_debug1_val = 0;
 	
-	ip->tx_1 = 0;
-	ip->tx_2 = 0;
+	hdmi->tx_1 = 0;
+	hdmi->tx_2 = 0;
 	
-	switch (ip->vid)
+	switch (hdmi->vid)
 	{
 	case VID640x480P_60_4VS3:
-		ip->pll_val = 0x00000008;	/* 25.2MHz */
-		ip->tx_1 = 0x819c2984;
-		ip->tx_2 = 0x18f80f39;
+		hdmi->pll_val = 0x00000008;	/* 25.2MHz */
+		hdmi->tx_1 = 0x819c2984;
+		hdmi->tx_2 = 0x18f80f39;
 		break;
 	
 	case VID720x576P_50_4VS3:
 	case VID720x480P_60_4VS3:
-		ip->pll_val = 0x00010008;	/* 27MHz */
-		ip->tx_1 = 0x819c2984;
-		ip->tx_2 = 0x18f80f39;
+		hdmi->pll_val = 0x00010008;	/* 27MHz */
+		hdmi->tx_1 = 0x819c2984;
+		hdmi->tx_2 = 0x18f80f39;
 		break;
 
 	case VID1280x720P_60_16VS9:
 	case VID1280x720P_50_16VS9:
-		ip->pll_val = 0x00040008;	/* 74.25MHz */
-		ip->tx_1 = 0x81982984;
-		ip->tx_2 = 0x18f80f39;
+		hdmi->pll_val = 0x00040008;	/* 74.25MHz */
+		hdmi->tx_1 = 0x81982984;
+		hdmi->tx_2 = 0x18f80f39;
 		break;
 
 	case VID1920x1080P_60_16VS9:
 	case VID1920x1080P_50_16VS9:
-		ip->pll_val = 0x00060008;	/* 148.5MHz */
-		ip->tx_1 = 0x81942988;
-		ip->tx_2 = 0x18fe0f39;
+		hdmi->pll_val = 0x00060008;	/* 148.5MHz */
+		hdmi->tx_1 = 0x81942988;
+		hdmi->tx_2 = 0x18fe0f39;
 		break;
 
 	default:
@@ -487,222 +479,222 @@ static int ip_update_reg_values(struct hdmi_ip *ip)
 	return 0;
 }
 
-static void __ip_tmds_ldo_enable(struct hdmi_ip *ip)
+static void __caninos_tmds_ldo_enable(struct caninos_hdmi *hdmi)
 {
 	uint32_t val;
 	
 	/* do not enable HDMI lane util video enable */
-	val = ip->tx_2 & (~((0xf << 8) | (1 << 17)));
-	hdmi_ip_writel(ip, HDMI_TX_2, val);
+	val = hdmi->tx_2 & (~((0xf << 8) | (1 << 17)));
+	caninos_hdmi_writel(hdmi, HDMI_TX_2, val);
 }
 
-static void __ip_phy_enable(struct hdmi_ip *ip)
+static void __caninos_phy_enable(struct caninos_hdmi *hdmi)
 {
 	uint32_t val;
 	
 	/* TMDS Encoder */
-	val = hdmi_ip_readl(ip, TMDS_EODR0);
+	val = caninos_hdmi_readl(hdmi, TMDS_EODR0);
 	val = REG_SET_VAL(val, 1, 31, 31);
-	hdmi_ip_writel(ip, TMDS_EODR0, val);
+	caninos_hdmi_writel(hdmi, TMDS_EODR0, val);
 	
-	hdmi_ip_writel(ip, HDMI_TX_1, ip->tx_1);
+	caninos_hdmi_writel(hdmi, HDMI_TX_1, hdmi->tx_1);
 }
 
-static void __ip_pll_enable(struct hdmi_ip *ip)
+static void __caninos_pll_enable(struct caninos_hdmi *hdmi)
 {
 	uint32_t val;
 	
 	/* 24M enable */
-	val = readl(ip->cmu_base + ip->hwdiff->pll_reg);
-	val |= (1 << ip->hwdiff->pll_24m_en);
-	writel(val, ip->cmu_base + ip->hwdiff->pll_reg);
+	val = readl(hdmi->cmu_base + hdmi->hwdiff->pll_reg);
+	val |= (1 << hdmi->hwdiff->pll_24m_en);
+	writel(val, hdmi->cmu_base + hdmi->hwdiff->pll_reg);
 	mdelay(1);
 	
 	/* set PLL, only bit18:16 of pll_val is used */
-	val = readl(ip->cmu_base + ip->hwdiff->pll_reg);
+	val = readl(hdmi->cmu_base + hdmi->hwdiff->pll_reg);
 	val &= ~(0x7 << 16);
-	val |= (ip->pll_val & (0x7 << 16));
-	writel(val, ip->cmu_base + ip->hwdiff->pll_reg);
+	val |= (hdmi->pll_val & (0x7 << 16));
+	writel(val, hdmi->cmu_base + hdmi->hwdiff->pll_reg);
 	mdelay(1);
 	
 	/* set debug PLL */
-	writel(ip->pll_debug0_val, ip->cmu_base + ip->hwdiff->pll_debug0_reg);
-	writel(ip->pll_debug1_val, ip->cmu_base + ip->hwdiff->pll_debug1_reg);
+	writel(hdmi->pll_debug0_val, hdmi->cmu_base + hdmi->hwdiff->pll_debug0_reg);
+	writel(hdmi->pll_debug1_val, hdmi->cmu_base + hdmi->hwdiff->pll_debug1_reg);
 	
 	/* enable PLL */
-	val = readl(ip->cmu_base + ip->hwdiff->pll_reg);
-	val |= (1 << ip->hwdiff->pll_en);
-	writel(val, ip->cmu_base + ip->hwdiff->pll_reg);
+	val = readl(hdmi->cmu_base + hdmi->hwdiff->pll_reg);
+	val |= (1 << hdmi->hwdiff->pll_en);
+	writel(val, hdmi->cmu_base + hdmi->hwdiff->pll_reg);
 	mdelay(1);
 	
-	val = hdmi_ip_readl(ip, CEC_DDC_HPD);
+	val = caninos_hdmi_readl(hdmi, CEC_DDC_HPD);
 	
 	/* 0 to 1, start calibration */
 	val = REG_SET_VAL(val, 0, 20, 20);
-	hdmi_ip_writel(ip, CEC_DDC_HPD, val);
+	caninos_hdmi_writel(hdmi, CEC_DDC_HPD, val);
 	
 	udelay(10);
 	
 	val = REG_SET_VAL(val, 1, 20, 20);
-	hdmi_ip_writel(ip, CEC_DDC_HPD, val);
+	caninos_hdmi_writel(hdmi, CEC_DDC_HPD, val);
 	
 	while (1) {
-		val = hdmi_ip_readl(ip, CEC_DDC_HPD);
+		val = caninos_hdmi_readl(hdmi, CEC_DDC_HPD);
 		if ((val >> 24) & 0x1)
 			break;
 	}
 }
 
-static void __ip_video_timing_config(struct hdmi_ip *ip)
+static void __caninos_video_timing_config(struct caninos_hdmi *hdmi)
 {
 	bool vsync_pol, hsync_pol, interlace, repeat;
 	uint32_t val;
-	const struct videomode *mode = &ip->mode;
+	const struct videomode *mode = &hdmi->mode;
 	
 	vsync_pol = ((mode->sync & DSS_SYNC_VERT_HIGH_ACT) == 0);
 	hsync_pol = ((mode->sync & DSS_SYNC_HOR_HIGH_ACT) == 0);
 	
-	interlace = ip->interlace;
-	repeat = ip->repeat;
+	interlace = hdmi->interlace;
+	repeat = hdmi->repeat;
 	
-	val = hdmi_ip_readl(ip, HDMI_SCHCR);
+	val = caninos_hdmi_readl(hdmi, HDMI_SCHCR);
 	val = REG_SET_VAL(val, hsync_pol, 1, 1);
 	val = REG_SET_VAL(val, vsync_pol, 2, 2);
-	hdmi_ip_writel(ip, HDMI_SCHCR, val);
+	caninos_hdmi_writel(hdmi, HDMI_SCHCR, val);
 
-	val = hdmi_ip_readl(ip, HDMI_VICTL);
+	val = caninos_hdmi_readl(hdmi, HDMI_VICTL);
 	val = REG_SET_VAL(val, interlace, 28, 28);
 	val = REG_SET_VAL(val, repeat, 29, 29);
-	hdmi_ip_writel(ip, HDMI_VICTL, val);
+	caninos_hdmi_writel(hdmi, HDMI_VICTL, val);
 }
 
-static void __ip_video_format_config(struct hdmi_ip *ip)
+static void __caninos_video_format_config(struct caninos_hdmi *hdmi)
 {
 	uint32_t val, val_hp, val_vp;
 	bool interlace;
-	const struct videomode *mode = &ip->mode;
+	const struct videomode *mode = &hdmi->mode;
 
 	val_hp = mode->xres + mode->hbp + mode->hfp + mode->hsw;
 	val_vp = mode->yres + mode->vbp + mode->vfp + mode->vsw;
-	interlace = ip->interlace;
+	interlace = hdmi->interlace;
 	
-	val = hdmi_ip_readl(ip, HDMI_VICTL);
+	val = caninos_hdmi_readl(hdmi, HDMI_VICTL);
 
-	val = REG_SET_VAL(val, val_hp - 1, ip->hwdiff->hp_end, ip->hwdiff->hp_start);
+	val = REG_SET_VAL(val, val_hp - 1, hdmi->hwdiff->hp_end, hdmi->hwdiff->hp_start);
 
 	if (interlace == false)
-		val = REG_SET_VAL(val, val_vp - 1, ip->hwdiff->vp_end, ip->hwdiff->vp_start);
+		val = REG_SET_VAL(val, val_vp - 1, hdmi->hwdiff->vp_end, hdmi->hwdiff->vp_start);
 	else
-		val = REG_SET_VAL(val, val_vp * 2, ip->hwdiff->vp_end, ip->hwdiff->vp_start);
+		val = REG_SET_VAL(val, val_vp * 2, hdmi->hwdiff->vp_end, hdmi->hwdiff->vp_start);
 	
-	hdmi_ip_writel(ip, HDMI_VICTL, val);
+	caninos_hdmi_writel(hdmi, HDMI_VICTL, val);
 }
 
-static int ip_video_enable(struct hdmi_ip *ip)
+static int caninos_video_enable(struct caninos_hdmi *hdmi)
 {
 	uint32_t val, mode;
 	int preline, ret;
 	
-	ret = ip_update_reg_values(ip);
+	ret = caninos_update_reg_values(hdmi);
 	
 	if (ret < 0) {
 		return ret;
 	}
 	
-	__ip_tmds_ldo_enable(ip);
+	__caninos_tmds_ldo_enable(hdmi);
 	
 	udelay(500);
 	
-	__ip_phy_enable(ip);
-	__ip_pll_enable(ip);
+	__caninos_phy_enable(hdmi);
+	__caninos_pll_enable(hdmi);
 	
 	mdelay(10);
 	
-	__ip_video_timing_config(ip);
-	__ip_video_format_config(ip);
+	__caninos_video_timing_config(hdmi);
+	__caninos_video_format_config(hdmi);
 	
-	if (ip->interlace == 0)
+	if (hdmi->interlace == 0)
 	{
 		val = 0;
-		hdmi_ip_writel(ip, HDMI_VIVSYNC, val);
+		caninos_hdmi_writel(hdmi, HDMI_VIVSYNC, val);
 		
-		val = hdmi_ip_readl(ip, HDMI_VIVHSYNC);
+		val = caninos_hdmi_readl(hdmi, HDMI_VIVHSYNC);
 		
-		if (ip->vstart != 1)
+		if (hdmi->vstart != 1)
 		{
-			val = REG_SET_VAL(val, ip->mode.hsw - 1, 8, 0);
-			val = REG_SET_VAL(val, ip->vstart - 2, 23, 12);
-			val = REG_SET_VAL(val, ip->vstart + ip->mode.vsw - 2, 27, 24);
+			val = REG_SET_VAL(val, hdmi->mode.hsw - 1, 8, 0);
+			val = REG_SET_VAL(val, hdmi->vstart - 2, 23, 12);
+			val = REG_SET_VAL(val, hdmi->vstart + hdmi->mode.vsw - 2, 27, 24);
 		}
 		else
 		{
-			val = REG_SET_VAL(val, ip->mode.hsw - 1, 8, 0);
-			val = REG_SET_VAL(val, ip->mode.yres + ip->mode.vbp + ip->mode.vfp + ip->mode.vsw - 1, 23, 12);
-			val = REG_SET_VAL(val, ip->mode.vsw - 1, 27, 24);
+			val = REG_SET_VAL(val, hdmi->mode.hsw - 1, 8, 0);
+			val = REG_SET_VAL(val, hdmi->mode.yres + hdmi->mode.vbp + hdmi->mode.vfp + hdmi->mode.vsw - 1, 23, 12);
+			val = REG_SET_VAL(val, hdmi->mode.vsw - 1, 27, 24);
 		}
 		
-		hdmi_ip_writel(ip, HDMI_VIVHSYNC, val);
+		caninos_hdmi_writel(hdmi, HDMI_VIVHSYNC, val);
 		
 		/*
 		 * VIALSEOF = (yres + vbp + vsp - 1) | ((vbp + vfp - 1) << 12)
 		 */
-		val = hdmi_ip_readl(ip, HDMI_VIALSEOF);
+		val = caninos_hdmi_readl(hdmi, HDMI_VIALSEOF);
 		
-		val = REG_SET_VAL(val, ip->vstart - 1 + ip->mode.vsw + ip->mode.vbp + ip->mode.yres - 1, 23, 12);
-		val = REG_SET_VAL(val, ip->vstart - 1 + ip->mode.vsw + ip->mode.vbp - 1, 10, 0);
+		val = REG_SET_VAL(val, hdmi->vstart - 1 + hdmi->mode.vsw + hdmi->mode.vbp + hdmi->mode.yres - 1, 23, 12);
+		val = REG_SET_VAL(val, hdmi->vstart - 1 + hdmi->mode.vsw + hdmi->mode.vbp - 1, 10, 0);
 		
-		hdmi_ip_writel(ip, HDMI_VIALSEOF, val);
+		caninos_hdmi_writel(hdmi, HDMI_VIALSEOF, val);
 		
 		val = 0;
-		hdmi_ip_writel(ip, HDMI_VIALSEEF, val);
+		caninos_hdmi_writel(hdmi, HDMI_VIALSEEF, val);
 		
 		/*
 		 * VIADLSE = (xres + hbp + hsp - 1) | ((hbp + hsw - 1) << 12)
 		 */
-		val = hdmi_ip_readl(ip, HDMI_VIADLSE);
-		val = REG_SET_VAL(val, ip->mode.hbp +  ip->mode.hsw - 1, 11, 0);
-		val = REG_SET_VAL(val, ip->mode.xres + ip->mode.hbp + ip->mode.hsw - 1, 28, 16);
+		val = caninos_hdmi_readl(hdmi, HDMI_VIADLSE);
+		val = REG_SET_VAL(val, hdmi->mode.hbp +  hdmi->mode.hsw - 1, 11, 0);
+		val = REG_SET_VAL(val, hdmi->mode.xres + hdmi->mode.hbp + hdmi->mode.hsw - 1, 28, 16);
 		
-		hdmi_ip_writel(ip, HDMI_VIADLSE, val);
+		caninos_hdmi_writel(hdmi, HDMI_VIADLSE, val);
 	}
 	else
 	{
 		val = 0;
-		hdmi_ip_writel(ip, HDMI_VIVSYNC, val);
+		caninos_hdmi_writel(hdmi, HDMI_VIVSYNC, val);
 		
 		/*
 		 * VIVHSYNC =
 		 * (hsw -1 ) | ((yres + vsw + vfp + vbp - 1 ) << 12)
 		 *  | (vfp -1 << 24)
 		 */
-		val = hdmi_ip_readl(ip, HDMI_VIVHSYNC);
-		val = REG_SET_VAL(val, ip->mode.hsw - 1, 8, 0);
-		val = REG_SET_VAL(val, (ip->mode.yres + ip->mode.vbp + ip->mode.vfp + ip->mode.vsw) * 2, 22, 12);
-		val = REG_SET_VAL(val, ip->mode.vfp * 2, 22, 12);
-		hdmi_ip_writel(ip, HDMI_VIVHSYNC, val);
+		val = caninos_hdmi_readl(hdmi, HDMI_VIVHSYNC);
+		val = REG_SET_VAL(val, hdmi->mode.hsw - 1, 8, 0);
+		val = REG_SET_VAL(val, (hdmi->mode.yres + hdmi->mode.vbp + hdmi->mode.vfp + hdmi->mode.vsw) * 2, 22, 12);
+		val = REG_SET_VAL(val, hdmi->mode.vfp * 2, 22, 12);
+		caninos_hdmi_writel(hdmi, HDMI_VIVHSYNC, val);
 
 		/*
 		 * VIALSEOF = (yres + vbp + vfp - 1) | ((vbp + vfp - 1) << 12)
 		 */
-		val = hdmi_ip_readl(ip, HDMI_VIALSEOF);
-		val = REG_SET_VAL(val, ip->mode.vbp + ip->mode.vfp  - 1, 22, 12);
-		val = REG_SET_VAL(val, (ip->mode.yres + ip->mode.vbp + ip->mode.vfp) * 2, 10, 0);
-		hdmi_ip_writel(ip, HDMI_VIALSEOF, val);
+		val = caninos_hdmi_readl(hdmi, HDMI_VIALSEOF);
+		val = REG_SET_VAL(val, hdmi->mode.vbp + hdmi->mode.vfp  - 1, 22, 12);
+		val = REG_SET_VAL(val, (hdmi->mode.yres + hdmi->mode.vbp + hdmi->mode.vfp) * 2, 10, 0);
+		caninos_hdmi_writel(hdmi, HDMI_VIALSEOF, val);
 
 		val = 0;
-		hdmi_ip_writel(ip, HDMI_VIALSEEF, val);
+		caninos_hdmi_writel(hdmi, HDMI_VIALSEEF, val);
 
 		/*
 		 * VIADLSE = (xres + hbp + hsp - 1) | ((hbp + hsw - 1) << 12)
 		 */
-		val = hdmi_ip_readl(ip, HDMI_VIADLSE);
-		val = REG_SET_VAL(val, ip->mode.hbp + ip->mode.hsw - 1, 27, 16);
-		val = REG_SET_VAL(val, ip->mode.xres + ip->mode.hbp + ip->mode.hsw - 1, 11, 0);
+		val = caninos_hdmi_readl(hdmi, HDMI_VIADLSE);
+		val = REG_SET_VAL(val, hdmi->mode.hbp + hdmi->mode.hsw - 1, 27, 16);
+		val = REG_SET_VAL(val, hdmi->mode.xres + hdmi->mode.hbp + hdmi->mode.hsw - 1, 11, 0);
 		
-		hdmi_ip_writel(ip, HDMI_VIADLSE, val);
+		caninos_hdmi_writel(hdmi, HDMI_VIADLSE, val);
 	}
 	
-	switch (ip->vid)
+	switch (hdmi->vid)
 	{
 	case VID640x480P_60_4VS3:
 	case VID720x480P_60_4VS3:
@@ -725,54 +717,54 @@ static int ip_video_enable(struct hdmi_ip *ip)
 		break;
 	}
 
-	hdmi_ip_writel(ip, HDMI_DIPCCR, val);
+	caninos_hdmi_writel(hdmi, HDMI_DIPCCR, val);
 	
-	val = hdmi_ip_readl(ip, HDMI_ICR);
+	val = caninos_hdmi_readl(hdmi, HDMI_ICR);
 	
-	if (ip->settings.hdmi_src == VITD)
+	if (hdmi->settings.hdmi_src == VITD)
 	{
 		val = REG_SET_VAL(val, 0x01, 24, 24);
-		val = REG_SET_VAL(val, ip->settings.vitd_color, 23, 0);
+		val = REG_SET_VAL(val, hdmi->settings.vitd_color, 23, 0);
 	}
 	else {
 		val = REG_SET_VAL(val, 0x00, 24, 24);
 	}
 	
-	hdmi_ip_writel(ip, HDMI_ICR, val);
+	caninos_hdmi_writel(hdmi, HDMI_ICR, val);
 	
-	val = hdmi_ip_readl(ip, HDMI_SCHCR);
-	val = REG_SET_VAL(val, ip->settings.pixel_encoding, 5, 4);
-	hdmi_ip_writel(ip, HDMI_SCHCR, val);
+	val = caninos_hdmi_readl(hdmi, HDMI_SCHCR);
+	val = REG_SET_VAL(val, hdmi->settings.pixel_encoding, 5, 4);
+	caninos_hdmi_writel(hdmi, HDMI_SCHCR, val);
 	
-	preline = ip->settings.prelines;
+	preline = hdmi->settings.prelines;
 	preline = (preline <= 0 ? 1 : preline);
 	preline = (preline > 16 ? 16 : preline);
 
-	val = hdmi_ip_readl(ip, HDMI_SCHCR);
+	val = caninos_hdmi_readl(hdmi, HDMI_SCHCR);
 	val = REG_SET_VAL(val, preline - 1, 23, 20);
-	hdmi_ip_writel(ip, HDMI_SCHCR, val);
+	caninos_hdmi_writel(hdmi, HDMI_SCHCR, val);
 	
-	val = hdmi_ip_readl(ip, HDMI_SCHCR);
-	val = REG_SET_VAL(val, ip->settings.deep_color, 17, 16);
-	hdmi_ip_writel(ip, HDMI_SCHCR, val);
+	val = caninos_hdmi_readl(hdmi, HDMI_SCHCR);
+	val = REG_SET_VAL(val, hdmi->settings.deep_color, 17, 16);
+	caninos_hdmi_writel(hdmi, HDMI_SCHCR, val);
 	
-	val = hdmi_ip_readl(ip, HDMI_SCHCR);
+	val = caninos_hdmi_readl(hdmi, HDMI_SCHCR);
 	
-	val = REG_SET_VAL(val, ip->settings.hdmi_mode,
-		ip->hwdiff->mode_end, ip->hwdiff->mode_start);
+	val = REG_SET_VAL(val, hdmi->settings.hdmi_mode,
+		hdmi->hwdiff->mode_end, hdmi->hwdiff->mode_start);
 	
-	hdmi_ip_writel(ip, HDMI_SCHCR, val);
+	caninos_hdmi_writel(hdmi, HDMI_SCHCR, val);
 	
 	
-	val = hdmi_ip_readl(ip, HDMI_SCHCR);
-	val = REG_SET_VAL(val, ip->settings.bit_invert, 28, 28);
-	val = REG_SET_VAL(val, ip->settings.channel_invert, 29, 29);
+	val = caninos_hdmi_readl(hdmi, HDMI_SCHCR);
+	val = REG_SET_VAL(val, hdmi->settings.bit_invert, 28, 28);
+	val = REG_SET_VAL(val, hdmi->settings.channel_invert, 29, 29);
 	
-	hdmi_ip_writel(ip, HDMI_SCHCR, val);
+	caninos_hdmi_writel(hdmi, HDMI_SCHCR, val);
 	
-	mode = ip->settings.deep_color;
+	mode = hdmi->settings.deep_color;
 
-	val = hdmi_ip_readl(ip, HDMI_GCPCR);
+	val = caninos_hdmi_readl(hdmi, HDMI_GCPCR);
 
 	val = REG_SET_VAL(val, mode, 7, 4);
 	val = REG_SET_VAL(val, 1, 31, 31);
@@ -787,137 +779,121 @@ static int ip_video_enable(struct hdmi_ip *ip)
 	/* clear specify avmute flag in gcp packet */
 	val = REG_SET_VAL(val, 1, 1, 1);
 
-	hdmi_ip_writel(ip, HDMI_GCPCR, val);
+	caninos_hdmi_writel(hdmi, HDMI_GCPCR, val);
 	
-	val = hdmi_ip_readl(ip, HDMI_SCHCR);
+	val = caninos_hdmi_readl(hdmi, HDMI_SCHCR);
 
-	if (ip->settings.mode_3d == HDMI_3D_FRAME) {
+	if (hdmi->settings.mode_3d == HDMI_3D_FRAME) {
 		val = REG_SET_VAL(val, 1, 8, 8);
 	}
 	else {
 		val = REG_SET_VAL(val, 0, 8, 8);
 	}
 	
-	hdmi_ip_writel(ip, HDMI_SCHCR, val);
+	caninos_hdmi_writel(hdmi, HDMI_SCHCR, val);
 	
-	hdmi_packet_gen_infoframe(ip);
+	hdmi_packet_gen_infoframe(hdmi);
 	
-	val = hdmi_ip_readl(ip, HDMI_CR);
+	val = caninos_hdmi_readl(hdmi, HDMI_CR);
 	val = REG_SET_VAL(val, 1, 0, 0);
-	hdmi_ip_writel(ip, HDMI_CR, val);
+	caninos_hdmi_writel(hdmi, HDMI_CR, val);
 	
-	val = hdmi_ip_readl(ip, HDMI_TX_2);
-	val = REG_SET_VAL(val, (ip->tx_2 >> 8) & 0xf, 11, 8);
-	val = REG_SET_VAL(val, (ip->tx_2 >> 17) & 0x1, 17, 17);
-	hdmi_ip_writel(ip, HDMI_TX_2, val);
+	val = caninos_hdmi_readl(hdmi, HDMI_TX_2);
+	val = REG_SET_VAL(val, (hdmi->tx_2 >> 8) & 0xf, 11, 8);
+	val = REG_SET_VAL(val, (hdmi->tx_2 >> 17) & 0x1, 17, 17);
+	caninos_hdmi_writel(hdmi, HDMI_TX_2, val);
 	
 	return 0;
 }
 
-static bool ip_cable_status(struct hdmi_ip *ip)
+static bool caninos_cable_status(struct caninos_hdmi *hdmi)
 {
-	bool status = (hdmi_ip_readl(ip, CEC_DDC_HPD) & (0x3 << 14));
-	status = status || (hdmi_ip_readl(ip, CEC_DDC_HPD) & (0x3 << 12));
-	status = status || (hdmi_ip_readl(ip, CEC_DDC_HPD) & (0x3 << 10));
-	status = status || (hdmi_ip_readl(ip, CEC_DDC_HPD) & (0x3 << 8));
-	status = status && (hdmi_ip_readl(ip, HDMI_CR) & (1 << 29));
+	bool status = (caninos_hdmi_readl(hdmi, CEC_DDC_HPD) & (0x3 << 14));
+	status = status || (caninos_hdmi_readl(hdmi, CEC_DDC_HPD) & (0x3 << 12));
+	status = status || (caninos_hdmi_readl(hdmi, CEC_DDC_HPD) & (0x3 << 10));
+	status = status || (caninos_hdmi_readl(hdmi, CEC_DDC_HPD) & (0x3 << 8));
+	status = status && (caninos_hdmi_readl(hdmi, HDMI_CR) & (1 << 29));
 	return status;
 }
 
-static bool ip_hpd_is_pending(struct hdmi_ip *ip)
+static bool caninos_hpd_is_pending(struct caninos_hdmi *hdmi)
 {
-	return (hdmi_ip_readl(ip, HDMI_CR) & (1 << 30)) != 0;
+	return (caninos_hdmi_readl(hdmi, HDMI_CR) & (1 << 30)) != 0;
 }
 
-static void ip_hpd_clear_pending(struct hdmi_ip *ip)
+static void caninos_hpd_clear_pending(struct caninos_hdmi *hdmi)
 {
-	u32 val = hdmi_ip_readl(ip, HDMI_CR);
+	u32 val = caninos_hdmi_readl(hdmi, HDMI_CR);
 	val = REG_SET_VAL(val, 0x01, 30, 30); /* clear pending bit */
-	hdmi_ip_writel(ip, HDMI_CR, val);
+	caninos_hdmi_writel(hdmi, HDMI_CR, val);
 }
 
-static void ip_hpd_enable(struct hdmi_ip *ip)
+static void caninos_hpd_enable(struct caninos_hdmi *hdmi)
 {
-	u32 val = hdmi_ip_readl(ip, HDMI_CR);
+	u32 val = caninos_hdmi_readl(hdmi, HDMI_CR);
 	val = REG_SET_VAL(val, 0x0f, 27, 24); /* hotplug debounce */
 	val = REG_SET_VAL(val, 0x01, 31, 31); /* enable hotplug interrupt */
 	val = REG_SET_VAL(val, 0x01, 28, 28); /* enable hotplug function */
 	val = REG_SET_VAL(val, 0x00, 30, 30); /* not clear pending bit */
-	hdmi_ip_writel(ip, HDMI_CR, val);
+	caninos_hdmi_writel(hdmi, HDMI_CR, val);
 }
 
-static void ip_hpd_disable(struct hdmi_ip *ip)
+static void caninos_hpd_disable(struct caninos_hdmi *hdmi)
 {
-	u32 val = hdmi_ip_readl(ip, HDMI_CR);
+	u32 val = caninos_hdmi_readl(hdmi, HDMI_CR);
 	val = REG_SET_VAL(val, 0x00, 31, 31); /* disable hotplug interrupt */
 	val = REG_SET_VAL(val, 0x00, 28, 28); /* enable hotplug function */
 	val = REG_SET_VAL(val, 0x01, 30, 30); /* clear pending bit */
-	hdmi_ip_writel(ip, HDMI_CR, val);
+	caninos_hdmi_writel(hdmi, HDMI_CR, val);
 }
 
-static void ip_power_off(struct hdmi_ip *ip)
+static void caninos_power_off(struct caninos_hdmi *hdmi)
 {
-	reset_control_assert(ip->hdmi_rst);
-	clk_disable_unprepare(ip->hdmi_dev_clk);
+	reset_control_assert(hdmi->hdmi_rst);
+	clk_disable_unprepare(hdmi->hdmi_dev_clk);
 }
 
-static void ip_exit(struct hdmi_ip *ip)
+static void caninos_exit(struct caninos_hdmi *hdmi)
 {
-	ip_power_off(ip);
+	caninos_power_off(hdmi);
 }
 
-static int ip_power_on(struct hdmi_ip *ip)
+static int caninos_power_on(struct caninos_hdmi *hdmi)
 {
 	int ret = 0;
 	
-	if (!ip_is_video_enabled(ip)) {
-		reset_control_assert(ip->hdmi_rst);
+	if (!caninos_is_video_enabled(hdmi)) {
+		reset_control_assert(hdmi->hdmi_rst);
 	}
 	
-	clk_prepare_enable(ip->hdmi_dev_clk);
+	clk_prepare_enable(hdmi->hdmi_dev_clk);
 	mdelay(1);
 	
-	if (!ip_is_video_enabled(ip))
+	if (!caninos_is_video_enabled(hdmi))
 	{
-		reset_control_deassert(ip->hdmi_rst);
+		reset_control_deassert(hdmi->hdmi_rst);
 		mdelay(1);
 	}
 	
 	return ret;
 }
 
-static int ip_init(struct hdmi_ip *ip)
+static int caninos_init(struct caninos_hdmi *hdmi)
 {
-	ip->settings.hdmi_src = DE;
-	ip->settings.vitd_color = 0xff0000;
-	ip->settings.pixel_encoding = RGB444;
-	ip->settings.color_xvycc = 0;
-	ip->settings.deep_color = color_mode_24bit;
-	ip->settings.hdmi_mode = HDMI_HDMI;
-	ip->settings.mode_3d = HDMI_2D;
-	ip->settings.prelines = 0;
-	ip->settings.channel_invert = 0;
-	ip->settings.bit_invert = 0;
-	return ip_power_on(ip);
+	hdmi->settings.hdmi_src = DE;
+	hdmi->settings.vitd_color = 0xff0000;
+	hdmi->settings.pixel_encoding = RGB444;
+	hdmi->settings.color_xvycc = 0;
+	hdmi->settings.deep_color = color_mode_24bit;
+	hdmi->settings.hdmi_mode = HDMI_HDMI;
+	hdmi->settings.mode_3d = HDMI_2D;
+	hdmi->settings.prelines = 0;
+	hdmi->settings.channel_invert = 0;
+	hdmi->settings.bit_invert = 0;
+	return caninos_power_on(hdmi);
 }
 
-static int ip_audio_enable(struct hdmi_ip *ip)
-{
-	u32 val = hdmi_ip_readl(ip, HDMI_ICR);
-	val |= (1 << 25);
-	hdmi_ip_writel(ip, HDMI_ICR, val);
-	return 0;
-}
-
-static int ip_audio_disable(struct hdmi_ip *ip)
-{
-	u32 val = hdmi_ip_readl(ip, HDMI_ICR);
-	val &= ~(1 << 25);
-	hdmi_ip_writel(ip, HDMI_ICR, val);
-	return 0;
-}
-
-static const struct hdmi_ip_hwdiff ip_hwdiff_k7 = {
+static const struct caninos_hdmi_hwdiff ip_hwdiff_k7 = {
 	.hp_start = 16,
 	.hp_end = 28,
 	.vp_start = 4,
@@ -931,13 +907,13 @@ static const struct hdmi_ip_hwdiff ip_hwdiff_k7 = {
 	.pll_debug1_reg = 0xF4,
 };
 
-static int caninos_hdmi_ip_probe(struct platform_device *pdev)
+static int caninos_hdmi_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	const struct of_device_id *match;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	struct hdmi_ip *ip;
+	struct caninos_hdmi *hdmi;
 	int ret;
 	
 	if (!np) {
@@ -953,108 +929,106 @@ static int caninos_hdmi_ip_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	
-	ip = devm_kzalloc(dev, sizeof(*ip), GFP_KERNEL);
+	hdmi = devm_kzalloc(dev, sizeof(*hdmi), GFP_KERNEL);
 	
-	if (!ip) {
-		dev_err(dev, "could not alloc ip data structure\n");
+	if (!hdmi) {
+		dev_err(dev, "could not alloc hdmi data structure\n");
 		return -ENOMEM;
 	}
 	
-	ip->hwdiff = devm_kzalloc(dev, sizeof(struct hdmi_ip_hwdiff), GFP_KERNEL);
+	hdmi->hwdiff = devm_kzalloc(dev, sizeof(struct caninos_hdmi_hwdiff), GFP_KERNEL);
 	
-	if (!ip->hwdiff) {
+	if (!hdmi->hwdiff) {
 		dev_err(dev, "could not alloc hwdiff data structure\n");
 		return -ENOMEM;
 	}
 	
-	memcpy(ip->hwdiff, match->data, sizeof(struct hdmi_ip_hwdiff));
+	memcpy(hdmi->hwdiff, match->data, sizeof(struct caninos_hdmi_hwdiff));
 	
-	ip->dev = dev;
-	ip->ops.init = ip_init;
-	ip->ops.exit = ip_exit;
-	ip->ops.hpd_enable = ip_hpd_enable;
-	ip->ops.hpd_disable = ip_hpd_disable;
-	ip->ops.hpd_is_pending = ip_hpd_is_pending;
-	ip->ops.hpd_clear_pending = ip_hpd_clear_pending;
-	ip->ops.cable_status = ip_cable_status;
-	ip->ops.video_enable = ip_video_enable;
-	ip->ops.video_disable = ip_video_disable;
-	ip->ops.is_video_enabled = ip_is_video_enabled;
-	ip->ops.packet_generate = ip_packet_generate;
-	ip->ops.packet_send = ip_packet_send;
-	ip->ops.audio_enable = ip_audio_enable;
-	ip->ops.audio_disable = ip_audio_disable;
+	hdmi->dev = dev;
+	hdmi->ops.init = caninos_init;
+	hdmi->ops.exit = caninos_exit;
+	hdmi->ops.hpd_enable = caninos_hpd_enable;
+	hdmi->ops.hpd_disable = caninos_hpd_disable;
+	hdmi->ops.hpd_is_pending = caninos_hpd_is_pending;
+	hdmi->ops.hpd_clear_pending = caninos_hpd_clear_pending;
+	hdmi->ops.cable_status = caninos_cable_status;
+	hdmi->ops.video_enable = caninos_video_enable;
+	hdmi->ops.video_disable = caninos_video_disable;
+	hdmi->ops.is_video_enabled = caninos_is_video_enabled;
+	hdmi->ops.packet_generate = caninos_packet_generate;
+	hdmi->ops.packet_send = caninos_packet_send;
 	
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cmu");
 	
 	if (res) {
-		ip->cmu_base = devm_ioremap(dev, res->start, resource_size(res));
+		hdmi->cmu_base = devm_ioremap(dev, res->start, resource_size(res));
 	}
-	if (IS_ERR_OR_NULL(ip->cmu_base))
+	if (IS_ERR_OR_NULL(hdmi->cmu_base))
 	{
 		dev_err(dev, "could not map cmu registers\n");
-		return (!ip->cmu_base) ? -ENODEV : PTR_ERR(ip->cmu_base);
+		return (!hdmi->cmu_base) ? -ENODEV : PTR_ERR(hdmi->cmu_base);
 	}
 	
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "hdmi");
 	
 	if (res) {
-		ip->base = devm_ioremap(dev, res->start, resource_size(res));
+		hdmi->base = devm_ioremap(dev, res->start, resource_size(res));
 	}
-	if (IS_ERR_OR_NULL(ip->base))
+	if (IS_ERR_OR_NULL(hdmi->base))
 	{
 		dev_err(dev, "could not map hdmi registers\n");
-		return (!ip->base) ? -ENODEV : PTR_ERR(ip->base);
+		return (!hdmi->base) ? -ENODEV : PTR_ERR(hdmi->base);
 	}
 	
-	ip->hdmi_dev_clk = devm_clk_get(dev, "hdmi");
+	hdmi->hdmi_dev_clk = devm_clk_get(dev, "hdmi");
 	
-	if (IS_ERR(ip->hdmi_dev_clk)) {
+	if (IS_ERR(hdmi->hdmi_dev_clk)) {
 		dev_err(dev, "could not get hdmi clock\n");
 		return -ENODEV;
 	}
 	
-	ip->hdmi_rst = devm_reset_control_get(dev, "hdmi");
+	hdmi->hdmi_rst = devm_reset_control_get(dev, "hdmi");
 	
-	if (IS_ERR(ip->hdmi_rst)) {
+	if (IS_ERR(hdmi->hdmi_rst)) {
 		dev_err(dev, "could not get hdmi reset control\n");
-		return PTR_ERR(ip->hdmi_rst);
+		return PTR_ERR(hdmi->hdmi_rst);
 	}
 	
-	ret = ip->ops.init(ip);
+	ret = hdmi->ops.init(hdmi);
 	
 	if (ret) {
-		dev_err(dev, "hdmi ip init failed\n");
+		dev_err(dev, "init failed\n");
 		return ret;
 	}
 	
-	platform_set_drvdata(pdev, ip);
+	platform_set_drvdata(pdev, hdmi);
 	
 	dev_info(dev, "probe finished\n");
 	return 0;
 }
 
-static int caninos_hdmi_ip_remove(struct platform_device *pdev)
+static int caninos_hdmi_remove(struct platform_device *pdev)
 {
-	struct hdmi_ip *ip = platform_get_drvdata(pdev);
-	if (ip && ip->ops.exit)
-		ip->ops.exit(ip);
+	struct caninos_hdmi *hdmi = platform_get_drvdata(pdev);
+	if (hdmi && hdmi->ops.exit)
+		hdmi->ops.exit(hdmi);
 	return 0;
 }
 
-static const struct of_device_id caninos_hdmi_ip_match[] = {
+static const struct of_device_id caninos_hdmi_match[] = {
 	{ .compatible = "caninos,k7-hdmi", .data = (void*)&ip_hwdiff_k7 },
 	{ /* sentinel */ },
 };
 
-MODULE_DEVICE_TABLE(of, caninos_hdmi_ip_match);
+MODULE_DEVICE_TABLE(of, caninos_hdmi_match);
 
 static struct platform_driver caninos_hdmi_ip_driver = {
-	.probe = caninos_hdmi_ip_probe,
-	.remove = caninos_hdmi_ip_remove,
+	.probe = caninos_hdmi_probe,
+	.remove = caninos_hdmi_remove,
 	.driver = {
 		.name = "caninos-hdmi",
-		.of_match_table = caninos_hdmi_ip_match,
+		.of_match_table = caninos_hdmi_match,
 		.owner = THIS_MODULE,
 	},
 };

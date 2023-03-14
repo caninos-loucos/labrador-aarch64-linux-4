@@ -16,7 +16,7 @@
 #define _CANINOS_CODEC_H_
 
 #include <linux/mfd/atc260x/atc260x.h>
-#include <../../drivers/gpu/drm/caninos/ip-sx00.h>
+#include <../../drivers/gpu/drm/caninos/hdmi-regs.h>
 #include <../../drivers/gpu/drm/caninos/hdmi.h>
 
 #define I2S_CTL 0x00
@@ -71,7 +71,7 @@ struct hdmi_audio
 	int (*hdmi_playback_mute)(int mute);
 	int (*hdmi_playback_volume_set)(int left, int right);
 	int (*hdmi_playback_volume_get)(int *left, int *right);
-	struct hdmi_ip *hdmi;
+	struct caninos_hdmi *hdmi;
 };
 
 #endif
