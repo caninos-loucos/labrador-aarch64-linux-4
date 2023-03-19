@@ -437,7 +437,7 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 	
 	if (!np) {
 		dev_err(dev, "missing device OF node\n");
-		return -EINVAL;
+		return -ENODEV;
 	}
 	
 	match = of_match_device(dev->driver->of_match_table, dev);

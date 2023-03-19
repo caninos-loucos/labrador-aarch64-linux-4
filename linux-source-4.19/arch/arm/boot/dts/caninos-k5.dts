@@ -23,6 +23,15 @@
 		serial4 = &uart4;
 		serial5 = &uart5;
 		serial6 = &uart6;
+		
+		mmc0 = &mmc0;
+		mmc1 = &mmc1;
+		mmc2 = &mmc2;
+		
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
 	};
 	
 	memory {
@@ -359,6 +368,150 @@
 			
 			pinctrl-names = "default";
 			pinctrl-0 = <>;
+		};
+		
+		mmc0: mmc@b0230000 {
+			compatible = "caninos,k5-mmc";
+			reg = <0xb0230000 0x40>;
+			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_SD0>;
+			clock-names = "mmc";
+			resets = <&rst RST_SDC0>;
+			reset-names = "mmc";
+			dmas = <&dma DMA_DRQ_SD0>;
+			dma-names = "mmc";
+			status = "okay";
+		};
+		
+		mmc1: mmc@b0234000 {
+			compatible = "caninos,k5-mmc";
+			reg = <0xb0234000 0x40>;
+			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_SD1>;
+			clock-names = "mmc";
+			resets = <&rst RST_SDC1>;
+			reset-names = "mmc";
+			dmas = <&dma DMA_DRQ_SD1>;
+			dma-names = "mmc";
+			power-gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>; // base v1.0a
+			enable-gpios = <&gpiob 30 GPIO_ACTIVE_HIGH>;
+			reset-gpios = <&gpioc 3 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+		};
+		
+		mmc2: mmc@b0238000 {
+			compatible = "caninos,k5-mmc";
+			reg = <0xb0238000 0x40>;
+			interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_SD2>;
+			clock-names = "mmc";
+			resets = <&rst RST_SDC2>;
+			reset-names = "mmc";
+			dmas = <&dma DMA_DRQ_SD2>;
+			dma-names = "mmc";
+			status = "okay";
+		};
+		
+		i2c0: i2c@b0170000 {
+			compatible = "caninos,k5-i2c";
+			reg = <0xb0170000 0x1000>;
+			interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_I2C0>;
+			clock-names = "i2c";
+			i2c_num = <0>;
+			clock-frequency = <400000>;
+			status = "okay";
+			
+			resets = <&rst RST_TWI0>;
+			reset-names = "twi";
+			
+			pinctrl-names = "default";
+			pinctrl-0 = <>;
+			
+			#address-cells = <1>;
+			#size-cells = <0>;
+			
+			atc260x: atc2603c@65 {
+				compatible = "atc2603c";
+				reg = <0x65>;
+				
+				atc260x_audio: atc260x-audio {
+					compatible = "actions,atc2603c-audio";
+					status = "okay";
+				};
+				
+				atc260x_auxadc: atc260x-auxadc {
+					compatible = "actions,atc2603c-auxadc";
+					status = "okay";
+				};
+				
+				atc260x_poweroff: atc260x-poweroff {
+					compatible = "actions,atc2603c-poweroff";
+					userkey-gpios = <&gpiob 9 GPIO_ACTIVE_LOW>;
+					status = "okay";
+				};
+			};
+		};
+		
+		i2c1: i2c@b0174000 {
+			compatible = "caninos,k5-i2c";
+			reg = <0xb0174000 0x1000>;
+			interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_I2C1>;
+			clock-names = "i2c";
+			i2c_num = <1>;
+			clock-frequency = <400000>;
+			status = "okay";
+			
+			resets = <&rst RST_TWI1>;
+			reset-names = "twi";
+			
+			pinctrl-names = "default";
+			pinctrl-0 = <>;
+			
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		
+		i2c2: i2c@b0178000 {
+			compatible = "caninos,k5-i2c";
+			reg = <0xb0178000 0x1000>;
+			interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_I2C2>;
+			clock-names = "i2c";
+			i2c_num = <2>;
+			clock-frequency = <400000>;
+			status = "okay";
+			
+			resets = <&rst RST_TWI2>;
+			reset-names = "twi";
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <&i2c2_state_gpio>;
+			pinctrl-1 = <&i2c2_state_extio>;
+			
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		
+		i2c3: i2c@b017c000 {
+			compatible = "caninos,k5-i2c";
+			reg = <0xb017c000 0x1000>;
+			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_I2C3>;
+			clock-names = "i2c";
+			i2c_num = <3>;
+			clock-frequency = <400000>;
+			status = "okay";
+			
+			resets = <&rst RST_TWI3>;
+			reset-names = "twi";
+			
+			pinctrl-names = "default";
+			pinctrl-0 = <>;
+			
+			#address-cells = <1>;
+			#size-cells = <0>;
 		};
 	};
 };

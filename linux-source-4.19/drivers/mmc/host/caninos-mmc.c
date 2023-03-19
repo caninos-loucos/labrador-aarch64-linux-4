@@ -1,3 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MMC Host Controller Driver for Caninos Labrador
+ *
+ * Copyright (c) 2022-2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * Copyright (c) 2018-2020 LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -19,8 +39,10 @@
 
 #include "caninos-mmc.h"
 
-#define DRIVER_NAME "caninos-mmc"
-#define DRIVER_DESC "Caninos Labrador MMC Controller Driver"
+enum mmc_hw_model {
+	MMC_HW_MODEL_K5 = 1,
+	MMC_HW_MODEL_K7,
+};
 
 struct con_delay
 {
@@ -37,9 +59,6 @@ struct caninos_mmc_host
 	void __iomem *base;
 	
 	spinlock_t lock;
-	struct mutex pin_mutex;
-	
-	u32 id;
 	
 	unsigned long clock;
 	
@@ -67,7 +86,6 @@ struct caninos_mmc_host
 	struct con_delay rdelay;
 	
 	struct clk *clk;
-	struct pinctrl *pcl;
 	
 	struct dma_chan	*dma;
 	enum dma_data_direction dma_dir;
@@ -79,602 +97,6 @@ struct caninos_mmc_host
 	
 	struct reset_control *rst;
 };
-
-static const struct of_device_id caninos_mmc_of_match[] = {
-	{ .compatible = "caninos,k7-mmc", },
-	{ }
-};
-
-static void hard_reset_controller(struct caninos_mmc_host *host)
-{
-	u32 sden, sdctl, sdstate;
-	
-	sden = readl(HOST_EN(host));
-	sdctl = readl(HOST_CTL(host)) & ~(SD_CTL_TS);
-	sdstate = readl(HOST_STATE(host));
-	mb();
-	
-	reset_control_assert(host->rst);
-	udelay(20);
-	reset_control_deassert(host->rst);
-	
-	writel(SD_ENABLE, HOST_EN(host));
-	writel(sden, HOST_EN(host));
-	writel(sdctl, HOST_CTL(host));
-	writel(sdstate, HOST_STATE(host));
-}
-
-static void stop_pending_transfers(struct caninos_mmc_host *host)
-{
-	int timeout;
-	u32 sdctl;
-	
-	for (timeout = 100; timeout > 0; timeout--)
-	{
-		/* stop pending transfer */
-		writel(readl(HOST_CTL(host)) & ~(SD_CTL_TS), HOST_CTL(host));
-		mb();
-		
-		udelay(10);
-		
-		/* did it stop ? */
-		sdctl = readl(HOST_CTL(host));
-		mb();
-		
-		if (!(sdctl & SD_CTL_TS)) {
-			return;
-		}
-	}
-	
-	/* it timedout, so hard reset the controller because it may be stuck */
-	hard_reset_controller(host);
-}
-
-static void sdc_dma_complete(void *param)
-{
-	struct caninos_mmc_host *host = (struct caninos_mmc_host *)param;
-	
-	if (host) {
-		complete(&host->dma_complete);
-	}
-}
-
-static int prepare_data(struct caninos_mmc_host *host, struct mmc_data *data)
-{
-	enum dma_transfer_direction slave_dirn;
-	int sglen, total;
-	
-	/* use DMA channel */
-	writel(readl(HOST_EN(host)) | SD_EN_BSEL, HOST_EN(host));
-	mb();
-	
-	/* set block size and count */
-	writel(data->blksz, HOST_BLK_SIZE(host));
-	writel(data->blocks, HOST_BLK_NUM(host));
-	mb();
-	
-	total = (data->blksz * data->blocks);
-	
-	/* set total size */
-	if (total < 512)
-	{
-		writel(total, HOST_BUF_SIZE(host));
-		mb();
-	}
-	else
-	{
-		writel(512, HOST_BUF_SIZE(host));
-		mb();
-	}
-	
-	if (data->flags & MMC_DATA_READ)
-	{
-		host->dma_dir = DMA_FROM_DEVICE;
-		host->dma_conf.direction = slave_dirn = DMA_DEV_TO_MEM;
-	}
-	else
-	{
-		host->dma_dir = DMA_TO_DEVICE;
-		host->dma_conf.direction = slave_dirn = DMA_MEM_TO_DEV;
-	}
-	
-	sglen = dma_map_sg(host->dma->device->dev,
-	                   data->sg, data->sg_len, host->dma_dir);
-	
-	if (dmaengine_slave_config(host->dma, &host->dma_conf))
-	{
-		dma_unmap_sg(host->dma->device->dev,
-		             data->sg, data->sg_len, host->dma_dir);
-		return -EINVAL;
-	}
-	
-	host->desc = dmaengine_prep_slave_sg(host->dma, data->sg, sglen, slave_dirn,
-	                                     DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
-	
-	if (!host->desc)
-	{
-		dma_unmap_sg(host->dma->device->dev,
-		             data->sg, data->sg_len, host->dma_dir);
-		return -EBUSY;
-	}
-	
-	host->desc->callback = sdc_dma_complete;
-	host->desc->callback_param = host;
-	data->error = 0;
-	return 0;
-}
-
-static int wait_for_dma_transfer_completion(struct caninos_mmc_host *host)
-{
-	const unsigned long timeout = msecs_to_jiffies(1000);
-	if (!wait_for_completion_timeout(&host->dma_complete, timeout)) {
-		return -1;
-	}
-	return 0;
-}
-
-static void dma_transfer_start(struct caninos_mmc_host *host)
-{
-	reinit_completion(&host->dma_complete);
-	dmaengine_submit(host->desc);
-	dma_async_issue_pending(host->dma);
-}
-
-static void dma_transfer_force_termination(struct caninos_mmc_host *host)
-{
-	dmaengine_terminate_all(host->dma);
-}
-
-static void enable_transfer_end_interrupt(struct caninos_mmc_host *host)
-{
-	unsigned long flags;
-	u32 state;
-	
-	spin_lock_irqsave(&host->lock, flags);
-
-	/* clear transfer end interrupt and enable it */
-	state = readl(HOST_STATE(host));
-	rmb();
-	state &= ~SD_STATE_SDIOA_P; /* protect sdio irq from being discarded */
-	state |= SD_STATE_TEI;
-	state |= SD_STATE_TEIE;
-	writel(state, HOST_STATE(host));
-	wmb();
-	
-	/* clear completion */
-	reinit_completion(&host->sdc_complete);
-	
-	spin_unlock_irqrestore(&host->lock, flags);
-}
-
-static void disable_transfer_end_interrupt(struct caninos_mmc_host *host)
-{
-	unsigned long flags;
-	u32 state;
-	
-	spin_lock_irqsave(&host->lock, flags);
-	
-	/* disable transfer end interrupt and clear it */
-	state = readl(HOST_STATE(host));
-	rmb();
-	state &= ~SD_STATE_SDIOA_P; /* protect sdio irq from being discarded */
-	state |= SD_STATE_TEI;
-	state &= ~SD_STATE_TEIE;
-	writel(state, HOST_STATE(host));
-	wmb();
-	
-	spin_unlock_irqrestore(&host->lock, flags);
-}
-
-static int sdc_send_cmd(struct caninos_mmc_host *host,
-	struct mmc_command *cmd, struct mmc_data *data)
-{
-	u32 mode, rsp[2], status, cmd_rsp_mask = 0;
-	int timeout_us, ret;
-	
-	if (!cmd)
-	{
-		cmd->error = -EINVAL;
-		if (data) {
-			data->error = cmd->error;
-		}
-		return -1;
-	}
-	
-	cmd->error = 0;
-	
-    switch (mmc_resp_type(cmd))
-	{
-	case MMC_RSP_NONE:
-		mode = SD_CTL_TM(0);
-		break;
-		
-	case MMC_RSP_R1:
-		if (data)
-		{
-			if (data->flags & MMC_DATA_READ) {
-				mode = SD_CTL_TM(4);
-			}
-			else {
-				mode = SD_CTL_TM(5);
-			}
-		}
-		else {
-			mode = SD_CTL_TM(1);
-		}
-		cmd_rsp_mask = SD_STATE_CLNR | SD_STATE_CRC7ER;
-		break;
-
-	case MMC_RSP_R1B:
-		mode = SD_CTL_TM(3);
-		cmd_rsp_mask = SD_STATE_CLNR | SD_STATE_CRC7ER;
-		break;
-		
-	case MMC_RSP_R2:
-		mode = SD_CTL_TM(2);
-		cmd_rsp_mask = SD_STATE_CLNR | SD_STATE_CRC7ER;
-		break;
-		
-	case MMC_RSP_R3:
-		mode = SD_CTL_TM(1);
-		cmd_rsp_mask = SD_STATE_CLNR;
-		break;
-		
-	default:
-		cmd->error = -EINVAL;
-		if (data) {
-			data->error = cmd->error;
-		}
-		return -1;
-	}
-	
-    /* keep current RDELAY & WDELAY value */
-	mode |= (readl(HOST_CTL(host)) & (0xff << 16));
-	
-	/* start to send corresponding command type */
-	writel(cmd->arg, HOST_ARG(host));
-	writel(cmd->opcode, HOST_CMD(host));
-	mb();
-	
-	if (data)
-	{
-		ret = prepare_data(host, data);
-		
-		if (ret)
-		{
-			data->error = ret;
-			return -1;
-		}
-		
-		/* set lbe to send clk after busy */
-		mode |= SD_CTL_LBE;
-		
-		/* start dma transfer */
-		dma_transfer_start(host);
-	}
-	
-	mode |= SD_CTL_TS;
-	
-	/* clear completions and enable interrupts */
-	enable_transfer_end_interrupt(host);
-	
-	/* start transfer */
-	writel(mode, HOST_CTL(host));
-	mb();
-	
-	if (data)
-	{
-		cmd->error = data->error = 0;
-		timeout_us = data->timeout_ns / 1000;
-		
-		if (timeout_us < 100000) {
-			timeout_us = 100000;
-		}
-		
-		while (timeout_us > 0)
-		{
-			/* wait for SDC transfer to complete */
-			if (completion_done(&host->sdc_complete)) {
-				break;
-			}
-			udelay(10);
-			timeout_us -= 10;
-		}
-		
-		
-		status = readl(HOST_STATE(host));
-		mb();
-			
-		if (status & SD_STATE_CLNR)
-		{
-			dev_err(host->dev, "CLNR error\n");
-			cmd->error = data->error = -EILSEQ;
-		}
-		else if (status & SD_STATE_WC16ER)
-		{
-			dev_err(host->dev, "WC16 error\n");
-			cmd->error = data->error = -EILSEQ;
-		}
-		else if (status & SD_STATE_RC16ER)
-		{
-			dev_err(host->dev, "RC16 error\n");
-			cmd->error = data->error = -EILSEQ;
-		}
-		else if (status & SD_STATE_CRC7ER)
-		{
-			dev_err(host->dev, "CRC7 error\n");
-			cmd->error = data->error = -EILSEQ;
-		}
-		else if (timeout_us <= 0)
-		{
-			dev_err(host->dev, "SDC error\n");
-			hard_reset_controller(host);
-			cmd->error = data->error = -ETIMEDOUT;
-		}
-		
-		if (wait_for_dma_transfer_completion(host))
-		{
-			dev_err(host->dev, "dma timedout\n");
-			dma_transfer_force_termination(host);
-			cmd->error = data->error = -ETIMEDOUT;
-		}
-		
-		dma_unmap_sg(host->dma->device->dev,
-		             data->sg, data->sg_len, host->dma_dir);
-		
-		disable_transfer_end_interrupt(host);
-		
-		if (data->error) {
-			return -1;
-		}
-		
-		data->bytes_xfered = data->blocks * data->blksz;
-	}
-	else
-	{
-		if (!wait_for_completion_timeout(&host->sdc_complete,
-		                                 msecs_to_jiffies(1000)))
-		{
-			cmd->error = -ETIMEDOUT;
-			disable_transfer_end_interrupt(host);
-			return -1;
-		}
-		
-		disable_transfer_end_interrupt(host);
-		
-		status = readl(HOST_STATE(host));
-		mb();
-		
-		if ((cmd->flags & MMC_RSP_PRESENT) && (cmd_rsp_mask & status))
-		{
-			if (status & SD_STATE_CLNR)
-			{
-				cmd->error = -EILSEQ;
-				return -1;
-			}
-			if (status & SD_STATE_CRC7ER)
-			{
-				cmd->error = -EILSEQ;
-				return -1;
-			}
-		}
-	}
-	
-	if (cmd->flags & MMC_RSP_PRESENT)
-	{
-		if (cmd->flags & MMC_RSP_136)
-		{
-			cmd->resp[3] = readl(HOST_RSPBUF0(host));
-			cmd->resp[2] = readl(HOST_RSPBUF1(host));
-			cmd->resp[1] = readl(HOST_RSPBUF2(host));
-			cmd->resp[0] = readl(HOST_RSPBUF3(host));
-			mb();
-		}
-		else
-		{
-			rsp[0] = readl(HOST_RSPBUF0(host));
-			rsp[1] = readl(HOST_RSPBUF1(host));
-			mb();
-			
-			cmd->resp[0] = rsp[1] << 24 | rsp[0] >> 8;
-			cmd->resp[1] = rsp[1] >> 8;
-		}
-	}
-	
-    return 0;
-}
-
-
-
-static int sdc_setup_timing(struct mmc_host * mmc, u32 rate)
-{
-	struct caninos_mmc_host *host = mmc_priv(mmc);
-	
-	/* Set the RDELAY and WDELAY based on the new clock. */
-	
-	u32 val = readl(HOST_CTL(host)) & ~(0xff << 16);
-	rmb();
-	
-	if (rate <= 1000000)
-	{
-		val |= SD_CTL_RDELAY(host->rdelay.delay_lowclk);
-		val |= SD_CTL_WDELAY(host->wdelay.delay_lowclk);
-	}
-	else if ((rate > 1000000) && (rate <= 26000000))
-	{
-		val |= SD_CTL_RDELAY(host->rdelay.delay_midclk);
-		val |= SD_CTL_WDELAY(host->wdelay.delay_midclk);
-	}
-	else if ((rate > 26000000) && (rate <= 52000000))
-	{
-		val |= SD_CTL_RDELAY(host->rdelay.delay_highclk);
-		val |= SD_CTL_WDELAY(host->wdelay.delay_highclk);
-	}
-	else {
-		return -1;
-	}
-	
-	writel(val, HOST_CTL(host));
-	wmb();
-	return 0;
-}
-
-static void sdc_power_up(struct mmc_host * mmc)
-{
-	struct caninos_mmc_host *host = mmc_priv(mmc);
-	u32 mode;
-	
-	host->clock = mmc->f_init;
-	host->bus_width = MMC_BUS_WIDTH_1;
-	
-	reset_control_assert(host->rst);
-	
-	clk_prepare_enable(host->clk);
-	
-	if (gpio_is_valid(host->power_gpio)) {
-		gpio_set_value(host->power_gpio, 1);
-	}
-	
-	mdelay(10);
-	
-	clk_set_rate(host->clk, host->clock);
-	
-	if (gpio_is_valid(host->enable_gpio)) {
-		gpio_set_value(host->enable_gpio, 1);
-	}
-
-	mdelay(10);
-
-	if (gpio_is_valid(host->reset_gpio)) {
-		gpio_set_value(host->reset_gpio, 1);
-		mdelay(10);
-		gpio_set_value(host->reset_gpio, 0);
-		mdelay(10);
-		gpio_set_value(host->reset_gpio, 1);
-	}
-	
-	
-	reset_control_deassert(host->rst);
-	
-	/* enable and reset the SD controller state machine */
-	writel(SD_ENABLE | SD_EN_RESE, HOST_EN(host));
-	mb();
-	
-	/* enable sdio function */
-	writel(readl(HOST_EN(host)) | SD_EN_SDIOEN, HOST_EN(host));
-	mb();
-	
-	/* set bus width to 1 bit */
-	writel(readl(HOST_EN(host)) & ~(0x3), HOST_EN(host));
-	mb();
-	
-	/* setup bus delays */
-	sdc_setup_timing(mmc, host->clock);
-	
-	/* clear completions and enable transfer end interrupt */
-	enable_transfer_end_interrupt(host);
-	
-    /* send 80 clocks */
-	mode = SD_CTL_TS  | SD_CTL_TCN(5) | SD_CTL_TM(8);
-	mode |= (readl(HOST_CTL(host)) & (0xff << 16));
-	writel(mode, HOST_CTL(host));
-	mb();
-	
-	if (!wait_for_completion_timeout(&host->sdc_complete, msecs_to_jiffies(2))){
-		stop_pending_transfers(host);
-	}
-	
-	disable_transfer_end_interrupt(host);
-}
-
-static void sdc_power_off(struct mmc_host * mmc)
-{
-	struct caninos_mmc_host *host = mmc_priv(mmc);
-	
-	host->clock = 0;
-	host->bus_width = 0;
-	
-	clk_disable_unprepare(host->clk);
-	
-	if (gpio_is_valid(host->enable_gpio)) {
-		gpio_set_value(host->enable_gpio, 0);
-	}
-	
-    if (gpio_is_valid(host->power_gpio)) {
-		gpio_set_value(host->power_gpio, 0);
-	}
-
-	if (gpio_is_valid(host->reset_gpio)) {
-		gpio_set_value(host->reset_gpio, 0);
-	}
-}
-
-static void sdc_set_clk(struct mmc_host * mmc, u32 clock)
-{
-	struct caninos_mmc_host *host = mmc_priv(mmc);
-	unsigned long rate;
-	
-	if (clock == 0) {
-		return;
-	}
-	
-	if (clock != host->clock)
-	{
-		rate = clk_round_rate(host->clk, clock << 1);
-		
-		sdc_setup_timing(mmc, rate >> 1);
-		
-		clk_set_rate(host->clk, rate);
-		
-		host->clock = clock;
-	}
-}
-
-static void sdc_set_bus_width(struct mmc_host * mmc, u32 bus_width)
-{
-	struct caninos_mmc_host *host = mmc_priv(mmc);
-	u32 val;
-	
-	if (bus_width != host->bus_width)
-	{
-		val = readl(HOST_EN(host));
-		rmb();
-		
-		switch (bus_width)
-		{
-		case MMC_BUS_WIDTH_8:
-			val &= ~(0x3);
-			val |= 0x2;
-			break;
-			
-		case MMC_BUS_WIDTH_4:
-			val &= ~(0x3);
-			val |= 0x1;
-			break;
-			
-		case MMC_BUS_WIDTH_1:
-			val &= ~(0x3);
-			break;
-			
-		default:
-			return;
-		}
-		
-		writel(val, HOST_EN(host));
-		
-		host->bus_width = bus_width;
-		wmb();
-	}
-}
-
-
-
-
-
-
-
-
-
 
 static void caninos_mmc_en_sdio_irq(struct mmc_host * mmc, int enable)
 {
@@ -785,9 +207,7 @@ out:
 static void caninos_mmc_dma_complete(void *dma_async_param)
 {
 	struct caninos_mmc_host *host = (struct caninos_mmc_host *)dma_async_param;
-
-
-
+	
 	if (host->mrq->data) {
 		complete(&host->dma_complete);
 	}
@@ -1397,74 +817,74 @@ static irqreturn_t sdc_irq_handler(int irq, void *devid)
 
 static int caninos_mmc_probe(struct platform_device *pdev)
 {
-	struct resource *res;
+	struct device_node *np = pdev->dev.of_node;
+	const struct of_device_id *match;
 	struct device *dev = &pdev->dev;
 	struct caninos_mmc_host *host;
-    struct mmc_host *mmc;
-    int ret;
-    
-	platform_set_drvdata(pdev, NULL);
+	struct mmc_host *mmc;
+	struct resource *res;
+	int irq, ret;
 	
-	mmc = mmc_alloc_host(sizeof(*host), dev);
-    
-    if (!mmc)
-    {
-        dev_err(dev, "host allocation failed.\n");
-        return -ENOMEM;
-    }
+	if (!np) {
+		dev_err(dev, "missing device OF node\n");
+		return -ENODEV;
+	}
 	
-	host = mmc_priv(mmc);
-	spin_lock_init(&host->lock);
-	mutex_init(&host->pin_mutex);
-	host->mmc = mmc;
-	host->power_state = host->bus_width = host->chip_select = -1;
-	host->clock = 0;
-	host->clk_on = 0;
-	host->mrq = NULL;
-	host->dev = dev;
+	match = of_match_device(dev->driver->of_match_table, dev);
+	
+	if (!match || !match->data) {
+		dev_err(dev, "could not get hardware specific data\n");
+		return -EINVAL;
+	}
 	
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	
-    if (!res)
-    {
-    	dev_err(dev, "could not get device registers.");
-    	return -ENOMEM;
-    }
-    
-    if ((res->start & 0xFFFF) == 0x0) {
-    	pdev->id = 0;
-    }
-    else if ((res->start & 0xFFFF) == 0x4000) {
-    	pdev->id = 1;
-    }
-    else if ((res->start & 0xFFFF) == 0x8000) {
-    	pdev->id = 2;
-    }
-    else
-    {
-    	dev_err(dev, "could not match a device id.\n");
-    	return -ENODEV;
-    }
-    
-    host->id = pdev->id;
-    
-    if (!request_mem_region(res->start, resource_size(res), dev_name(dev)))
-	{
-		dev_err(dev, "could not request memory region.\n");
-		mmc_free_host(mmc);
-		return -EBUSY;
+	if (!res) {
+		dev_err(dev, "could not get device registers\n");
+		return -ENXIO;
 	}
+	
+	irq = platform_get_irq(pdev, 0);
+	
+	if (irq < 0) {
+		dev_err(dev, "could not get device irq\n");
+		return -ENXIO;
+	}
+	
+	mmc = mmc_alloc_host(sizeof(*host), dev);
+	
+	if (!mmc) {
+		dev_err(dev, "host allocation failed\n");
+		return -ENOMEM;
+	}
+	
+	platform_set_drvdata(pdev, host);
+	
+	host = mmc_priv(mmc);
+	host->mmc = mmc;
+	host->dev = dev;
+	
+	spin_lock_init(&host->lock);
+	
+	host->irq = irq;
+	host->power_state = -1;
+	host->bus_width = -1;
+	host->chip_select = -1;
+	host->clock = 0;
+	host->clk_on = 0;
+	host->mrq = NULL;
+
+    host->base = devm_ioremap(dev, res->start, resource_size(res));
     
-    host->base = devm_ioremap_nocache(dev, res->start, resource_size(res));
-    
-    if (!host->base)
-	{
-		dev_err(dev, "could not map device registers.\n");
+    if (!host->base) {
+		dev_err(dev, "could not map device registers\n");
 		mmc_free_host(mmc);
 		return -ENOMEM;
 	}
 	
-    switch (host->id)
+	dev_info(dev, "mmc device index is %d\n", mmc->index);
+	
+    switch (mmc->index)
     {
     case 0:
     	host->wdelay.delay_lowclk  = SDC0_WDELAY_LOW_CLK;
@@ -1502,15 +922,6 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 		mmc_free_host(mmc);
 		return PTR_ERR(host->clk);
 	}
-	
-	//host->pcl = pinctrl_get_select_default(dev);
-	
-	//if (IS_ERR(host->pcl))
-	//{
-	//	dev_err(dev, "could not get device pinctrl configuration.\n");
-	//	mmc_free_host(mmc);
-	//	return -ENODEV;
-	//}
 	
 	host->enable_gpio = of_get_named_gpio(dev->of_node, "enable-gpios", 0);
 	
@@ -1557,15 +968,6 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 		}
 	}
 	
-	host->irq = platform_get_irq(pdev, 0);
-	
-	if (host->irq <= 0)
-	{
-		dev_err(dev, "invalid device irq number.\n");
-		mmc_free_host(mmc);
-		return -ENODEV;
-	}
-	
 	host->rst = devm_reset_control_get(dev, NULL);
 	
 	if (!host->rst)
@@ -1607,8 +1009,11 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 	mmc->ocr_avail  = MMC_VDD_27_28 | MMC_VDD_28_29 | MMC_VDD_29_30;
     mmc->ocr_avail |= MMC_VDD_30_31 | MMC_VDD_31_32 | MMC_VDD_32_33;
     mmc->ocr_avail |= MMC_VDD_33_34 | MMC_VDD_34_35 | MMC_VDD_35_36;
-    mmc->ocr_avail |= MMC_VDD_165_195;
-    
+	
+	if (match->data == (void*)(MMC_HW_MODEL_K7)) {
+		mmc->ocr_avail |= MMC_VDD_165_195;
+	}
+	
     mmc->f_min = 187500;
     mmc->f_max = 52000000;
     
@@ -1630,7 +1035,7 @@ static int caninos_mmc_probe(struct platform_device *pdev)
     
 	if (ret)
 	{
-		dev_err(dev, "failed to request device irq.\n");
+		dev_err(dev, "failed to request device irq\n");
 		dma_release_channel(host->dma);
 		mmc_free_host(mmc);
 		return ret;
@@ -1647,45 +1052,37 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 		return ret;
 	}
 	
-	platform_set_drvdata(pdev, host);
+	dev_info(dev, "probe finished\n");
 	return 0;
 }
 
 static int caninos_mmc_remove(struct platform_device *pdev)
 {
-	struct caninos_mmc_host *host;
-	struct mmc_host * mmc;
-	
-	host = platform_get_drvdata(pdev);
-	
-	if (host)
-	{
-		platform_set_drvdata(pdev, NULL);
-		mmc = host->mmc;
-		mmc_remove_host(mmc);
-		dma_release_channel(host->dma);
-		free_irq(host->irq, host);
-		mmc_free_host(mmc);
-	}
+	struct caninos_mmc_host *host = platform_get_drvdata(pdev);
+	struct mmc_host * mmc = host->mmc;
+	mmc_remove_host(mmc);
+	dma_release_channel(host->dma);
+	free_irq(host->irq, host);
+	mmc_free_host(mmc);
 	return 0;
 }
 
-MODULE_DEVICE_TABLE(of, caninos_mmc_of_match);
-
-static struct dev_pm_ops caninos_mmc_pm = {
-	.suspend = NULL,
-	.resume = NULL,
+static const struct of_device_id caninos_mmc_of_match[] = {
+	{ .compatible = "caninos,k7-mmc", .data = (void*)(MMC_HW_MODEL_K7), },
+	{ .compatible = "caninos,k5-mmc", .data = (void*)(MMC_HW_MODEL_K5), },
+	{ /* sentinel */ },
 };
 
+MODULE_DEVICE_TABLE(of, caninos_mmc_of_match);
+
 static struct platform_driver caninos_mmc_driver = {
+	.driver = {
+		.name = "caninos-mmc",
+		.of_match_table = caninos_mmc_of_match,
+		.owner = THIS_MODULE,
+	},
 	.probe  = caninos_mmc_probe,
 	.remove = caninos_mmc_remove,
-	.driver = {
-		.owner = THIS_MODULE,
-		.name  = DRIVER_NAME,
-		.of_match_table = caninos_mmc_of_match,
-		.pm = &caninos_mmc_pm,
-	},
 };
 
 static int __init caninos_driver_init(void) {
@@ -1699,6 +1096,6 @@ static void __exit caninos_driver_exit(void) {
 module_init(caninos_driver_init);
 module_exit(caninos_driver_exit);
 
-MODULE_DESCRIPTION(DRIVER_DESC);
-MODULE_LICENSE("GPL");
-
+MODULE_AUTHOR("Edgar Bernardi Righi <edgar.righi@lsitec.org.br>");
+MODULE_DESCRIPTION("Caninos Labrador MMC Host Controller Driver");
+MODULE_LICENSE("GPL v2");
