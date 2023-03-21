@@ -890,8 +890,6 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	
-	dev_info(dev, "mmc device index is %d\n", mmc->index);
-	
     switch (mmc->index)
     {
     case 0:
@@ -997,8 +995,6 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 	    mmc_free_host(mmc);
 		return -ENODEV;
 	}
-	
-	dev_info(dev, "using %s for DMA transfers\n", dma_chan_name(host->dma));
 	
 	host->dma_conf.src_addr = res->start + SD_DAT_OFFSET;
 	host->dma_conf.dst_addr = res->start + SD_DAT_OFFSET;

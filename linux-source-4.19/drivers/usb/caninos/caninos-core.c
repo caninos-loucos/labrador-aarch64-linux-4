@@ -145,10 +145,12 @@ static void aotg_powergate_on(struct aotg_plat_data *pdata)
 
 	clk_prepare_enable(pdata->clk_usbh_phy);
 	clk_prepare_enable(pdata->clk_usbh_pllen);
+	clk_prepare_enable(pdata->clk_usbh_cce);
 }
 
 static void aotg_powergate_off(struct aotg_plat_data *pdata)
 {
+	clk_disable_unprepare(pdata->clk_usbh_cce);
 	clk_disable_unprepare(pdata->clk_usbh_pllen);
 	clk_disable_unprepare(pdata->clk_usbh_phy);
 	

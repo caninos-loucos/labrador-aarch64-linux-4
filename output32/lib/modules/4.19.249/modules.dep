@@ -1,0 +1,8 @@
+kernel/crypto/crypto_engine.ko:
+kernel/drivers/crypto/virtio/virtio_crypto.ko: kernel/crypto/crypto_engine.ko
+kernel/drivers/staging/rtl8723bs/r8723bs.ko:
+kernel/drivers/staging/rtl8712/r8712u.ko:
+kernel/drivers/staging/rtl8188eu/r8188eu.ko: kernel/net/wireless/lib80211.ko
+kernel/net/wireless/lib80211.ko:
+kernel/net/wireless/lib80211_crypt_wep.ko: kernel/net/wireless/lib80211.ko
+kernel/net/wireless/lib80211_crypt_ccmp.ko: kernel/net/wireless/lib80211.ko

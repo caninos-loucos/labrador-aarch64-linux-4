@@ -22,11 +22,6 @@
 #include <../mm/mm.h>
 #include <mach/platform.h>
 
-#define KINFO_SIZE            (0x00100000)
-#define FRAME_BUFFER_SIZE     (0x00800000)
-#define DDR_DQS_TRAINING_BASE (0x00000000)
-#define DDR_DQS_TRAINING_SIZE (0x00004000)
-
 static struct map_desc caninos_k5_io_desc[] __initdata = {
 	{
 		.virtual = IO_ADDRESS(PA_REG_BASE),
@@ -45,34 +40,5 @@ static struct map_desc caninos_k5_io_desc[] __initdata = {
 void __init caninos_k5_map_io(void)
 {
 	iotable_init(caninos_k5_io_desc, ARRAY_SIZE(caninos_k5_io_desc));
-}
-
-void __init caninos_k5_init_irq(void)
-{
-	irqchip_init();
-}
-
-static struct of_device_id caninos_k5_dt_match_table[] __initdata = {
-	{ .compatible = "simple-bus", },
-	{ /* sentinel */ }
-};
-
-void __init caninos_k5_init(void)
-{
-	if (of_platform_populate(NULL, caninos_k5_dt_match_table, NULL, NULL)) {
-		panic("of_platform_populate() failed\n");
-	}
-}
-
-void __init caninos_k5_reserve(void)
-{
-	phys_addr_t kinfo_start, framebuffer_start;
-	
-	framebuffer_start = arm_lowmem_limit - FRAME_BUFFER_SIZE;
-	kinfo_start = framebuffer_start - KINFO_SIZE;
-	
-	memblock_reserve(DDR_DQS_TRAINING_BASE, DDR_DQS_TRAINING_SIZE);
-	memblock_reserve(framebuffer_start, FRAME_BUFFER_SIZE);
-	memblock_reserve(kinfo_start, KINFO_SIZE);
 }
 

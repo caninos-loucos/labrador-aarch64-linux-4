@@ -22,6 +22,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "k5-cmu: " fmt
+
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
@@ -90,7 +92,7 @@
 #define CMU_CVBSPLLDEBUG         (0x00FC)
 
 static const char * const cpu_clk_mux_p[] __initdata = {
-	"losc", "hosc", "core_pll", "vde"
+	"losc", "hosc", "core_pll", "vce"
 };
 
 static const char * const dev_clk_p[] __initdata = {
@@ -381,6 +383,10 @@ static const struct caninos_div_clock k5_div_clks[] __initdata =
 	            CMU_BUSCLK1, 12, 2, CLK_DIVIDER_READ_ONLY, NULL,
 	            CLK_IS_CRITICAL),
 	
+	CANINOS_DIV(CLK_PERIPH, "periph_clk", "cpu_clk",
+	            CMU_BUSCLK, 20, 3, CLK_DIVIDER_READ_ONLY, NULL,
+	            CLK_IS_CRITICAL),
+	
 	//CANINOS_DIV(CLK_APB, "apb_clk", "ahb_clk",
 	//            CMU_BUSCLK1, 14, 2, CLK_DIVIDER_READ_ONLY, NULL,
 	//            CLK_IS_CRITICAL),
@@ -401,7 +407,8 @@ static const struct caninos_div_clock k5_div_clks[] __initdata =
 /* fixed factor clocks */
 static const struct caninos_fixed_factor_clock k5_factor_clks[] __initdata =
 {
-	CANINOS_FIXED_FACTOR(CLK_AHB, "ahb_clk", "hp_clk_div", 0, 1, 1),
+	CANINOS_FIXED_FACTOR(CLK_AHB, "ahb_clk",
+	                     "hp_clk_div", 0, 1, 1),
 };
 
 /* gate clocks */
@@ -716,7 +723,7 @@ void __init k5_clk_init(struct device_node *np)
 	}
 	
 	caninos_register_clk_tree(ctx, &k5_clk_tree);
+	pr_info("probe finished\n");
 }
 
 CLK_OF_DECLARE(k5_clk, "caninos,k5-cmu", k5_clk_init);
-

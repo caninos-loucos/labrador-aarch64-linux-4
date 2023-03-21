@@ -16,10 +16,13 @@
  */
 
 #include <linux/delay.h>
-#include <asm/smp.h>
+#include <linux/io.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/smp.h>
+#include <asm/cacheflush.h>
 #include <asm/smp_plat.h>
 #include <asm/smp_scu.h>
-#include <asm/cacheflush.h>
 #include <mach/platform.h>
 
 /*
@@ -60,11 +63,50 @@
 
 static DEFINE_RAW_SPINLOCK(boot_lock);
 
+static void __iomem *scu_base_addr;
+static void __iomem *sps_base_addr;
+
 static void __init caninos_k5_smp_init_cpus(void)
 {
+	struct device_node *node;
 	unsigned int i, ncores;
 	
-	ncores = scu_get_core_count((void __iomem *)IO_ADDRESS(PA_SCU));
+	if (!caninos_k5_pmic_setup()) {
+		panic("Could not setup the PMIC\n");
+	}
+	else if (!caninos_k5_cpu_set_clock(CPU_CORE_FREQ, CPU_CORE_VOLT)) {
+		panic("Could not set CPU core speed\n");
+	}
+	
+	node = of_find_compatible_node(NULL, NULL, "caninos,k5-sps");
+	
+	if (!node) {
+		pr_err("%s: missing sps\n", __func__);
+		return;
+	}
+	
+	sps_base_addr = of_iomap(node, 0);
+	
+	if (!sps_base_addr) {
+		pr_err("%s: could not map sps registers\n", __func__);
+		return;
+	}
+	
+	node = of_find_compatible_node(NULL, NULL, "arm,cortex-a9-scu");
+	
+	if (!node) {
+		pr_err("%s: missing scu\n", __func__);
+		return;
+	}
+	
+	scu_base_addr = of_iomap(node, 0);
+	
+	if (!scu_base_addr) {
+		pr_err("%s: could not map scu registers\n", __func__);
+		return;
+	}
+	
+	ncores = scu_get_core_count(scu_base_addr);
 	
 	if (ncores > nr_cpu_ids) {
 		ncores = nr_cpu_ids;
@@ -76,7 +118,7 @@ static void __init caninos_k5_smp_init_cpus(void)
 
 static void __init caninos_k5_smp_prepare_cpus(unsigned int max_cpus)
 {
-	scu_enable((void __iomem *)IO_ADDRESS(PA_SCU));
+	scu_enable(scu_base_addr);
 }
 
 static void __init write_pen_release(int val)
@@ -97,7 +139,7 @@ static void __init caninos_k5_smp_secondary_init(unsigned int cpu)
 
 static inline bool __init sps_power_check(u32 ackbit)
 {
-	return !!(io_readl(SPS_PG_CTL) & BIT(ackbit));
+	return !!(readl(sps_base_addr) & BIT(ackbit));
 }
 
 static inline bool __init sps_power_on(u32 pwrbit, u32 ackbit)
@@ -109,7 +151,7 @@ static inline bool __init sps_power_on(u32 pwrbit, u32 ackbit)
 		return true;
 	}
 	
-	io_writel(io_readl(SPS_PG_CTL) | BIT(pwrbit), SPS_PG_CTL);
+	writel(readl(sps_base_addr) | BIT(pwrbit), sps_base_addr);
 	
 	while (timeout > 0 && !sps_power_check(ackbit)) {
 		udelay(timestep);
@@ -252,24 +294,10 @@ static int __init caninos_k5_smp_boot_secondary(unsigned int cpu,
 	return 0;
 }
 
-static struct smp_operations caninos_k5_smp_ops __initdata =
-{
+static const struct smp_operations caninos_k5_smp_ops __initconst = {
 	.smp_init_cpus = caninos_k5_smp_init_cpus,
 	.smp_prepare_cpus = caninos_k5_smp_prepare_cpus,
 	.smp_secondary_init = caninos_k5_smp_secondary_init,
 	.smp_boot_secondary = caninos_k5_smp_boot_secondary,
 };
-
-bool __init caninos_k5_smp_init(void)
-{
-	pr_info("caninos_k5_smp_init() called\n");
-	
-	if (!caninos_k5_pmic_setup()) {
-		panic("Could not setup the PMIC\n");
-	}
-	else if (!caninos_k5_cpu_set_clock(CPU_CORE_FREQ, CPU_CORE_VOLT)) {
-		panic("Could not set CPU core speed\n");
-	}
-	smp_set_ops(&caninos_k5_smp_ops);
-	return true;
-}
+CPU_METHOD_OF_DECLARE(k5_smp, "caninos,k5-smp", &caninos_k5_smp_ops);

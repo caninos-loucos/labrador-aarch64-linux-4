@@ -44,6 +44,23 @@
 		stdout-path = "serial3:115200n8";
 	};
 	
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		
+		/* reserve 16KB for ddr dqs training */
+		ddr-dqs@0 {
+			reg = <0x0 0x4000>;
+			no-map;
+		};
+		/* reserve 48MB for framebuffer */
+		fb_reserved: framebuffer@2d000000 {
+			reg = <0x2d000000 0x3000000>;
+			no-map;
+		};
+	};
+	
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -53,6 +70,7 @@
 			compatible = "arm,cortex-a9";
 			reg = <0x0>;
 			next-level-cache = <&L2>;
+			enable-method = "caninos,k5-smp";
 		};
 		
 		cpu1: cpu@1 {
@@ -60,6 +78,7 @@
 			compatible = "arm,cortex-a9";
 			reg = <0x1>;
 			next-level-cache = <&L2>;
+			enable-method = "caninos,k5-smp";
 		};
 		
 		cpu2: cpu@2 {
@@ -67,6 +86,7 @@
 			compatible = "arm,cortex-a9";
 			reg = <0x2>;
 			next-level-cache = <&L2>;
+			enable-method = "caninos,k5-smp";
 		};
 		
 		cpu3: cpu@3 {
@@ -74,6 +94,7 @@
 			compatible = "arm,cortex-a9";
 			reg = <0x3>;
 			next-level-cache = <&L2>;
+			enable-method = "caninos,k5-smp";
 		};
 	};
 	
@@ -103,8 +124,8 @@
 			interrupts = 
 				<GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_EDGE_RISING)>;
 			interrupt-parent = <&gic>;
-			/*clocks = <&cmu CLK_HOSC>; FIXME: should be (cpu_clk / 2) */
-			status = "disabled";
+			clocks = <&cmu CLK_PERIPH>;
+			status = "okay";
 		};
 		
 		twd-timer@b0020600 {
@@ -539,7 +560,7 @@
 			         <&cmu CLK_USB2H0_CCE>;
 			clock-names = "pllen", "phy", "cce";
 			resets = <&rst RST_USBH0>;
-			reset-names = "usb2h0";
+			reset-names = "usb";
 			status = "disabled";
 		};
 		
@@ -553,7 +574,7 @@
 			         <&cmu CLK_USB2H1_CCE>;
 			clock-names = "pllen", "phy", "cce";
 			resets = <&rst RST_USBH1>;
-			reset-names = "usb2h1";
+			reset-names = "usb";
 			status = "disabled";
 		};
 	};

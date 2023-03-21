@@ -27,10 +27,6 @@
 #define PA_REG_SIZE        (0x00600000)
 #define PA_SCU             (0xB0020000)
 
-#define SPS_PG_BASE        (0xB01B0100)
-#define SPS_PG_CTL         (SPS_PG_BASE + 0x0000)
-#define SPS_RST_CTL        (SPS_PG_BASE + 0x0004)
-
 #define CMU_BASE           (0xB0160000)
 #define CMU_COREPLL        (CMU_BASE + 0x0000)
 #define CMU_ETHERNETPLL    (CMU_BASE + 0x0084)

@@ -298,7 +298,6 @@ static const struct caninos_group caninos_groups[] = {
 
 static int caninos_pinctrl_hwinit(struct caninos_pinctrl *pctl)
 {
-	dev_info(pctl->dev, "K7 hardware found\n");
 	writel(0x00000000, pctl->base + MFP_CTL0);
 	writel(0x2e400060, pctl->base + MFP_CTL1);
 	writel(0x10000600, pctl->base + MFP_CTL2);
