@@ -277,6 +277,7 @@ static int atc2603c_platform_probe(struct platform_device *pdev)
 	    adc_kobj = NULL;
 	}
 	
+	dev_info(dev, "probe finished\n");
 	return ret;
 }
 

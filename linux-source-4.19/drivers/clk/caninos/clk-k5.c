@@ -449,23 +449,23 @@ static const struct caninos_gate_clock k5_gate_clks[] __initdata =
 	CANINOS_GATE(CLK_SPI3, "spi3", "ahb_clk",
 	             CMU_DEVCLKEN1, 13, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H0_PLLEN, "usbh0_pllen", "hosc",
-	//             CMU_USBPLL, 12, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H0_PLLEN, "usbh0_pllen", "hosc",
+	             CMU_USBPLL, 12, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H0_PHY, "usbh0_phy", "hosc",
-	//             CMU_USBPLL, 10, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H0_PHY, "usbh0_phy", "hosc",
+	             CMU_USBPLL, 10, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H0_CCE, "usbh0_cce", "hosc",
-	//             CMU_DEVCLKEN0, 26, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H0_CCE, "usbh0_cce", "hosc",
+	             CMU_USBPLL, 8, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H1_PLLEN, "usbh1_pllen", "hosc",
-	//             CMU_USBPLL, 13, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H1_PLLEN, "usbh1_pllen", "hosc",
+	             CMU_USBPLL, 13, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H1_PHY, "usbh1_phy", "hosc",
-	//             CMU_USBPLL, 11, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H1_PHY, "usbh1_phy", "hosc",
+	             CMU_USBPLL, 11, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H1_CCE, "usbh1_cce", "hosc",
-	//             CMU_DEVCLKEN0, 27, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H1_CCE, "usbh1_cce", "hosc",
+	             CMU_USBPLL, 9, 0, CLK_IGNORE_UNUSED),
 	
 	CANINOS_GATE(CLK_IRC_SWITCH, "irc_switch", "hosc",
 	             CMU_DEVCLKEN1, 9, 0, CLK_IGNORE_UNUSED),

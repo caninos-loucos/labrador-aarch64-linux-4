@@ -103,8 +103,8 @@
 			interrupts = 
 				<GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_EDGE_RISING)>;
 			interrupt-parent = <&gic>;
-			clocks = <&cmu CLK_HOSC>;
-			status = "okay";
+			/*clocks = <&cmu CLK_HOSC>; FIXME: should be (cpu_clk / 2) */
+			status = "disabled";
 		};
 		
 		twd-timer@b0020600 {
@@ -409,7 +409,7 @@
 			reset-names = "mmc";
 			dmas = <&dma DMA_DRQ_SD2>;
 			dma-names = "mmc";
-			status = "okay";
+			status = "disabled";
 		};
 		
 		i2c0: i2c@b0170000 {
@@ -512,6 +512,49 @@
 			
 			#address-cells = <1>;
 			#size-cells = <0>;
+		};
+		
+		sound@b0100000 {
+			compatible = "caninos,sndcard";
+			reg = <0xb0100000 0x34>;
+			clocks = <&cmu CLK_I2SRX>,
+				     <&cmu CLK_I2STX>,
+				     <&cmu CLK_AUDIO_PLL>;
+			clock-names = "i2srx", "i2stx", "audio_pll";
+			resets = <&rst RST_AUDIO>;
+			reset-names = "audio_rst";
+			codec = <&atc260x_audio>;
+			dmas = <&dma DMA_DRQ_I2S_TX>, <&dma DMA_DRQ_I2S_RX>;
+			dma-names = "tx","rx";
+			status = "okay";
+		};
+		
+		usb2h0: usb@b0600000 {
+			compatible = "caninos,k5-usb2.0-0";
+			reg = <0xb0600000 0x1000>, <0xb0168084 0x4>;
+			reg-names = "base", "usbecs";
+			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_USB2H0_PLLEN>,
+			         <&cmu CLK_USB2H0_PHY>,
+			         <&cmu CLK_USB2H0_CCE>;
+			clock-names = "pllen", "phy", "cce";
+			resets = <&rst RST_USBH0>;
+			reset-names = "usb2h0";
+			status = "disabled";
+		};
+		
+		usb2h1: usb@b0700000 {
+			compatible = "caninos,k5-usb2.0-1";
+			reg = <0xb0700000 0x1000>, <0xb0168088 0x4>;
+			reg-names = "base", "usbecs";
+			interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu CLK_USB2H1_PLLEN>,
+			         <&cmu CLK_USB2H1_PHY>,
+			         <&cmu CLK_USB2H1_CCE>;
+			clock-names = "pllen", "phy", "cce";
+			resets = <&rst RST_USBH1>;
+			reset-names = "usb2h1";
+			status = "disabled";
 		};
 	};
 };

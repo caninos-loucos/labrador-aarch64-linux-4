@@ -43,20 +43,20 @@
 #define HCD_DRIVER_NAME "hcd-caninos"
 
 /* usbecs register. */
-#define	USB2_ECS_VBUS_P0		10
-#define	USB2_ECS_ID_P0			12
-#define USB2_ECS_LS_P0_SHIFT	8
-#define USB2_ECS_LS_P0_MASK		(0x3<<8)
-#define USB2_ECS_DPPUEN_P0     3
-#define USB2_ECS_DMPUEN_P0     2
-#define USB2_ECS_DMPDDIS_P0    1
-#define USB2_ECS_DPPDDIS_P0    0
-#define USB2_ECS_SOFTIDEN_P0   (1<<26)
-#define USB2_ECS_SOFTID_P0     27
-#define USB2_ECS_SOFTVBUSEN_P0 (1<<24)
-#define USB2_ECS_SOFTVBUS_P0   25
-#define USB2_PLL_EN0           (1<<12)
-#define USB2_PLL_EN1           (1<<13)
+#define USB2_ECS_VBUS_P0        (10)
+#define USB2_ECS_ID_P0          (12)
+#define USB2_ECS_LS_P0_SHIFT    (8)
+#define USB2_ECS_LS_P0_MASK     (0x3<<8)
+#define USB2_ECS_DPPUEN_P0      (3)
+#define USB2_ECS_DMPUEN_P0      (2)
+#define USB2_ECS_DMPDDIS_P0     (1)
+#define USB2_ECS_DPPDDIS_P0     (0)
+#define USB2_ECS_SOFTIDEN_P0    (1<<26)
+#define USB2_ECS_SOFTID_P0      (27)
+#define USB2_ECS_SOFTVBUSEN_P0  (1<<24)
+#define USB2_ECS_SOFTVBUS_P0    (25)
+#define USB2_PLL_EN0            (1<<12)
+#define USB2_PLL_EN1            (1<<13)
 
 static struct kmem_cache *td_cache = NULL;
 
@@ -389,6 +389,8 @@ static int __maybe_unused caninos_hcd_pm_resume(struct device *dev)
 struct of_device_id caninos_hcd_dt_id[] = {
 	{.compatible = "caninos,k7-usb2.0-0", .data = (void*)&aotg_data[0]},
 	{.compatible = "caninos,k7-usb2.0-1", .data = (void*)&aotg_data[1]},
+	{.compatible = "caninos,k5-usb2.0-0", .data = (void*)&aotg_data[0]},
+	{.compatible = "caninos,k5-usb2.0-1", .data = (void*)&aotg_data[1]},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, caninos_hcd_dt_id);

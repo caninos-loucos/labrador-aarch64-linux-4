@@ -760,32 +760,40 @@ static int caninos_mmc_card_busy(struct mmc_host * mmc)
 }
 
 static int caninos_mmc_vswitch(struct mmc_host * mmc, struct mmc_ios * ios)
-{		
+{
 	struct caninos_mmc_host *host = mmc_priv(mmc);
+	bool wait = false;
+	u32 val;
 	
-    switch (ios->signal_voltage)
-    {
-    case MMC_SIGNAL_VOLTAGE_330:
-    	writel(readl(HOST_EN(host)) & ~SD_EN_S18EN, HOST_EN(host));
-    	mdelay(5);
-    	break;
-    
-    case MMC_SIGNAL_VOLTAGE_180:
-    	writel(readl(HOST_EN(host)) | SD_EN_S18EN, HOST_EN(host));
-		/* controller needs at least 12.8ms because of a hardware bug */
-		mdelay(20);
+	val = readl(HOST_EN(host));
+	
+	if (val & SD_EN_S18EN)
+	{
+		if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330)
+		{
+			writel(val & ~SD_EN_S18EN, HOST_EN(host));
+			wait = true;
+		}
+	}
+	else
+	{
+		if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180)
+		{
+			writel(val | SD_EN_S18EN, HOST_EN(host));
+			wait = true;
+		}
+	}
+	if (wait)
+	{
+		mdelay(20); /* needs at least 12.8ms because of a hardware bug */
 		writel(readl(HOST_CTL(host)) | SD_CTL_SCC, HOST_CTL(host));
-		break;
-		
-	default:
-		return -ENOSYS;
 	}
 	return 0;
 }
 
 static const struct mmc_host_ops caninos_mmc_ops = {
-    .request = caninos_mmc_request,
-    .set_ios = caninos_mmc_set_ios,
+	.request = caninos_mmc_request,
+	.set_ios = caninos_mmc_set_ios,
 	.card_busy = caninos_mmc_card_busy,
 	.enable_sdio_irq = caninos_mmc_en_sdio_irq,
 	.start_signal_voltage_switch = caninos_mmc_vswitch,

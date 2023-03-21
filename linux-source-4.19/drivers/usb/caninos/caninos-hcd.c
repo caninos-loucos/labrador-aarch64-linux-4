@@ -1378,10 +1378,10 @@ enum hrtimer_restart aotg_hub_hotplug_timer(struct hrtimer *hrtimer)
 		usb_hcd_poll_rh_status(hcd);
 	}
 
-	if ((acthcd->inserted == 0) && (connect_changed	== 1) &&
+	if ((acthcd->inserted == 0) && (connect_changed == 1) &&
 		(readb(acthcd->base + OTGSTATE) != AOTG_STATE_A_HOST)) {
 		acthcd->put_aout_msg = 1;
-		hrtimer_start(&acthcd->hotplug_timer, ktime_set(0, 2200*NSEC_PER_MSEC), HRTIMER_MODE_REL);
+		hrtimer_start(&acthcd->hotplug_timer, ktime_set(0, 1000*NSEC_PER_MSEC), HRTIMER_MODE_REL);
 	}
 	acthcd->suspend_request_pend = 0;
 

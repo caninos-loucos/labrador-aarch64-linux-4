@@ -48,7 +48,6 @@ DT_MACHINE_START(CANINOS, "Caninos Labrador 32bits Core Board")
 	.l2c_aux_mask = L310_MASK,
 	.map_io       = caninos_k5_map_io,
 	.smp_init     = caninos_k5_smp_init,
-	.init_early   = caninos_k5_init_early,
 	.reserve      = caninos_k5_reserve,
 	.init_irq     = caninos_k5_init_irq,
 	.init_machine = caninos_k5_init,

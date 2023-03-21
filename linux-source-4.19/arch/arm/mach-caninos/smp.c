@@ -22,6 +22,28 @@
 #include <asm/cacheflush.h>
 #include <mach/platform.h>
 
+/*
+	CPU Recommended Frequency/Voltage Pairs
+	
+	 408MHz at  950mV
+	 720MHz at  975mV
+	 900MHz at 1025mV
+	1104MHz at 1175mV
+	1308MHz at 1250mV
+	
+	PMIC DCDC1 Regulator Operating Limits
+	
+	Max Voltage : 1400mV
+	Min Voltage :  700mV
+	Voltage Step:   25mV
+	Min Selector:    0
+	Max Selector:   28 
+	Stable After:  350us
+*/
+
+#define CPU_CORE_FREQ (1104U) /* MHz */
+#define CPU_CORE_VOLT (1175U) /* mV  */
+
 #define BOOT_FLAG (0x55AA)
 
 #define SPS_PG_CTL_CPU2_PWR_BIT  (5U)
@@ -240,6 +262,14 @@ static struct smp_operations caninos_k5_smp_ops __initdata =
 
 bool __init caninos_k5_smp_init(void)
 {
+	pr_info("caninos_k5_smp_init() called\n");
+	
+	if (!caninos_k5_pmic_setup()) {
+		panic("Could not setup the PMIC\n");
+	}
+	else if (!caninos_k5_cpu_set_clock(CPU_CORE_FREQ, CPU_CORE_VOLT)) {
+		panic("Could not set CPU core speed\n");
+	}
 	smp_set_ops(&caninos_k5_smp_ops);
 	return true;
 }
