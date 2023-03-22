@@ -39,18 +39,19 @@
 		#size-cells = <2>;
 		ranges;
 		
+		/* reserve 512MB for shared cma pool, with page (4KB) alignment */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 0x20000000>;
+			alignment = <0x0 0x1000>;
+			linux,cma-default;
+		};
+		
 		/* reserve 48MB for framebuffer */
 		fb_reserved: framebuffer@19000000 {
 			reg = <0x0 0x19000000 0x0 0x3000000>;
 			no-map;
-		};
-		
-		/* reserve 512MB for shared cma pool */
-		cma_reserved: linux,cma {
-			compatible = "shared-dma-pool";
-			reusable;
-			reg = <0x0 0x20000000 0x0 0x20000000>;
-			linux,cma-default;
 		};
 	};
 	

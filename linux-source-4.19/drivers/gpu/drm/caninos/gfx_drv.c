@@ -244,6 +244,7 @@ static int caninos_gfx_remove(struct platform_device *pdev)
 
 static const struct of_device_id caninos_gfx_match[] = {
 	{ .compatible = "caninos,k7-drm" },
+	{ .compatible = "caninos,k5-drm" },
 	{ /* sentinel */ }
 };
 

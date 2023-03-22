@@ -26,7 +26,7 @@ dtbs32:
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm dtbs
 	$(Q)mkdir -p $(OUTPUT32)
 	$(Q)rm -rf $(OUTPUT32)/*.dtb
-	$(Q)cp $(BUILD32)/arch/arm/boot/dts/*.dtb $(OUTPUT32)/
+	$(Q)cp $(BUILD32)/arch/arm/boot/dts/caninos-k5.dtb $(OUTPUT32)/kernel.dtb
 	
 kernel32: dtbs32
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm -j$(CPUS) uImage modules
