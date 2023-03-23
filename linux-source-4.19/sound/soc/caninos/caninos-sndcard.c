@@ -41,7 +41,6 @@ struct snd_caninos
 	
 	struct snd_card *card;
 	struct snd_pcm *pcm;
-	//struct caninos_hdmi *hdmi;
 	
 	struct dma_chan *txchan;
 	struct dma_chan *rxchan;
@@ -64,7 +63,6 @@ static void snd_caninos_set_rate(struct snd_caninos *chip)
 	clk_set_rate(chip->pll_clk, reg_val);
 	clk_set_rate(chip->rx_clk, rate << 8);
 	clk_set_rate(chip->tx_clk, rate << 8);
-	// add hdmi
 }
 
 static void snd_caninos_antipop_clk_set(struct snd_caninos *chip)
@@ -105,7 +103,7 @@ static u32 snd_caninos_soc_readl(struct soc_audio_device *soc, int reg)
 static void snd_caninos_playback_capture_remove(struct snd_caninos *chip)
 {
 	void __iomem *base = chip->base;
-	writel(readl(base + I2S_CTL) & ~(0x3 << I2STEN), base + I2S_CTL);
+	writel(readl(base + I2S_CTL) & ~(0x3 << 0), base + I2S_CTL);
 }
 
 static void snd_caninos_playback_capture_setup(struct snd_caninos *chip)
@@ -150,7 +148,6 @@ static int caninos_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_RESUME:
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			chip->codec->dac_playback_mute(0);
-			//chip->hdmi->ops.audio_enable(chip->hdmi);
 		}
 		break;
 		
@@ -158,7 +155,6 @@ static int caninos_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			chip->codec->dac_playback_mute(1);
-			//chip->hdmi->ops.audio_disable(chip->hdmi);
 		}
 		break;
 	}
@@ -169,7 +165,6 @@ static int caninos_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	{
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			chip->codec->dac_playback_mute(1);
-			//chip->hdmi->ops.audio_disable(chip->hdmi);
 		}
 		pr_err("%s: snd_dmaengine_pcm_trigger returned %d\n", __func__, err);
 		return err;
@@ -192,12 +187,10 @@ static int caninos_pcm_hw_params
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 	{
 		chan = chip->txchan;
-		slave_config.dst_addr = chip->phys_base + I2STX_SPDIF_HDMI_DAT;
+		slave_config.dst_addr = chip->phys_base + I2STX_DAT;
 		slave_config.direction = DMA_MEM_TO_DEV;
 		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		slave_config.device_fc = false;
-		// set hdmi interface with 48kHz and 2 channels
-		// chip->hdmi->ops.set_audio_interface(chip->hdmi);
 	}
 	else
 	{
@@ -366,8 +359,6 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct platform_device *codec_pdev;
 	struct device_node *codec_np;
-	/* struct platform_device *hdmi_pdev;
-	struct device_node *hdmi_np; */
 	struct snd_card *card;
 	struct snd_caninos *chip;
 	struct snd_pcm *pcm;
@@ -474,31 +465,6 @@ static int snd_caninos_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 
-	/* get hdmi ip device *//* 
-	hdmi_np =  of_parse_phandle(dev->of_node, "hdmi", 0);
-	
-	if (!hdmi_np)
-	{
-		dev_err(dev, "could not find hdmi\n");
-		snd_card_free(card);
-		return -ENXIO;
-	}
-	
-	hdmi_pdev = of_find_device_by_node(hdmi_np);
-	
-	if (hdmi_pdev) {
-		chip->hdmi = platform_get_drvdata(hdmi_pdev);
-	}
-	
-	of_node_put(hdmi_np);
-	
-	if (!hdmi_pdev || !chip->hdmi)
-	{
-		dev_err(dev, "hdmi is not ready\n");
-		snd_card_free(card);
-		return -EPROBE_DEFER;
-	} */
-	
 	chip->txchan = dma_request_slave_channel(dev, "tx");
 	
 	if (!chip->txchan)
@@ -571,7 +537,6 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	
 	/* set rate to 48000 */
 	snd_caninos_set_rate(chip);
-	// call hdmi clock
 	
 	/* setup codec playback and capture modes */
 	chip->codec->playback();

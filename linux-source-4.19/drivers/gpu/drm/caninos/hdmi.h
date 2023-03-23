@@ -179,13 +179,24 @@ struct caninos_hdmi_hwdiff
 	uint32_t pll_debug1_reg;
 };
 
-struct caninos_hdmi_audio {
+struct caninos_hdmi_audio
+{
+	void __iomem *base;
+	phys_addr_t phys_base;
+	
+	struct device *dev;
+
+	struct caninos_hdmi *hdmi;
+
 	struct snd_soc_card card;
 	struct snd_soc_dai_link link;
-	int samplerate;
-	int channels;
 	struct snd_dmaengine_dai_dma_data dma_data;
 	struct snd_pcm_substream *substream;
+
+	int ctl_data;
+
+	int samplerate;
+	int channels;
 };
 
 struct caninos_hdmi
@@ -221,7 +232,7 @@ struct caninos_hdmi
 	/* used for hardware specific configurations */
 	struct caninos_hdmi_hwdiff *hwdiff;
 
-	struct caninos_hdmi_audio audio;
+	struct caninos_hdmi_audio *audio;
 };
 
 static inline void caninos_hdmi_writel(struct caninos_hdmi *hdmi, const uint16_t idx, uint32_t val) {
