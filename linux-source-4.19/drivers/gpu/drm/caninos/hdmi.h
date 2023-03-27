@@ -144,7 +144,7 @@ struct caninos_hdmi_ops
 	void (*video_disable)(struct caninos_hdmi *ip);
 	bool (*is_video_enabled)(struct caninos_hdmi *ip);
 
-	void  (*audio_enable)(struct caninos_hdmi *ip);
+	void (*audio_enable)(struct caninos_hdmi *ip);
 	void (*audio_disable)(struct caninos_hdmi *ip);
 	void (*set_audio_interface)(struct caninos_hdmi *ip);
 	
@@ -166,14 +166,14 @@ struct caninos_hdmi_settings
 	int bit_invert;
 };
 
-enum hdmi_ip_model {
-	HDMI_IP_MODEL_K5 = 1,
-	HDMI_IP_MODEL_K7,
+enum caninos_hdmi_model {
+	HDMI_MODEL_K5 = 1,
+	HDMI_MODEL_K7,
 };
 
-struct hdmi_ip_hwdiff
+struct caninos_hdmi_hwdiff
 {
-	enum hdmi_ip_model model;
+	enum caninos_hdmi_model model;
 	
 	int	hp_start;
 	int	hp_end;
