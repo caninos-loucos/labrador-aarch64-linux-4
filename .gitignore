@@ -1,3 +1,5 @@
 /build/*
 /build32/*
+/.vscode
+
 /output32/*

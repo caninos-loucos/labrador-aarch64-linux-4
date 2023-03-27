@@ -1,0 +1,894 @@
+ü
+
+U-Boot 2015.04 (Mar 26 2019 - 13:09:22) Caninos Labrador 
+
+DRAM:  mem-size=2048MB
+2 GiB
+PLL:core=0x332,dev=0x1164,bus=0x1c710000,bus1=0x2e004,display=0x164, spead=0x0
+set kinfo addr = 7f700000
+gpio=23,mode=0,val=0
+gpio=25,mode=0,val=0
+gpio=55,mode=0,val=0
+pwm_init, blob 7defc428
+PWM init, node 3528
+not find HOSC dat = 0xffff
+not find HOSC dat = 0xca
+ret = 7104
+owl: have for pmu in device tree , node =8448
+pwm1 val=0x102c3f
+pwm2 val=0x10343f
+0x51:0x8d3:0x8d3
+0x39:0x325b:0x325b
+0x11:0xe5ce:0xe5ce
+0x12:0x88cc:0x88cc
+0x13:0x334b:0x334b
+0x17:0x8aaa:0x8aaa
+0x18:0xe14c:0xe14c
+0x19:0x338a:0x338a
+begin to check power!
+wall_mv=4277
+----------the plug_stat is 0-NO_PLUG,1-WALL_PLUG,2-USB_PLUG:1
+----------bat_voltage = 3826
+bat_mv:3826
+node_path[2]=/i2c@b0170000/atc2603c@65/atc260x-power
+support type: both DCIN and USB
+low_power_boot_choice is 0 
+support_minicharger:1
+========NOW go to the minicharger=========
+MMC:   ERROR: v7_dcache_inval_range - stop address is not aligned - 0x7defaa88
+error: SDC2 send CMD8, No rsp
+error: SDC2 send CMD55, No rsp
+error: DMA0 transfered data timeout
+	MFP_CTL0:0x0
+	MFP_CTL1:0x26000000
+	MFP_CTL2:0x0
+	MFP_CTL3:0x40000008
+	PAD_PULLCTL0:0x3e2
+	PAD_PULLCTL1:0x203e001
+	PAD_PULLCTL2:0x54
+	PAD_DRV0:0x0
+	PAD_DRV1:0x0
+	PAD_DRV2:0x0
+	CMU_DEVCLKEN0:0x100401be
+	CMU_DEVCLKEN1:0x1b084400
+	CMU_DEVPLL:0x1164
+	CMU_NANDPLL:0x118
+	CMU_SD0CLK:0xb
+	CMU_SD1CLK:0x0
+	CMU_SD2CLK:0x10c
+
+	SD_EN:0x4c0
+	SD_CTL:0xe4ff004f
+	SD_STATE:0x40cb8
+	SD_CMD:0x48
+	SD_ARG:0x0
+	SD_RSPBUF0:0x70075
+	SD_RSPBUF1:0xf6db0700
+	SD_RSPBUF2:0xf5903ff
+	SD_RSPBUF3:0xd0270132
+	SD_RSPBUF4:0x3f
+	SD_DAT:0x0
+	SD_BLK_SIZE:0x200
+
+	SD_BLK_NUM:0x1
+	SD_BUF_SIZE:0x200
+Current DMA Channel is: 0
+	DMA_MODE:0x80804
+	DMA_SOURCE:0xb0238028
+	DMA_DESTINATION:0x7defab00
+	DMA_FRAME_LEN:0x1
+	DMA_FRAME_CNT:0x200
+	DMA_REMAIN_FRAME_CNT:0x200
+	DMA_REMAIN_CNT:0x1
+	DMA_SOURCE_STRIDE:0x0
+	DMA_DESTINATION_STRIDE:0x0
+	DMA_START:0x1
+slot:2, error mmc_init
+error:-1,owl_sd_init fail
+SD0: 0 (SD), eMMC: 1
+error: SDC2 send CMD8, No rsp
+error: SDC2 send CMD55, No rsp
+Using default environment
+
+bootmode = 0
+sd boot
+** get_partition_info mmc0:6
+** Partition 6 not valid on device 0 **
+reading new_gamma_data
+Fail to load gamma
+OWL VIDEO: video hw init
+OWL VIDEO: power on
+OWL VIDEO: wait res 998, 113301
+OWL LCD: lcd init
+fdtdec_get_lcd_par
+Can't get lcd mode node
+OWL LCD: fdt No lcd par
+OWL dsi: dsi init
+buf->vaddr  0x7df01370 buf->paddr  0x7df01370
+fdtdec_get_dsi_par0
+Can't get dsi mode node
+OWL dsi: fdt No dsi par
+fdtdec_get_hdmi_par
+EDID block0 header error
+edid_header_check error!!!
+read edid err0
+[hdmi_video_general_cfg]sink_info.sink_cap.pixel_encoding is 0x0
+OWL VIDEO: display 0x2 register def_mode 7ff8995c
+OWL VIDEO: display 0x2 register ok
+cvbs_init uboot
+cvbs boot init
+def_display_name hdmi 
+bpp 4 
+get fb dss, img_w = 1920
+get fb dss, img_h = 1080
+owl_dss_init ok ,xres 0
+ yres 0
+display->name hdmi is a default display ,used channel 0 and layer 0 
+In:    serial
+Out:   serial
+Err:   serial
+cannot locate keyboard node
+Net:   usb_ether
+Error: usb_ether address not set.
+
+Enter caninos to abort autoboot in 2 seconds
+boot from mmc card ...
+reading uEnv.txt
+130 bytes read in 3 ms (42 KiB/s)
+Loaded environment from uEnv.txt
+Running uenvcmd ...
+reading boot.scr
+** Unable to read file boot.scr **
+reading uImage
+6662464 bytes read in 560 ms (11.3 MiB/s)
+fatload - load binary file from a dos filesystem
+
+Usage:
+fatload <interface> [<dev[:part]> [<addr> [<filename> [bytes [pos]]]]]
+    - Load binary file 'filename' from 'dev' on 'interface'
+      to address 'addr' from dos filesystem.
+      'pos' gives the file position to start loading from.
+      If 'pos' is omitted, 0 is used. 'pos' requires 'bytes'.
+      'bytes' gives the size to load. If 'bytes' is 0 or omitted,
+      the load stops on end of file.
+      If either 'pos' or 'bytes' are not aligned to
+      ARCH_DMA_MINALIGN then a misaligned buffer warning will
+      be printed and performance will suffer for the load.
+reading kernel.dtb
+11132 bytes read in 5 ms (2.1 MiB/s)
+## Booting kernel from Legacy Image at 00007fc0 ...
+   Image Name:   Linux-4.19.249
+   Image Type:   ARM Linux Kernel Image (uncompressed)
+   Data Size:    6662400 Bytes = 6.4 MiB
+   Load Address: 00008000
+   Entry Point:  00008000
+   Verifying Checksum ... OK
+## Flattened Device Tree blob at 04000000
+   Booting using the fdt blob at 0x4000000
+   XIP Kernel Image ... OK
+   Using Device Tree in place at 04000000, end 04005b7b
+cmdline: console=ttyS3 scandelay root=/dev/mmcblk0p2 rw console=tty0 loglevel=7 rootwait earlycon clk_ignore_unused selinux=0 boot_dev=sd0
+
+Starting kernel ...
+
+Booting Linux on physical CPU 0x0
+Linux version 4.19.249 (edgar@debian) (gcc version 8.3.0 (Debian 8.3.0-2)) #17 SMP Fri Mar 24 13:22:04 -03 2023
+CPU: ARMv7 Processor [414fc091] revision 1 (ARMv7), cr=10c5387d
+CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+OF: fdt: Machine model: Caninos Labrador 5
+earlycon: caninos0 at MMIO 0xb0126000 (options '115200n8')
+bootconsole [caninos0] enabled
+Memory policy: Data cache writealloc
+Reserved memory: created CMA memory pool at 0x60000000, size 512 MiB
+OF: reserved mem: initialized node linux,cma, compatible id shared-dma-pool
+CPU running at 1104MHz and 1175mV
+percpu: Embedded 17 pages/cpu s37836 r8192 d23604 u69632
+Built 1 zonelists, mobility grouping on.  Total pages: 510376
+Kernel command line: console=ttyS3 scandelay root=/dev/mmcblk0p2 rw console=tty0 loglevel=7 rootwait earlycon clk_ignore_unused selinux=0 boot_dev=sd0 hdmi_vid=2
+Dentry cache hash table entries: 131072 (order: 7, 524288 bytes)
+Inode-cache hash table entries: 65536 (order: 6, 262144 bytes)
+Memory: 1488276K/2047984K available (9216K kernel code, 550K rwdata, 3048K rodata, 1024K init, 412K bss, 35420K reserved, 524288K cma-reserved, 786432K highmem)
+Virtual kernel memory layout:
+    vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+    fixmap  : 0xffc00000 - 0xfff00000   (3072 kB)
+    vmalloc : 0xed800000 - 0xff800000   ( 288 MB)
+    lowmem  : 0xc0000000 - 0xed000000   ( 720 MB)
+    pkmap   : 0xbfe00000 - 0xc0000000   (   2 MB)
+    modules : 0xbf000000 - 0xbfe00000   (  14 MB)
+      .text : 0x(ptrval) - 0x(ptrval)   (10208 kB)
+      .init : 0x(ptrval) - 0x(ptrval)   (1024 kB)
+      .data : 0x(ptrval) - 0x(ptrval)   ( 551 kB)
+       .bss : 0x(ptrval) - 0x(ptrval)   ( 413 kB)
+SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
+rcu: Hierarchical RCU implementation.
+rcu: 	RCU event tracing is enabled.
+NR_IRQS: 16, nr_irqs: 16, preallocated irqs: 16
+L2C: platform modifies aux control register: 0x02050000 -> 0x3e050000
+L2C: DT/platform modifies aux control register: 0x02050000 -> 0x3e050000
+L2C: DT/platform tries to modify or specify cache size
+L2C-310 enabling early BRESP for Cortex-A9
+L2C-310 full line of zeros enabled for Cortex-A9
+L2C-310 dynamic clock gating enabled, standby mode enabled
+L2C-310 cache controller enabled, 16 ways, 512 kB
+L2C-310: CACHE_ID 0x410080c9, AUX_CTRL 0x4e050001
+k5-cmu: probe finished
+sched_clock: 64 bits at 138MHz, resolution 7ns, wraps every 2199023255551ns
+clocksource: arm_global_timer: mask: 0xffffffffffffffff max_cycles: 0x1fd3b80bc2, max_idle_ns: 440795203520 ns
+Switching to timer-based delay loop, resolution 7ns
+clocksource: timer: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 79635851949 ns
+caninos-timer: probe finished
+Console: colour dummy device 80x30
+console [tty0] enabled
+bootconsole [caninos0] disabled
+Booting Linux on physical CPU 0x0
+Linux version 4.19.249 (edgar@debian) (gcc version 8.3.0 (Debian 8.3.0-2)) #17 SMP Fri Mar 24 13:22:04 -03 2023
+CPU: ARMv7 Processor [414fc091] revision 1 (ARMv7), cr=10c5387d
+CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+OF: fdt: Machine model: Caninos Labrador 5
+earlycon: caninos0 at MMIO 0xb0126000 (options '115200n8')
+bootconsole [caninos0] enabled
+Memory policy: Data cache writealloc
+Reserved memory: created CMA memory pool at 0x60000000, size 512 MiB
+OF: reserved mem: initialized node linux,cma, compatible id shared-dma-pool
+CPU running at 1104MHz and 1175mV
+percpu: Embedded 17 pages/cpu s37836 r8192 d23604 u69632
+Built 1 zonelists, mobility grouping on.  Total pages: 510376
+Kernel command line: console=ttyS3 scandelay root=/dev/mmcblk0p2 rw console=tty0 loglevel=7 rootwait earlycon clk_ignore_unused selinux=0 boot_dev=sd0 hdmi_vid=2
+Dentry cache hash table entries: 131072 (order: 7, 524288 bytes)
+Inode-cache hash table entries: 65536 (order: 6, 262144 bytes)
+Memory: 1488276K/2047984K available (9216K kernel code, 550K rwdata, 3048K rodata, 1024K init, 412K bss, 35420K reserved, 524288K cma-reserved, 786432K highmem)
+Virtual kernel memory layout:
+    vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+    fixmap  : 0xffc00000 - 0xfff00000   (3072 kB)
+    vmalloc : 0xed800000 - 0xff800000   ( 288 MB)
+    lowmem  : 0xc0000000 - 0xed000000   ( 720 MB)
+    pkmap   : 0xbfe00000 - 0xc0000000   (   2 MB)
+    modules : 0xbf000000 - 0xbfe00000   (  14 MB)
+      .text : 0x(ptrval) - 0x(ptrval)   (10208 kB)
+      .init : 0x(ptrval) - 0x(ptrval)   (1024 kB)
+      .data : 0x(ptrval) - 0x(ptrval)   ( 551 kB)
+       .bss : 0x(ptrval) - 0x(ptrval)   ( 413 kB)
+SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
+rcu: Hierarchical RCU implementation.
+rcu: 	RCU event tracing is enabled.
+NR_IRQS: 16, nr_irqs: 16, preallocated irqs: 16
+L2C: platform modifies aux control register: 0x02050000 -> 0x3e050000
+L2C: DT/platform modifies aux control register: 0x02050000 -> 0x3e050000
+L2C: DT/platform tries to modify or specify cache size
+L2C-310 enabling early BRESP for Cortex-A9
+L2C-310 full line of zeros enabled for Cortex-A9
+L2C-310 dynamic clock gating enabled, standby mode enabled
+L2C-310 cache controller enabled, 16 ways, 512 kB
+L2C-310: CACHE_ID 0x410080c9, AUX_CTRL 0x4e050001
+k5-cmu: probe finished
+sched_clock: 64 bits at 138MHz, resolution 7ns, wraps every 2199023255551ns
+clocksource: arm_global_timer: mask: 0xffffffffffffffff max_cycles: 0x1fd3b80bc2, max_idle_ns: 440795203520 ns
+Switching to timer-based delay loop, resolution 7ns
+clocksource: timer: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 79635851949 ns
+caninos-timer: probe finished
+Console: colour dummy device 80x30
+console [tty0] enabled
+bootconsole [caninos0] disabled
+Calibrating delay loop (skipped), value calculated using timer frequency.. 276.00 BogoMIPS (lpj=1380000)
+pid_max: default: 32768 minimum: 301
+Mount-cache hash table entries: 2048 (order: 1, 8192 bytes)
+Mountpoint-cache hash table entries: 2048 (order: 1, 8192 bytes)
+CPU: Testing write buffer coherency: ok
+CPU0: Spectre v2: using BPIALL workaround
+CPU0: thread -1, cpu 0, socket 0, mpidr 80000000
+Setting up static identity map for 0x100000 - 0x10003c
+rcu: Hierarchical SRCU implementation.
+smp: Bringing up secondary CPUs ...
+CPU1: thread -1, cpu 1, socket 0, mpidr 80000001
+CPU1: Spectre v2: using BPIALL workaround
+CPU2: thread -1, cpu 2, socket 0, mpidr 80000002
+CPU2: Spectre v2: using BPIALL workaround
+CPU3: thread -1, cpu 3, socket 0, mpidr 80000003
+CPU3: Spectre v2: using BPIALL workaround
+smp: Brought up 1 node, 4 CPUs
+SMP: Total of 4 processors activated (1104.00 BogoMIPS).
+CPU: All CPU(s) started in SVC mode.
+devtmpfs: initialized
+VFP support v0.3: implementor 41 architecture 3 part 30 variant 9 rev 4
+clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+futex hash table entries: 1024 (order: 4, 65536 bytes)
+pinctrl core: initialized pinctrl subsystem
+NET: Registered protocol family 16
+DMA: preallocated 256 KiB pool for atomic coherent allocations
+audit: initializing netlink subsys (disabled)
+audit: type=2000 audit(0.060:1): state=initialized audit_enabled=0 res=1
+cpuidle: using governor menu
+hw-breakpoint: found 5 (+1 reserved) breakpoint and 1 watchpoint registers.
+hw-breakpoint: maximum watchpoint size is 4 bytes.
+caninos-sps b01b0100.power-domain: USB3 power on.
+caninos-sps b01b0100.power-domain: DMAC power on.
+caninos-sps b01b0100.power-domain: USB2H0 power on.
+caninos-sps b01b0100.power-domain: USB2H1 power on.
+caninos-sps b01b0100.power-domain: probe finished
+pinctrl-caninos b01b0000.pinctrl: gpio bank GPIOA added
+pinctrl-caninos b01b0000.pinctrl: gpio bank GPIOB added
+pinctrl-caninos b01b0000.pinctrl: gpio bank GPIOC added
+pinctrl-caninos b01b0000.pinctrl: gpio bank GPIOD added
+pinctrl-caninos b01b0000.pinctrl: gpio bank GPIOE added
+pinctrl-caninos b01b0000.pinctrl: probe finished
+cryptd: max_cpu_qlen set to 1000
+caninos-dma b0260000.dma-controller: probe finished
+usbcore: registered new interface driver usbfs
+usbcore: registered new interface driver hub
+usbcore: registered new device driver usb
+Advanced Linux Sound Architecture Driver Initialized.
+clocksource: Switched to clocksource arm_global_timer
+VFS: Disk quotas dquot_6.6.0
+VFS: Dquot-cache hash table entries: 1024 (order 0, 4096 bytes)
+FS-Cache: Loaded
+CacheFiles: Loaded
+NET: Registered protocol family 2
+IP idents hash table entries: 16384 (order: 5, 131072 bytes)
+tcp_listen_portaddr_hash hash table entries: 512 (order: 0, 6144 bytes)
+TCP established hash table entries: 8192 (order: 3, 32768 bytes)
+TCP bind hash table entries: 8192 (order: 4, 65536 bytes)
+TCP: Hash tables configured (established 8192 bind 8192)
+UDP hash table entries: 512 (order: 2, 16384 bytes)
+UDP-Lite hash table entries: 512 (order: 2, 16384 bytes)
+NET: Registered protocol family 1
+NET: Registered protocol family 44
+hw perfevents: enabled with armv7_cortex_a9 PMU driver, 7 counters available
+Initialise system trusted keyrings
+workingset: timestamp_bits=14 max_order=19 bucket_order=5
+zbud: loaded
+fuse init (API version 7.27)
+Key type asymmetric registered
+Asymmetric key parser 'x509' registered
+bounce: pool size: 64 pages
+Block layer SCSI generic (bsg) driver version 0.4 loaded (major 252)
+io scheduler noop registered
+io scheduler deadline registered
+io scheduler cfq registered (default)
+io scheduler mq-deadline registered
+io scheduler kyber registered
+io scheduler bfq registered
+version 39.2
+caninos-reset b01600a8.reset-controller: probe finished
+b0120000.serial: ttyS0 at MMIO 0xb0120000 (irq = 30, base_baud = 57692) is a caninos-uart
+b0126000.serial: ttyS3 at MMIO 0xb0126000 (irq = 31, base_baud = 57692) is a caninos-uart
+console [ttyS3] enabled
+caninos-drm b02e0000.video: hdmi-phy is not ready
+caninos-hdmi b02c0000.hdmi: probe finished
+brd: module loaded
+loop: module loaded
+null: module loaded
+usbcore: registered new interface driver rtl8192cu
+usbcore: registered new interface driver rtl8xxxu
+VFIO - User Level meta-driver version: 0.3
+ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
+mousedev: PS/2 mouse device common for all mice
+i2c /dev entries driver
+atc2603c-auxadc atc2603c-auxadc.0: probe finished
+input: Unspecified device as /devices/virtual/input/input0
+atc2603c-poweroff atc2603c-poweroff.0: probe finished
+atc260x-i2c 0-0065: probe finished
+caninos-i2c b0170000.i2c: probe finished
+caninos-i2c b0174000.i2c: probe finished
+caninos-i2c b0178000.i2c: probe finished
+caninos-i2c b017c000.i2c: probe finished
+caninos-mmc b0230000.mmc: probe finished
+caninos-mmc b0234000.mmc: probe finished
+ledtrig-cpu: registered to indicate activity on CPUs
+usbcore: registered new interface driver usbhid
+usbhid: USB HID core driver
+mmc1: new high speed SDIO card at address 0001
+mmc0: new ultra high speed SDR25 SDHC card at address aaaa
+mmcblk0: mmc0:aaaa SB16G 14.8 GiB 
+ mmcblk0: p1 p2
+netem: version 1.3
+u32 classifier
+ipip: IPv4 and MPLS over IPv4 tunneling driver
+gre: GRE over IPv4 demultiplexor driver
+ip_gre: GRE over IPv4 tunneling driver
+IPv4 over IPsec tunneling driver
+Initializing XFRM netlink socket
+IPsec XFRM device driver
+NET: Registered protocol family 10
+Segment Routing with IPv6
+mip6: Mobile IPv6
+sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver
+ip6_gre: GRE over IPv6 tunneling driver
+process 'kworker/u8:0' launched 'none' with NULL argv: empty string added
+bpfilter: Loaded bpfilter_umh pid 108
+NET: Registered protocol family 17
+NET: Registered protocol family 15
+Key type dns_resolver registered
+Registering SWP/SWPB emulation handler
+registered taskstats version 1
+Loading compiled-in X.509 certificates
+zswap: loaded using pool lzo/zbud
+[drm] Supports vblank timestamp caching Rev 2 (21.10.2013).
+[drm] No driver support for vblank timestamp query.
+[drm] Initialized caninos-drm 1.1.0 20230323 for b02e0000.video on minor 0
+------------[ cut here ]------------
+WARNING: CPU: 2 PID: 98 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in:
+CPU: 2 PID: 98 Comm: kworker/2:1 Not tainted 4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+Workqueue: events deferred_probe_work_func
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c0541470>] (restore_fbdev_mode_atomic+0x1c4/0x1d4)
+[<c0541470>] (restore_fbdev_mode_atomic) from [<c05449f0>] (drm_fb_helper_restore_fbdev_mode_unlocked+0x54/0xa4)
+[<c05449f0>] (drm_fb_helper_restore_fbdev_mode_unlocked) from [<c0544a70>] (drm_fb_helper_set_par+0x30/0x54)
+[<c0544a70>] (drm_fb_helper_set_par) from [<c04df9b8>] (fbcon_init+0x3d4/0x4fc)
+[<c04df9b8>] (fbcon_init) from [<c0518f80>] (visual_init+0xc0/0x108)
+[<c0518f80>] (visual_init) from [<c051af44>] (do_bind_con_driver+0x1ec/0x3c0)
+[<c051af44>] (do_bind_con_driver) from [<c051b4b8>] (do_take_over_console+0x138/0x1d0)
+[<c051b4b8>] (do_take_over_console) from [<c04dfb54>] (do_fbcon_takeover+0x74/0xd4)
+[<c04dfb54>] (do_fbcon_takeover) from [<c01514f4>] (notifier_call_chain+0x48/0x84)
+[<c01514f4>] (notifier_call_chain) from [<c0151ca4>] (blocking_notifier_call_chain+0x50/0x68)
+[<c0151ca4>] (blocking_notifier_call_chain) from [<c04d8c20>] (register_framebuffer+0x208/0x2f0)
+[<c04d8c20>] (register_framebuffer) from [<c05446bc>] (__drm_fb_helper_initial_config_and_unlock+0x22c/0x438)
+[<c05446bc>] (__drm_fb_helper_initial_config_and_unlock) from [<c0544bec>] (drm_fbdev_client_hotplug+0x110/0x18c)
+[<c0544bec>] (drm_fbdev_client_hotplug) from [<c0544cf0>] (drm_fbdev_generic_setup+0x88/0xc0)
+[<c0544cf0>] (drm_fbdev_generic_setup) from [<c05707d4>] (caninos_gfx_probe+0x2a8/0x4dc)
+[<c05707d4>] (caninos_gfx_probe) from [<c057b6e4>] (platform_drv_probe+0x48/0x98)
+[<c057b6e4>] (platform_drv_probe) from [<c0579d70>] (really_probe+0x1f0/0x2b8)
+[<c0579d70>] (really_probe) from [<c0579f9c>] (driver_probe_device+0x60/0x16c)
+[<c0579f9c>] (driver_probe_device) from [<c0578104>] (bus_for_each_drv+0x80/0xc4)
+[<c0578104>] (bus_for_each_drv) from [<c0579b10>] (__device_attach+0xe0/0x148)
+[<c0579b10>] (__device_attach) from [<c0578f14>] (bus_probe_device+0x84/0x8c)
+[<c0578f14>] (bus_probe_device) from [<c0579350>] (deferred_probe_work_func+0x60/0x8c)
+[<c0579350>] (deferred_probe_work_func) from [<c0149d90>] (process_one_work+0x218/0x504)
+[<c0149d90>] (process_one_work) from [<c014ac28>] (worker_thread+0x44/0x5bc)
+[<c014ac28>] (worker_thread) from [<c014fc10>] (kthread+0x14c/0x154)
+[<c014fc10>] (kthread) from [<c01010e8>] (ret_from_fork+0x14/0x2c)
+Exception stack(0xeaf67fb0 to 0xeaf67ff8)
+7fa0:                                     00000000 00000000 00000000 00000000
+7fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+7fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+---[ end trace 322903200d1d59b7 ]---
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CRTC:30:crtc-0] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CONNECTOR:28:HDMI-A-1] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [PLANE:29:plane-0] flip_done timed out
+------------[ cut here ]------------
+WARNING: CPU: 2 PID: 98 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in:
+CPU: 2 PID: 98 Comm: kworker/2:1 Tainted: G        W         4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+Workqueue: events deferred_probe_work_func
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c0541470>] (restore_fbdev_mode_atomic+0x1c4/0x1d4)
+[<c0541470>] (restore_fbdev_mode_atomic) from [<c05415cc>] (drm_fb_helper_pan_display+0xbc/0x1c8)
+[<c05415cc>] (drm_fb_helper_pan_display) from [<c04d7270>] (fb_pan_display+0x9c/0x110)
+[<c04d7270>] (fb_pan_display) from [<c04e228c>] (bit_update_start+0x14/0x30)
+[<c04e228c>] (bit_update_start) from [<c04de890>] (fbcon_switch+0x390/0x49c)
+[<c04de890>] (fbcon_switch) from [<c051a650>] (redraw_screen+0x144/0x268)
+[<c051a650>] (redraw_screen) from [<c04df548>] (fbcon_prepare_logo+0x370/0x40c)
+[<c04df548>] (fbcon_prepare_logo) from [<c04df964>] (fbcon_init+0x380/0x4fc)
+[<c04df964>] (fbcon_init) from [<c0518f80>] (visual_init+0xc0/0x108)
+[<c0518f80>] (visual_init) from [<c051af44>] (do_bind_con_driver+0x1ec/0x3c0)
+[<c051af44>] (do_bind_con_driver) from [<c051b4b8>] (do_take_over_console+0x138/0x1d0)
+[<c051b4b8>] (do_take_over_console) from [<c04dfb54>] (do_fbcon_takeover+0x74/0xd4)
+[<c04dfb54>] (do_fbcon_takeover) from [<c01514f4>] (notifier_call_chain+0x48/0x84)
+[<c01514f4>] (notifier_call_chain) from [<c0151ca4>] (blocking_notifier_call_chain+0x50/0x68)
+[<c0151ca4>] (blocking_notifier_call_chain) from [<c04d8c20>] (register_framebuffer+0x208/0x2f0)
+[<c04d8c20>] (register_framebuffer) from [<c05446bc>] (__drm_fb_helper_initial_config_and_unlock+0x22c/0x438)
+[<c05446bc>] (__drm_fb_helper_initial_config_and_unlock) from [<c0544bec>] (drm_fbdev_client_hotplug+0x110/0x18c)
+[<c0544bec>] (drm_fbdev_client_hotplug) from [<c0544cf0>] (drm_fbdev_generic_setup+0x88/0xc0)
+[<c0544cf0>] (drm_fbdev_generic_setup) from [<c05707d4>] (caninos_gfx_probe+0x2a8/0x4dc)
+[<c05707d4>] (caninos_gfx_probe) from [<c057b6e4>] (platform_drv_probe+0x48/0x98)
+[<c057b6e4>] (platform_drv_probe) from [<c0579d70>] (really_probe+0x1f0/0x2b8)
+[<c0579d70>] (really_probe) from [<c0579f9c>] (driver_probe_device+0x60/0x16c)
+[<c0579f9c>] (driver_probe_device) from [<c0578104>] (bus_for_each_drv+0x80/0xc4)
+[<c0578104>] (bus_for_each_drv) from [<c0579b10>] (__device_attach+0xe0/0x148)
+[<c0579b10>] (__device_attach) from [<c0578f14>] (bus_probe_device+0x84/0x8c)
+[<c0578f14>] (bus_probe_device) from [<c0579350>] (deferred_probe_work_func+0x60/0x8c)
+[<c0579350>] (deferred_probe_work_func) from [<c0149d90>] (process_one_work+0x218/0x504)
+[<c0149d90>] (process_one_work) from [<c014ac28>] (worker_thread+0x44/0x5bc)
+[<c014ac28>] (worker_thread) from [<c014fc10>] (kthread+0x14c/0x154)
+[<c014fc10>] (kthread) from [<c01010e8>] (ret_from_fork+0x14/0x2c)
+Exception stack(0xeaf67fb0 to 0xeaf67ff8)
+7fa0:                                     00000000 00000000 00000000 00000000
+7fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+7fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+---[ end trace 322903200d1d59b8 ]---
+Console: switching to colour frame buffer device 240x67
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CRTC:30:crtc-0] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CONNECTOR:28:HDMI-A-1] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [PLANE:29:plane-0] flip_done timed out
+------------[ cut here ]------------
+WARNING: CPU: 2 PID: 98 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in:
+CPU: 2 PID: 98 Comm: kworker/2:1 Tainted: G        W         4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+Workqueue: events deferred_probe_work_func
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c0541470>] (restore_fbdev_mode_atomic+0x1c4/0x1d4)
+[<c0541470>] (restore_fbdev_mode_atomic) from [<c05415cc>] (drm_fb_helper_pan_display+0xbc/0x1c8)
+[<c05415cc>] (drm_fb_helper_pan_display) from [<c04d7270>] (fb_pan_display+0x9c/0x110)
+[<c04d7270>] (fb_pan_display) from [<c04e228c>] (bit_update_start+0x14/0x30)
+[<c04e228c>] (bit_update_start) from [<c04de890>] (fbcon_switch+0x390/0x49c)
+[<c04de890>] (fbcon_switch) from [<c051a650>] (redraw_screen+0x144/0x268)
+[<c051a650>] (redraw_screen) from [<c051b0ac>] (do_bind_con_driver+0x354/0x3c0)
+[<c051b0ac>] (do_bind_con_driver) from [<c051b4b8>] (do_take_over_console+0x138/0x1d0)
+[<c051b4b8>] (do_take_over_console) from [<c04dfb54>] (do_fbcon_takeover+0x74/0xd4)
+[<c04dfb54>] (do_fbcon_takeover) from [<c01514f4>] (notifier_call_chain+0x48/0x84)
+[<c01514f4>] (notifier_call_chain) from [<c0151ca4>] (blocking_notifier_call_chain+0x50/0x68)
+[<c0151ca4>] (blocking_notifier_call_chain) from [<c04d8c20>] (register_framebuffer+0x208/0x2f0)
+[<c04d8c20>] (register_framebuffer) from [<c05446bc>] (__drm_fb_helper_initial_config_and_unlock+0x22c/0x438)
+[<c05446bc>] (__drm_fb_helper_initial_config_and_unlock) from [<c0544bec>] (drm_fbdev_client_hotplug+0x110/0x18c)
+[<c0544bec>] (drm_fbdev_client_hotplug) from [<c0544cf0>] (drm_fbdev_generic_setup+0x88/0xc0)
+[<c0544cf0>] (drm_fbdev_generic_setup) from [<c05707d4>] (caninos_gfx_probe+0x2a8/0x4dc)
+[<c05707d4>] (caninos_gfx_probe) from [<c057b6e4>] (platform_drv_probe+0x48/0x98)
+[<c057b6e4>] (platform_drv_probe) from [<c0579d70>] (really_probe+0x1f0/0x2b8)
+[<c0579d70>] (really_probe) from [<c0579f9c>] (driver_probe_device+0x60/0x16c)
+[<c0579f9c>] (driver_probe_device) from [<c0578104>] (bus_for_each_drv+0x80/0xc4)
+[<c0578104>] (bus_for_each_drv) from [<c0579b10>] (__device_attach+0xe0/0x148)
+[<c0579b10>] (__device_attach) from [<c0578f14>] (bus_probe_device+0x84/0x8c)
+[<c0578f14>] (bus_probe_device) from [<c0579350>] (deferred_probe_work_func+0x60/0x8c)
+[<c0579350>] (deferred_probe_work_func) from [<c0149d90>] (process_one_work+0x218/0x504)
+[<c0149d90>] (process_one_work) from [<c014ac28>] (worker_thread+0x44/0x5bc)
+[<c014ac28>] (worker_thread) from [<c014fc10>] (kthread+0x14c/0x154)
+[<c014fc10>] (kthread) from [<c01010e8>] (ret_from_fork+0x14/0x2c)
+Exception stack(0xeaf67fb0 to 0xeaf67ff8)
+7fa0:                                     00000000 00000000 00000000 00000000
+7fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+7fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+---[ end trace 322903200d1d59b9 ]---
+caninos-drm b02e0000.video: fb0: DRM emulated frame buffer device
+OF: fdt: not creating '/sys/firmware/fdt': CRC check failed
+caninos-sps b01b0100.power-domain: USB3 power off.
+clk: Not disabling unused clocks
+ALSA device list:
+  #0: Caninos Labrador Soundcard Driver
+EXT4-fs (mmcblk0p2): warning: mounting unchecked fs, running e2fsck is recommended
+EXT4-fs (mmcblk0p2): mounted filesystem without journal. Opts: (null)
+VFS: Mounted root (ext4 filesystem) on device 179:2.
+devtmpfs: mounted
+Freeing unused kernel memory: 1024K
+Run /sbin/init as init process
+systemd[1]: System time before build time, advancing clock.
+systemd[1]: systemd 241 running in system mode. (+PAM +AUDIT +SELINUX +IMA +APPARMOR +SMACK +SYSVINIT +UTMP +LIBCRYPTSETUP +GCRYPT +GNUTLS +ACL +XZ +LZ4 +SECCOMP +BLKID +ELFUTILS +KMOD -IDN2 +IDN -PCRE2 default-hierarchy=hybrid)
+systemd[1]: Detected architecture arm.
+systemd[1]: Set hostname to <debian-armhf>.
+systemd[1]: Failed to bump fs.file-max, ignoring: Invalid argument
+random: systemd: uninitialized urandom read (16 bytes read)
+random: systemd: uninitialized urandom read (16 bytes read)
+systemd[1]: Listening on Journal Socket (/dev/log).
+random: systemd: uninitialized urandom read (16 bytes read)
+systemd[1]: Listening on Journal Socket.
+systemd[1]: Listening on udev Kernel Socket.
+systemd[1]: Reached target Swap.
+systemd[1]: Listening on Syslog Socket.
+systemd[1]: Condition check resulted in Create list of required static device nodes for the current kernel being skipped.
+systemd-journald[143]: Received request to flush runtime journal from PID 1
+urandom_read_iter: 58 callbacks suppressed
+random: systemd-journal: uninitialized urandom read (16 bytes read)
+random: systemd: uninitialized urandom read (16 bytes read)
+random: systemd: uninitialized urandom read (16 bytes read)
+r8723bs: module is from the staging directory, the quality is unknown, you have been warned.
+EXT4-fs error (device mmcblk0p2): ext4_validate_block_bitmap:384: comm wifi_bt_start.s: bg 1: bad block bitmap checksum
+RTL8723BS: module init start
+RTL8723BS: rtl8723bs v4.3.5.5_12290.20140916_BTCOEX20140507-4E40
+RTL8723BS: rtl8723bs BT-Coex version = BTCOEX20140507-4E40
+pnetdev = (ptrval)
+RTL8723BS: rtw_ndev_init(wlan0)
+RTL8723BS: module init ret =0
+urandom_read_iter: 29 callbacks suppressed
+random: systemd: uninitialized urandom read (16 bytes read)
+random: systemd: uninitialized urandom read (16 bytes read)
+random: systemd: uninitialized urandom read (16 bytes read)
+urandom_read_iter: 47 callbacks suppressed
+random: systemd: uninitialized urandom read (16 bytes read)
+rtl8723bs: acquire FW from file:rtlwifi/rtl8723bs_nic.bin
+rtl8723bs mmc1:0001:1: firmware: direct-loading firmware rtlwifi/rtl8723bs_nic.bin
+random: crng init done
+random: 213 urandom warning(s) missed due to ratelimiting
+IPv6: ADDRCONF(NETDEV_UP): wlan0: link is not ready
+
+Debian GNU/Linux 10 debian-armhf ttyS3
+
+debian-armhf login: [drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CRTC:30:crtc-0] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CONNECTOR:28:HDMI-A-1] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [PLANE:29:plane-0] flip_done timed out
+------------[ cut here ]------------
+WARNING: CPU: 3 PID: 366 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in: r8723bs(C)
+CPU: 3 PID: 366 Comm: Xorg.wrap Tainted: G        WC        4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c0541470>] (restore_fbdev_mode_atomic+0x1c4/0x1d4)
+[<c0541470>] (restore_fbdev_mode_atomic) from [<c05449f0>] (drm_fb_helper_restore_fbdev_mode_unlocked+0x54/0xa4)
+[<c05449f0>] (drm_fb_helper_restore_fbdev_mode_unlocked) from [<c0544aac>] (drm_fbdev_client_restore+0x10/0x18)
+[<c0544aac>] (drm_fbdev_client_restore) from [<c056cc38>] (drm_client_dev_restore+0x64/0xa8)
+[<c056cc38>] (drm_client_dev_restore) from [<c0548f80>] (drm_release+0xa8/0xac)
+[<c0548f80>] (drm_release) from [<c02c27a8>] (__fput+0x94/0x1d4)
+[<c02c27a8>] (__fput) from [<c014dfdc>] (task_work_run+0xa8/0xc8)
+[<c014dfdc>] (task_work_run) from [<c010c380>] (do_work_pending+0xec/0xf0)
+[<c010c380>] (do_work_pending) from [<c010106c>] (slow_work_pending+0xc/0x20)
+Exception stack(0xe888bfb0 to 0xe888bff8)
+bfa0:                                     00000000 c04064a0 bee2ec60 00000000
+bfc0: 00000000 00000003 bee2eccc 00000006 004ea2a0 004ea294 c04064a0 00000001
+bfe0: 00000006 bee2ec28 b6e89443 b6e8b526 800e0030 00000003
+---[ end trace 322903200d1d59ba ]---
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CRTC:30:crtc-0] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CONNECTOR:28:HDMI-A-1] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [PLANE:29:plane-0] flip_done timed out
+------------[ cut here ]------------
+WARNING: CPU: 0 PID: 353 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in: r8723bs(C)
+CPU: 0 PID: 353 Comm: (agetty) Tainted: G        WC        4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c0541470>] (restore_fbdev_mode_atomic+0x1c4/0x1d4)
+[<c0541470>] (restore_fbdev_mode_atomic) from [<c05415cc>] (drm_fb_helper_pan_display+0xbc/0x1c8)
+[<c05415cc>] (drm_fb_helper_pan_display) from [<c04d7270>] (fb_pan_display+0x9c/0x110)
+[<c04d7270>] (fb_pan_display) from [<c04e228c>] (bit_update_start+0x14/0x30)
+[<c04e228c>] (bit_update_start) from [<c04de890>] (fbcon_switch+0x390/0x49c)
+[<c04de890>] (fbcon_switch) from [<c0519c30>] (csi_J+0xa4/0x1ec)
+[<c0519c30>] (csi_J) from [<c051ddd8>] (do_con_trol+0xcf0/0x16bc)
+[<c051ddd8>] (do_con_trol) from [<c051ea60>] (do_con_write.part.13+0x2bc/0x8e8)
+[<c051ea60>] (do_con_write.part.13) from [<c051f120>] (con_write+0x38/0x84)
+[<c051f120>] (con_write) from [<c0508304>] (n_tty_write+0x1d0/0x4b0)
+[<c0508304>] (n_tty_write) from [<c0504400>] (tty_write+0x1ec/0x34c)
+[<c0504400>] (tty_write) from [<c02c13e4>] (vfs_write+0xa4/0x1b8)
+[<c02c13e4>] (vfs_write) from [<c02c1678>] (ksys_write+0x5c/0xdc)
+[<c02c1678>] (ksys_write) from [<c0101000>] (ret_fast_syscall+0x0/0x54)
+Exception stack(0xe8b8dfa8 to 0xe8b8dff0)
+dfa0:                   00000074 b6d75074 00000003 b6d75074 0000000a 00000000
+dfc0: 00000074 b6d75074 00000003 00000004 00000000 ffffffff 0064f8a8 005ddec4
+dfe0: 00000004 bea09430 b6e795b3 b6e02746
+---[ end trace 322903200d1d59bb ]---
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CRTC:30:crtc-0] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CONNECTOR:28:HDMI-A-1] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [PLANE:29:plane-0] flip_done timed out
+------------[ cut here ]------------
+WARNING: CPU: 3 PID: 366 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in: r8723bs(C)
+CPU: 3 PID: 366 Comm: Xorg Tainted: G        WC        4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c0541470>] (restore_fbdev_mode_atomic+0x1c4/0x1d4)
+[<c0541470>] (restore_fbdev_mode_atomic) from [<c05449f0>] (drm_fb_helper_restore_fbdev_mode_unlocked+0x54/0xa4)
+[<c05449f0>] (drm_fb_helper_restore_fbdev_mode_unlocked) from [<c0544aac>] (drm_fbdev_client_restore+0x10/0x18)
+[<c0544aac>] (drm_fbdev_client_restore) from [<c056cc38>] (drm_client_dev_restore+0x64/0xa8)
+[<c056cc38>] (drm_client_dev_restore) from [<c0548f80>] (drm_release+0xa8/0xac)
+[<c0548f80>] (drm_release) from [<c02c27a8>] (__fput+0x94/0x1d4)
+[<c02c27a8>] (__fput) from [<c014dfdc>] (task_work_run+0xa8/0xc8)
+[<c014dfdc>] (task_work_run) from [<c010c380>] (do_work_pending+0xec/0xf0)
+[<c010c380>] (do_work_pending) from [<c010106c>] (slow_work_pending+0xc/0x20)
+Exception stack(0xe888bfb0 to 0xe888bff8)
+bfa0:                                     00000000 00000000 2d135b00 00000000
+bfc0: 00000000 0000000a 006618d8 00000006 00661818 00000000 006617f8 00000000
+bfe0: 00000006 bed4bb00 b6b38443 b6b3a526 60070030 0000000a
+---[ end trace 322903200d1d59bc ]---
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CRTC:30:crtc-0] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CONNECTOR:28:HDMI-A-1] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [PLANE:29:plane-0] flip_done timed out
+------------[ cut here ]------------
+WARNING: CPU: 3 PID: 141 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in: r8723bs(C)
+CPU: 3 PID: 141 Comm: kworker/3:1 Tainted: G        WC        4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+Workqueue: events console_callback
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c0541470>] (restore_fbdev_mode_atomic+0x1c4/0x1d4)
+[<c0541470>] (restore_fbdev_mode_atomic) from [<c05415cc>] (drm_fb_helper_pan_display+0xbc/0x1c8)
+[<c05415cc>] (drm_fb_helper_pan_display) from [<c04d7270>] (fb_pan_display+0x9c/0x110)
+[<c04d7270>] (fb_pan_display) from [<c04e228c>] (bit_update_start+0x14/0x30)
+[<c04e228c>] (bit_update_start) from [<c04de890>] (fbcon_switch+0x390/0x49c)
+[<c04de890>] (fbcon_switch) from [<c051a650>] (redraw_screen+0x144/0x268)
+[<c051a650>] (redraw_screen) from [<c0510d04>] (complete_change_console+0x40/0xd8)
+[<c0510d04>] (complete_change_console) from [<c051ce4c>] (console_callback+0x15c/0x168)
+[<c051ce4c>] (console_callback) from [<c0149d90>] (process_one_work+0x218/0x504)
+[<c0149d90>] (process_one_work) from [<c014ac28>] (worker_thread+0x44/0x5bc)
+[<c014ac28>] (worker_thread) from [<c014fc10>] (kthread+0x14c/0x154)
+[<c014fc10>] (kthread) from [<c01010e8>] (ret_from_fork+0x14/0x2c)
+Exception stack(0xea0b9fb0 to 0xea0b9ff8)
+9fa0:                                     00000000 00000000 00000000 00000000
+9fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+9fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+---[ end trace 322903200d1d59bd ]---
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CRTC:30:crtc-0] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CONNECTOR:28:HDMI-A-1] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [PLANE:29:plane-0] flip_done timed out
+------------[ cut here ]------------
+WARNING: CPU: 3 PID: 366 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in: r8723bs(C)
+CPU: 3 PID: 366 Comm: Xorg Tainted: G        WC        4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c0541470>] (restore_fbdev_mode_atomic+0x1c4/0x1d4)
+[<c0541470>] (restore_fbdev_mode_atomic) from [<c05449f0>] (drm_fb_helper_restore_fbdev_mode_unlocked+0x54/0xa4)
+[<c05449f0>] (drm_fb_helper_restore_fbdev_mode_unlocked) from [<c0544aac>] (drm_fbdev_client_restore+0x10/0x18)
+[<c0544aac>] (drm_fbdev_client_restore) from [<c056cc38>] (drm_client_dev_restore+0x64/0xa8)
+[<c056cc38>] (drm_client_dev_restore) from [<c0548f80>] (drm_release+0xa8/0xac)
+[<c0548f80>] (drm_release) from [<c02c27a8>] (__fput+0x94/0x1d4)
+[<c02c27a8>] (__fput) from [<c014dfdc>] (task_work_run+0xa8/0xc8)
+[<c014dfdc>] (task_work_run) from [<c010c380>] (do_work_pending+0xec/0xf0)
+[<c010c380>] (do_work_pending) from [<c010106c>] (slow_work_pending+0xc/0x20)
+Exception stack(0xe888bfb0 to 0xe888bff8)
+bfa0:                                     00000000 00661978 2d135b00 00000000
+bfc0: 00000001 0000000b 00000000 00000006 00000000 00627000 00000001 00000000
+bfe0: 00000006 bed4bb18 b6b38443 b6b3a526 800e0030 0000000b
+---[ end trace 322903200d1d59be ]---
+broken atomic modeset userspace detected, disabling atomic
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CRTC:30:crtc-0] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CONNECTOR:28:HDMI-A-1] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [PLANE:29:plane-0] flip_done timed out
+------------[ cut here ]------------
+WARNING: CPU: 2 PID: 366 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in: r8723bs(C)
+CPU: 2 PID: 366 Comm: Xorg Tainted: G        WC        4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c0562764>] (drm_mode_obj_set_property_ioctl+0x154/0x2e0)
+[<c0562764>] (drm_mode_obj_set_property_ioctl) from [<c05610e0>] (drm_connector_property_set_ioctl+0x48/0x64)
+[<c05610e0>] (drm_connector_property_set_ioctl) from [<c054a34c>] (drm_ioctl_kernel+0xa8/0xe4)
+[<c054a34c>] (drm_ioctl_kernel) from [<c054a84c>] (drm_ioctl+0x208/0x3f4)
+[<c054a84c>] (drm_ioctl) from [<c02d4df0>] (do_vfs_ioctl+0xac/0x8d8)
+[<c02d4df0>] (do_vfs_ioctl) from [<c02d5650>] (ksys_ioctl+0x34/0x60)
+[<c02d5650>] (ksys_ioctl) from [<c0101000>] (ret_fast_syscall+0x0/0x54)
+Exception stack(0xe888bfa8 to 0xe888bff0)
+bfa0:                   00000000 bed4ba58 0000000b c01064ab bed4ba58 2d135b00
+bfc0: 00000000 bed4ba58 c01064ab 00000036 00000049 00000018 0068d988 00000000
+bfe0: b6da008c bed4ba3c b6d89e9b b6ac5f08
+---[ end trace 322903200d1d59bf ]---
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CRTC:30:crtc-0] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CONNECTOR:28:HDMI-A-1] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [PLANE:29:plane-0] flip_done timed out
+------------[ cut here ]------------
+WARNING: CPU: 2 PID: 366 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in: r8723bs(C)
+CPU: 2 PID: 366 Comm: Xorg Tainted: G        WC        4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c055c98c>] (drm_atomic_connector_commit_dpms+0xd8/0xf4)
+[<c055c98c>] (drm_atomic_connector_commit_dpms) from [<c05627ac>] (drm_mode_obj_set_property_ioctl+0x19c/0x2e0)
+[<c05627ac>] (drm_mode_obj_set_property_ioctl) from [<c05610e0>] (drm_connector_property_set_ioctl+0x48/0x64)
+[<c05610e0>] (drm_connector_property_set_ioctl) from [<c054a34c>] (drm_ioctl_kernel+0xa8/0xe4)
+[<c054a34c>] (drm_ioctl_kernel) from [<c054a84c>] (drm_ioctl+0x208/0x3f4)
+[<c054a84c>] (drm_ioctl) from [<c02d4df0>] (do_vfs_ioctl+0xac/0x8d8)
+[<c02d4df0>] (do_vfs_ioctl) from [<c02d5650>] (ksys_ioctl+0x34/0x60)
+[<c02d5650>] (ksys_ioctl) from [<c0101000>] (ret_fast_syscall+0x0/0x54)
+Exception stack(0xe888bfa8 to 0xe888bff0)
+bfa0:                   00000000 bed4bbd0 0000000b c01064ab bed4bbd0 2d135b00
+bfc0: 00000000 bed4bbd0 c01064ab 00000036 00000002 00644f90 0062b028 00644f90
+bfe0: b6da008c bed4bbb4 b6d89e9b b6ac5f08
+---[ end trace 322903200d1d59c0 ]---
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CRTC:30:crtc-0] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [CONNECTOR:28:HDMI-A-1] flip_done timed out
+[drm:drm_atomic_helper_wait_for_dependencies] *ERROR* [PLANE:29:plane-0] flip_done timed out
+------------[ cut here ]------------
+WARNING: CPU: 2 PID: 366 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in: r8723bs(C)
+CPU: 2 PID: 366 Comm: Xorg Tainted: G        WC        4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c053f4b0>] (drm_atomic_helper_set_config+0x74/0x84)
+[<c053f4b0>] (drm_atomic_helper_set_config) from [<c054f6d4>] (drm_mode_setcrtc+0x170/0x664)
+[<c054f6d4>] (drm_mode_setcrtc) from [<c054a34c>] (drm_ioctl_kernel+0xa8/0xe4)
+[<c054a34c>] (drm_ioctl_kernel) from [<c054a84c>] (drm_ioctl+0x208/0x3f4)
+[<c054a84c>] (drm_ioctl) from [<c02d4df0>] (do_vfs_ioctl+0xac/0x8d8)
+[<c02d4df0>] (do_vfs_ioctl) from [<c02d5650>] (ksys_ioctl+0x34/0x60)
+[<c02d5650>] (ksys_ioctl) from [<c0101000>] (ret_fast_syscall+0x0/0x54)
+Exception stack(0xe888bfa8 to 0xe888bff0)
+bfa0:                   b6f8b968 bed4b988 0000000b c06864a2 bed4b988 00000001
+bfc0: b6f8b968 bed4b988 c06864a2 00000036 0000000b 00000000 00000001 0000001e
+bfe0: b6da008c bed4b96c b6d89e9b b6ac5f08
+---[ end trace 322903200d1d59c1 ]---
+------------[ cut here ]------------
+WARNING: CPU: 2 PID: 366 at drivers/gpu/drm/drm_atomic_helper.c:1405 drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0
+[CRTC:30:crtc-0] vblank wait timed out
+Modules linked in: r8723bs(C)
+CPU: 2 PID: 366 Comm: Xorg Tainted: G        WC        4.19.249 #17
+Hardware name: Caninos Labrador 32bits Core Board
+[<c01103d4>] (unwind_backtrace) from [<c010c8b8>] (show_stack+0x10/0x14)
+[<c010c8b8>] (show_stack) from [<c0978e48>] (dump_stack+0x94/0xa8)
+[<c0978e48>] (dump_stack) from [<c0972f08>] (__warn.part.3+0xbc/0xd8)
+[<c0972f08>] (__warn.part.3) from [<c0972f8c>] (warn_slowpath_fmt+0x68/0x8c)
+[<c0972f8c>] (warn_slowpath_fmt) from [<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1+0x298/0x2a0)
+[<c053d3d4>] (drm_atomic_helper_wait_for_vblanks.part.1) from [<c053ede0>] (drm_atomic_helper_commit_tail+0x5c/0x6c)
+[<c053ede0>] (drm_atomic_helper_commit_tail) from [<c053ee58>] (commit_tail+0x68/0x6c)
+[<c053ee58>] (commit_tail) from [<c053ef20>] (drm_atomic_helper_commit+0xbc/0x128)
+[<c053ef20>] (drm_atomic_helper_commit) from [<c055c98c>] (drm_atomic_connector_commit_dpms+0xd8/0xf4)
+[<c055c98c>] (drm_atomic_connector_commit_dpms) from [<c05627ac>] (drm_mode_obj_set_property_ioctl+0x19c/0x2e0)
+[<c05627ac>] (drm_mode_obj_set_property_ioctl) from [<c05610e0>] (drm_connector_property_set_ioctl+0x48/0x64)
+[<c05610e0>] (drm_connector_property_set_ioctl) from [<c054a34c>] (drm_ioctl_kernel+0xa8/0xe4)
+[<c054a34c>] (drm_ioctl_kernel) from [<c054a84c>] (drm_ioctl+0x208/0x3f4)
+[<c054a84c>] (drm_ioctl) from [<c02d4df0>] (do_vfs_ioctl+0xac/0x8d8)
+[<c02d4df0>] (do_vfs_ioctl) from [<c02d5650>] (ksys_ioctl+0x34/0x60)
+[<c02d5650>] (ksys_ioctl) from [<c0101000>] (ret_fast_syscall+0x0/0x54)
+Exception stack(0xe888bfa8 to 0xe888bff0)
+bfa0:                   00000000 bed4ba58 0000000b c01064ab bed4ba58 2d135b00
+bfc0: 00000000 bed4ba58 c01064ab 00000036 0068ff68 00000000 00000001 bed4bad4
+bfe0: b6da008c bed4ba3c b6d89e9b b6ac5f08
+---[ end trace 322903200d1d59c2 ]---
+EXT4-fs (mmcblk0p2): error count since last fsck: 188
+EXT4-fs (mmcblk0p2): initial error at time 1559580184: ext4_lookup:1585: inode 1073
+EXT4-fs (mmcblk0p2): last error at time 1550139120: ext4_validate_block_bitmap:384
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[B[B[B[B[B[B[B[B[B

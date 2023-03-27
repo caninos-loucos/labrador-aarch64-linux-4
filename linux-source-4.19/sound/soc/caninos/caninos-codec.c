@@ -42,7 +42,7 @@ static int adc_num = 2;
 
 struct codec_local_data
 {
-	struct atc260x_dev *pmic;
+	struct atc260x_dev 	 *pmic;
 	struct atc260x_audio *codec;
 	struct delayed_work dwork;
 	bool hw_init_flag;

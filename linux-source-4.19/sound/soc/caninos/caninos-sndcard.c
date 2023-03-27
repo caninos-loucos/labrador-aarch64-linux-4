@@ -50,6 +50,8 @@ struct snd_caninos
 	phys_addr_t phys_base;
 };
 
+
+
 static void snd_caninos_set_rate(struct snd_caninos *chip)
 {
 	unsigned long reg_val;
@@ -101,12 +103,11 @@ static u32 snd_caninos_soc_readl(struct soc_audio_device *soc, int reg)
 static void snd_caninos_playback_capture_remove(struct snd_caninos *chip)
 {
 	void __iomem *base = chip->base;
-	/* disable i2s tx&rx */
 	writel(readl(base + I2S_CTL) & ~(0x3 << 0), base + I2S_CTL);
 }
 
 static void snd_caninos_playback_capture_setup(struct snd_caninos *chip)
-{
+{ 
 	void __iomem *base = chip->base;
 
 	/* disable i2s tx&rx */
@@ -115,6 +116,7 @@ static void snd_caninos_playback_capture_setup(struct snd_caninos *chip)
 	/* reset i2s rx&&tx fifo, avoid left & right channel wrong */
 	writel(readl(base + I2S_FIFOCTL) & ~(0x3 << 9) & ~0x3, base + I2S_FIFOCTL);
 	writel(readl(base + I2S_FIFOCTL) | (0x3 << 9) | 0x3, base + I2S_FIFOCTL);
+
 	
 	/* this should before enable rx/tx,
 	or after suspend, data may be corrupt */
@@ -133,7 +135,7 @@ static void snd_caninos_playback_capture_setup(struct snd_caninos *chip)
 	
 	writel(0x0, base + I2STX_DAT);
 	writel(0x0, base + I2STX_DAT);
-}
+} 
 
 static int caninos_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
@@ -177,6 +179,7 @@ static int caninos_pcm_hw_params
 	struct snd_caninos *chip = snd_pcm_chip(substream->pcm);
 	struct dma_slave_config slave_config;
 	struct dma_chan *chan;
+
 	int err;
 	
 	memset(&slave_config, 0, sizeof(slave_config));
@@ -219,7 +222,7 @@ static int caninos_pcm_set_runtime_hwparams(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_pcm_hardware hw;
-	
+
 	memset(&hw, 0, sizeof(hw));
 	
 	hw.info = SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID |
@@ -362,7 +365,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	struct resource *res;
 	int err;
 	
-	err = snd_card_new(dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1,
+	err = snd_card_new(dev, 1, "Caninos Soundcard",
 	                   THIS_MODULE, sizeof(*chip), &card);
 	
 	if (err < 0) {
@@ -384,7 +387,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	
 	chip->phys_base = res->start;
 	
-	chip->base = devm_ioremap_nocache(dev, res->start, resource_size(res));
+	chip->base = devm_ioremap(dev, res->start, resource_size(res));
 	
 	if (IS_ERR(chip->base))
 	{
@@ -461,7 +464,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 		snd_card_free(card);
 		return -EPROBE_DEFER;
 	}
-	
+
 	chip->txchan = dma_request_slave_channel(dev, "tx");
 	
 	if (!chip->txchan)
@@ -472,7 +475,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	}
 	
 	chip->rxchan = dma_request_slave_channel(dev, "rx");
-	
+
 	if (!chip->rxchan)
 	{
 		dev_err(dev, "could not request rx dma channel");

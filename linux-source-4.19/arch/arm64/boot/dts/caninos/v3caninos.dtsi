@@ -322,6 +322,22 @@
 				default-state = "ON";
 			};
 		};
+
+		sound@e0166000 {
+			compatible = "caninos,sndcard";
+			reg = <0x0 0xe0166000 0x0 0x34>;
+			clocks = <&cmu CLK_I2SRX>,
+				     <&cmu CLK_I2STX>,
+				     <&cmu CLK_AUDIO_PLL>;
+			clock-names = "i2srx", "i2stx", "audio_pll";
+			resets = <&rst RST_AUDIO>;
+			reset-names = "audio_rst";
+			codec = <&atc260x_audio>;
+			dmas = <&dma DMA_DRQ_I2S_TX>, <&dma DMA_DRQ_I2S_RX>;
+			dma-names = "tx","rx";
+			status = "okay";
+		};
+
 		
 		hdmi: hdmi@e02c0000 {
 			compatible = "caninos,k7-hdmi";
@@ -336,6 +352,23 @@
 			resets = <&rst RST_HDMI>;
 			reset-names = "hdmi";
 			
+			status = "okay";			
+		};
+		
+		hdmi-audio@e0166000 {
+			compatible = "caninos,k7-hdmi-audio";
+			
+			reg = <0x0 0xe0166000 0x0 0x010>; 
+
+			hdmi = <&hdmi>;
+
+			dmas = <&dma DMA_DRQ_HDMI_AUDIO>;
+			dma-names = "hdmi-tx";
+
+			clocks = <&cmu CLK_AUDIO_PLL>, 
+					 <&cmu CLK_HDMI_AUDIO>;
+			clock-names = "audio-pll", "hdmia";
+
 			status = "okay";
 		};
 		
@@ -616,21 +649,6 @@
 			status = "okay";
 		};
 		
-		sound@e0166000 {
-			compatible = "caninos,sndcard";
-			reg = <0x0 0xe0166000 0x0 0x34>;
-			clocks = <&cmu CLK_I2SRX>,
-				     <&cmu CLK_I2STX>,
-				     <&cmu CLK_AUDIO_PLL>;
-			clock-names = "i2srx", "i2stx", "audio_pll";
-			resets = <&rst RST_AUDIO>;
-			reset-names = "audio_rst";
-			codec = <&atc260x_audio>;
-			dmas = <&dma DMA_DRQ_I2S_TX>, <&dma DMA_DRQ_I2S_RX>;
-			dma-names = "tx","rx";
-			status = "okay";
-		};
-
         gpu: gpu@e0340000 {
             compatible = "allwinner,sun50i-h5-mali", "arm,mali-450";
             reg = <0x0 0xe0340000 0x0 0x30000>;

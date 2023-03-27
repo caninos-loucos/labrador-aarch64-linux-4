@@ -17,10 +17,13 @@
 
 #include <linux/mfd/atc260x/atc260x.h>
 
-#define I2S_CTL     0x0
-#define I2S_FIFOCTL 0x4
-#define I2STX_DAT   0x8
-#define I2SRX_DAT   0xC
+#define I2S_CTL 0x00
+
+#define I2S_FIFOCTL 0x04
+
+#define I2STX_DAT 0x08
+#define I2SRX_DAT 0x0C
+
 
 struct soc_audio_device
 {
