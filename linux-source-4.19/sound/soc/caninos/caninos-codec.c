@@ -44,7 +44,6 @@ struct codec_local_data
 {
 	struct atc260x_dev 	 *pmic;
 	struct atc260x_audio *codec;
-	struct hdmi_audio 	 *hdmi;
 	struct delayed_work dwork;
 	bool hw_init_flag;
 	int playback_volume;
@@ -54,7 +53,6 @@ struct codec_local_data
 static struct codec_local_data codec_local_data = {
 	.pmic = NULL,
 	.codec = NULL,
-	.hdmi = NULL,
 	.hw_init_flag = false,
 	.playback_volume = 0,
 };

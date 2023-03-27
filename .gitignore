@@ -1,8 +1,5 @@
 /build/*
 /build32/*
-<<<<<<< HEAD
 /.vscode
 
-=======
 /output32/*
->>>>>>> master

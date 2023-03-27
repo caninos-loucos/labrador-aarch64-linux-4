@@ -232,6 +232,55 @@ static int hdmi_gen_vs_infoframe(struct caninos_hdmi *hdmi)
 	return 0;
 }
 
+int hdmi_gen_audio_infoframe(struct caninos_hdmi *hdmi)
+{
+	static uint8_t pkt[32];
+	uint32_t checksum = 0;
+	int i;
+
+	// clear buffer 
+	memset(pkt, 0, 32);
+	
+	// header
+	pkt[0] = 0x80 | 0x04;	// HB0: Packet Type = 0x84 
+	pkt[1] = 0x01;			// HB1: Version = 1 
+	pkt[2] = 0x0A;			// HB2: Length = 10
+	pkt[3] = 0x00;			// PB0: checksum = 0 
+
+	// data
+	pkt[4] = 0x01;			// PB1 : CodingType[3:0] R ChannelCount[2:0]
+							//		 CT = 000 
+							//		 CC = 001 = 2 CHANNELS
+
+	pkt[5] = 0;				// PB2 : R[3] SampleFreq[2:0] SampleSize[1:0]
+							// 		 SF = 000 for LPCM and IEC61937 streams
+							//		 SS = 000
+
+	pkt[6] = 0; 			// PB3 : 0
+
+	// copy from snd_pcm_substream->snd_pcm_runtime->hw maybe
+	
+	pkt[7] = 0x00;			// PB4 : Channel/SpeakerAllocation[7:0]
+							// 		 00 for FRONT LEFT; FRONT RIGHT
+
+	pkt[8] = 0;				// PB5 : DM_INH LevelShift[3:0] R[3]
+							// DM = 0;
+							// LS = 0000 = 0dB on signal
+
+
+	/* count checksum */
+	for (i = 0; i < 31; i++)
+		checksum += pkt[i];
+
+	pkt[3] = (unsigned char)((~checksum + 1) & 0xff);
+
+	// set to RAM Packet 
+	hdmi->ops.packet_generate(hdmi, PACKET_AUDIO_SLOT, pkt);
+	hdmi->ops.packet_send(hdmi, PACKET_AUDIO_SLOT, PACKET_PERIOD);
+
+	return 0;
+}
+
 static int hdmi_packet_gen_infoframe(struct caninos_hdmi *hdmi)
 {
 	hdmi_gen_spd_infoframe(hdmi);
@@ -240,6 +289,7 @@ static int hdmi_packet_gen_infoframe(struct caninos_hdmi *hdmi)
 		return -1;
 
 	/* hdmi_gen_gbd_infoframe(hdmi); */
+	hdmi_gen_audio_infoframe(hdmi);
 	hdmi_gen_vs_infoframe(hdmi);
 
 	return 0;
@@ -806,6 +856,81 @@ static int caninos_video_enable(struct caninos_hdmi *hdmi)
 	return 0;
 }
 
+static void caninos_audio_enable(struct caninos_hdmi *hdmi)
+{
+	u32 val = caninos_hdmi_readl(hdmi, HDMI_ICR);
+	val |= BIT(25);
+	caninos_hdmi_writel(hdmi, HDMI_ICR, val);
+}
+
+static void caninos_audio_disable(struct caninos_hdmi *hdmi)
+{
+	u32 val = caninos_hdmi_readl(hdmi, HDMI_ICR);
+	val &= ~BIT(25);
+	caninos_hdmi_writel(hdmi, HDMI_ICR, val);
+}
+
+static void caninos_set_audio_interface(struct caninos_hdmi *hdmi)
+{
+	u32 tmp03, tmp47, CRP_N = 0;
+	u32 ASPCR = 0;
+	u32 ACACR = 0;
+
+	hdmi->ops.audio_disable(hdmi);
+
+	caninos_hdmi_writel(hdmi, HDMI_ACRPCR, caninos_hdmi_readl(hdmi, HDMI_ACRPCR) | BIT(31));
+	caninos_hdmi_readl(hdmi, HDMI_ACRPCR); // flush write buffer
+
+	tmp03 = caninos_hdmi_readl(hdmi, HDMI_AICHSTABYTE0TO3);
+	tmp03 &= ~(0xf << 24);
+
+	tmp47 = caninos_hdmi_readl(hdmi, HDMI_AICHSTABYTE4TO7);
+	tmp47 &= ~(0xf << 4);
+	tmp47 |= 0xb;
+
+	/* assume 48KHz samplerate */
+	tmp03 |= 0x2 << 24;
+	tmp47 |= 0xd << 4;
+	CRP_N = 6144;
+
+	caninos_hdmi_writel(hdmi, HDMI_AICHSTABYTE0TO3, tmp03);
+	caninos_hdmi_writel(hdmi, HDMI_AICHSTABYTE4TO7, tmp47);
+	caninos_hdmi_writel(hdmi, HDMI_AICHSTABYTE8TO11, 0x0);
+	caninos_hdmi_writel(hdmi, HDMI_AICHSTABYTE12TO15, 0x0);
+	caninos_hdmi_writel(hdmi, HDMI_AICHSTABYTE16TO19, 0x0);
+	caninos_hdmi_writel(hdmi, HDMI_AICHSTABYTE20TO23, 0x0);
+
+	// assume 2 channels: channels 1 and 2
+	caninos_hdmi_writel(hdmi, HDMI_AICHSTASCN, 0x20001);
+
+	//Sample size = 24b */	
+	caninos_hdmi_writel(hdmi, HDMI_AICHSTABYTE4TO7, (caninos_hdmi_readl(hdmi, HDMI_AICHSTABYTE4TO7) & ~0xf));
+	caninos_hdmi_writel(hdmi, HDMI_AICHSTABYTE4TO7, caninos_hdmi_readl(hdmi, HDMI_AICHSTABYTE4TO7) | 0xb);
+
+	// Assume audio is in IEC-60958 format, 2 channels
+	ASPCR = 0x11;
+	ACACR = 0xfac688;
+
+	/* enable Audio FIFO_FILL  disable wait cycle */
+	caninos_hdmi_writel(hdmi, HDMI_CR, caninos_hdmi_readl(hdmi, HDMI_CR) | 0x50);
+
+	caninos_hdmi_writel(hdmi, HDMI_ASPCR, ASPCR);
+	caninos_hdmi_writel(hdmi, HDMI_ACACR, ACACR);
+     
+	caninos_hdmi_writel(hdmi, HDMI_AICHSTABYTE0TO3, caninos_hdmi_readl(hdmi, HDMI_AICHSTABYTE0TO3) & ~0x3);
+	caninos_hdmi_writel(hdmi, HDMI_ASPCR, caninos_hdmi_readl(hdmi, HDMI_ASPCR) & ~(0xff << 23));
+
+
+	caninos_hdmi_writel(hdmi, HDMI_ACRPCR, CRP_N | (0x1 << 31));
+
+	hdmi_packet_gen_infoframe(hdmi);
+
+    /* enable CRP */
+	caninos_hdmi_writel(hdmi, HDMI_ACRPCR, caninos_hdmi_readl(hdmi, HDMI_ACRPCR) & ~(0x1 << 31));
+
+	hdmi->ops.audio_enable(hdmi);
+}
+
 static bool caninos_cable_status(struct caninos_hdmi *hdmi)
 {
 	bool status = (caninos_hdmi_readl(hdmi, CEC_DDC_HPD) & (0x3 << 14));
@@ -956,6 +1081,9 @@ static int caninos_hdmi_probe(struct platform_device *pdev)
 	hdmi->ops.video_enable = caninos_video_enable;
 	hdmi->ops.video_disable = caninos_video_disable;
 	hdmi->ops.is_video_enabled = caninos_is_video_enabled;
+	hdmi->ops.audio_disable = caninos_audio_disable;
+	hdmi->ops.audio_enable = caninos_audio_enable;
+	hdmi->ops.set_audio_interface = caninos_set_audio_interface;
 	hdmi->ops.packet_generate = caninos_packet_generate;
 	hdmi->ops.packet_send = caninos_packet_send;
 	

@@ -365,7 +365,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	struct resource *res;
 	int err;
 	
-	err = snd_card_new(dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1,
+	err = snd_card_new(dev, 1, "Caninos Soundcard",
 	                   THIS_MODULE, sizeof(*chip), &card);
 	
 	if (err < 0) {
@@ -387,7 +387,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	
 	chip->phys_base = res->start;
 	
-	chip->base = devm_ioremap_nocache(dev, res->start, resource_size(res));
+	chip->base = devm_ioremap(dev, res->start, resource_size(res));
 	
 	if (IS_ERR(chip->base))
 	{

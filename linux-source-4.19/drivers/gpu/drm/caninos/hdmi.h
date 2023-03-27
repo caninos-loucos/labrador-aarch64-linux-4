@@ -143,6 +143,10 @@ struct caninos_hdmi_ops
 	int  (*video_enable)(struct caninos_hdmi *ip);
 	void (*video_disable)(struct caninos_hdmi *ip);
 	bool (*is_video_enabled)(struct caninos_hdmi *ip);
+
+	void  (*audio_enable)(struct caninos_hdmi *ip);
+	void (*audio_disable)(struct caninos_hdmi *ip);
+	void (*set_audio_interface)(struct caninos_hdmi *ip);
 	
 	int  (*packet_generate)(struct caninos_hdmi *ip, uint32_t no, uint8_t *pkt);
 	int  (*packet_send)(struct caninos_hdmi *ip, uint32_t no, int period);
@@ -179,26 +183,6 @@ struct caninos_hdmi_hwdiff
 	uint32_t pll_debug1_reg;
 };
 
-struct caninos_hdmi_audio
-{
-	void __iomem *base;
-	phys_addr_t phys_base;
-	
-	struct device *dev;
-
-	struct caninos_hdmi *hdmi;
-
-	struct snd_soc_card card;
-	struct snd_soc_dai_link link;
-	struct snd_dmaengine_dai_dma_data dma_data;
-	struct snd_pcm_substream *substream;
-
-	int ctl_data;
-
-	int samplerate;
-	int channels;
-};
-
 struct caninos_hdmi
 {
 	/* register address */
@@ -231,8 +215,6 @@ struct caninos_hdmi
 	
 	/* used for hardware specific configurations */
 	struct caninos_hdmi_hwdiff *hwdiff;
-
-	struct caninos_hdmi_audio *audio;
 };
 
 static inline void caninos_hdmi_writel(struct caninos_hdmi *hdmi, const uint16_t idx, uint32_t val) {

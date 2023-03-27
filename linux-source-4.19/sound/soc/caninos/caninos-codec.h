@@ -16,8 +16,6 @@
 #define _CANINOS_CODEC_H_
 
 #include <linux/mfd/atc260x/atc260x.h>
-#include <../../drivers/gpu/drm/caninos/hdmi-regs.h>
-#include <../../drivers/gpu/drm/caninos/hdmi.h>
 
 #define I2S_CTL 0x00
 
