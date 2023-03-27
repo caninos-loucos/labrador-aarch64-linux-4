@@ -296,6 +296,7 @@ static int atc2603c_platform_probe(struct platform_device *pdev)
 		dev_err(dev, "could not create baseboard input device.\n");
 	}
 	
+	dev_info(dev, "probe finished\n");
 	return 0;
 }
 

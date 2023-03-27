@@ -3,13 +3,7 @@ Linux 4 kernel source code for "Caninos Labrador v3.0".
 
 ## Release Notes
 
-### Next Release (TBA)
-1) Add driver for HDMI audio playback
-2) Enable HDMI-CEC functionality at HDMI-IP driver
-3) Add driver for TFT LCD displays using DSI interface
-4) New driver for Video Decode Engine
-
-### Current Release (30-08-2022)
+### Current Release
 1) Kernel version updated from 4.19.98 to 4.19.249
 2) Corrected USB bugs (hubs are now supported)
 3) Corrected ethernet bugs

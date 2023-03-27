@@ -22,6 +22,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "k5-cmu: " fmt
+
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
@@ -90,7 +92,7 @@
 #define CMU_CVBSPLLDEBUG         (0x00FC)
 
 static const char * const cpu_clk_mux_p[] __initdata = {
-	"losc", "hosc", "core_pll", "vde"
+	"losc", "hosc", "core_pll", "vce"
 };
 
 static const char * const dev_clk_p[] __initdata = {
@@ -381,6 +383,10 @@ static const struct caninos_div_clock k5_div_clks[] __initdata =
 	            CMU_BUSCLK1, 12, 2, CLK_DIVIDER_READ_ONLY, NULL,
 	            CLK_IS_CRITICAL),
 	
+	CANINOS_DIV(CLK_PERIPH, "periph_clk", "cpu_clk",
+	            CMU_BUSCLK, 20, 3, CLK_DIVIDER_READ_ONLY, NULL,
+	            CLK_IS_CRITICAL),
+	
 	//CANINOS_DIV(CLK_APB, "apb_clk", "ahb_clk",
 	//            CMU_BUSCLK1, 14, 2, CLK_DIVIDER_READ_ONLY, NULL,
 	//            CLK_IS_CRITICAL),
@@ -401,7 +407,8 @@ static const struct caninos_div_clock k5_div_clks[] __initdata =
 /* fixed factor clocks */
 static const struct caninos_fixed_factor_clock k5_factor_clks[] __initdata =
 {
-	CANINOS_FIXED_FACTOR(CLK_AHB, "ahb_clk", "hp_clk_div", 0, 1, 1),
+	CANINOS_FIXED_FACTOR(CLK_AHB, "ahb_clk",
+	                     "hp_clk_div", 0, 1, 1),
 };
 
 /* gate clocks */
@@ -449,23 +456,23 @@ static const struct caninos_gate_clock k5_gate_clks[] __initdata =
 	CANINOS_GATE(CLK_SPI3, "spi3", "ahb_clk",
 	             CMU_DEVCLKEN1, 13, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H0_PLLEN, "usbh0_pllen", "hosc",
-	//             CMU_USBPLL, 12, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H0_PLLEN, "usbh0_pllen", "hosc",
+	             CMU_USBPLL, 12, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H0_PHY, "usbh0_phy", "hosc",
-	//             CMU_USBPLL, 10, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H0_PHY, "usbh0_phy", "hosc",
+	             CMU_USBPLL, 10, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H0_CCE, "usbh0_cce", "hosc",
-	//             CMU_DEVCLKEN0, 26, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H0_CCE, "usbh0_cce", "hosc",
+	             CMU_USBPLL, 8, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H1_PLLEN, "usbh1_pllen", "hosc",
-	//             CMU_USBPLL, 13, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H1_PLLEN, "usbh1_pllen", "hosc",
+	             CMU_USBPLL, 13, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H1_PHY, "usbh1_phy", "hosc",
-	//             CMU_USBPLL, 11, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H1_PHY, "usbh1_phy", "hosc",
+	             CMU_USBPLL, 11, 0, CLK_IGNORE_UNUSED),
 	
-	//CANINOS_GATE(CLK_USB2H1_CCE, "usbh1_cce", "hosc",
-	//             CMU_DEVCLKEN0, 27, 0, CLK_IGNORE_UNUSED),
+	CANINOS_GATE(CLK_USB2H1_CCE, "usbh1_cce", "hosc",
+	             CMU_USBPLL, 9, 0, CLK_IGNORE_UNUSED),
 	
 	CANINOS_GATE(CLK_IRC_SWITCH, "irc_switch", "hosc",
 	             CMU_DEVCLKEN1, 9, 0, CLK_IGNORE_UNUSED),
@@ -716,7 +723,7 @@ void __init k5_clk_init(struct device_node *np)
 	}
 	
 	caninos_register_clk_tree(ctx, &k5_clk_tree);
+	pr_info("probe finished\n");
 }
 
 CLK_OF_DECLARE(k5_clk, "caninos,k5-cmu", k5_clk_init);
-

@@ -234,6 +234,20 @@ static const struct caninos_sps_domain_info k7_sps_domains[] = {
 		.genpd_flags = GENPD_FLAG_ALWAYS_ON,
 		.is_off = false,
 	},
+	[PD_USB2H0] = {
+		.name = "USB2H0",
+		.pwr_bit = 11,
+		.ack_bit = -1,
+		.genpd_flags = GENPD_FLAG_ALWAYS_ON,
+		.is_off = false,
+	},
+	[PD_USB2H1] = {
+		.name = "USB2H1",
+		.pwr_bit = 2,
+		.ack_bit = -1,
+		.genpd_flags = GENPD_FLAG_ALWAYS_ON,
+		.is_off = false,
+	},
 };
 
 static const struct caninos_sps_domain_info k5_sps_domains[] = {
@@ -248,6 +262,20 @@ static const struct caninos_sps_domain_info k5_sps_domains[] = {
 		.name = "DMAC",
 		.pwr_bit = 8,
 		.ack_bit = 12,
+		.genpd_flags = GENPD_FLAG_ALWAYS_ON,
+		.is_off = false,
+	},
+	[PD_USB2H0] = {
+		.name = "USB2H0",
+		.pwr_bit = 11,
+		.ack_bit = 15,
+		.genpd_flags = GENPD_FLAG_ALWAYS_ON,
+		.is_off = false,
+	},
+	[PD_USB2H1] = {
+		.name = "USB2H1",
+		.pwr_bit = 2,
+		.ack_bit = 18,
 		.genpd_flags = GENPD_FLAG_ALWAYS_ON,
 		.is_off = false,
 	},

@@ -166,8 +166,15 @@ struct caninos_hdmi_settings
 	int bit_invert;
 };
 
-struct caninos_hdmi_hwdiff
+enum hdmi_ip_model {
+	HDMI_IP_MODEL_K5 = 1,
+	HDMI_IP_MODEL_K7,
+};
+
+struct hdmi_ip_hwdiff
 {
+	enum hdmi_ip_model model;
+	
 	int	hp_start;
 	int	hp_end;
 	int	vp_start;

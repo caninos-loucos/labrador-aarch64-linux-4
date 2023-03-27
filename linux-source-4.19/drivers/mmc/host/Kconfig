@@ -896,8 +896,8 @@ config MMC_BCM2835
 	  
 config MMC_CANINOS
 	bool "Caninos MMC Controller support"
-	depends on ARM64 && (ARCH_CANINOS || COMPILE_TEST)
-	default (ARM64 && ARCH_CANINOS)
+	depends on (ARCH_CANINOS || COMPILE_TEST)
+	default ARCH_CANINOS
 	help
 	 Enable Caninos Labrador MMC Controller support.
 

@@ -266,9 +266,9 @@ struct caninos_clock_tree
 	.id = i,                                   \
 	.name = n,                                 \
 	.parent_name = p,                          \
+	.flags = f,                                \
 	.mult = m,                                 \
 	.div = d,                                  \
-	.flags = f,                                \
 }
 
 #define CANINOS_COMPOSITE(i, n, p, f, m, g, r) \

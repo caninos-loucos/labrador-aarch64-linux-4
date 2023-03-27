@@ -213,8 +213,8 @@ static const struct reset_control_ops caninos_rcu_reset_ops = {
 };
 
 static const struct of_device_id caninos_rcu_reset_dt_ids[] = {
-	{ .compatible = "caninos,k5-reset", .data = &k5_reg_data },
-	{ .compatible = "caninos,k7-reset", .data = &k7_reg_data },
+	{ .compatible = "caninos,k5-reset", .data = (void*) &k5_reg_data },
+	{ .compatible = "caninos,k7-reset", .data = (void*) &k7_reg_data },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, caninos_rcu_reset_dt_ids);
@@ -278,7 +278,7 @@ static int caninos_rcu_reset_probe(struct platform_device *pdev)
 	
 	/* Set ethernet gmac delays */
 	
-	if (priv->data == &k7_reg_data)
+	if (priv->data == (void*) &k7_reg_data)
 	{
 		aux = readl(priv->cmu_base + DEVRST1);
 		aux &= 0xff807fff;

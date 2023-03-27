@@ -21,6 +21,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "k7-cmu: " fmt
+
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
@@ -709,7 +711,8 @@ void __init k7_clk_init(struct device_node *np)
     caninos_clk_register_gate(ctx, k7_gate_clks, ARRAY_SIZE(k7_gate_clks));
     
     caninos_clk_register_composite(ctx, k7_comp_clks, ARRAY_SIZE(k7_comp_clks));
+    
+    pr_info("probe finished\n");
 }
 
 CLK_OF_DECLARE(k7_clk, "caninos,k7-cmu", k7_clk_init);
-

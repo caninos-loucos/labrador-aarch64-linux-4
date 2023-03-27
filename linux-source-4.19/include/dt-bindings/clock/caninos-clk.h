@@ -25,7 +25,7 @@
 #define CLK_ETHERNET_PLL	11
 
 /* system clock */
-#define CLK_SYS_BASE			12
+#define CLK_SYS_BASE		12
 #define CLK_CPU				CLK_SYS_BASE
 #define CLK_DEV				(CLK_SYS_BASE+1)
 #define CLK_AHB				(CLK_SYS_BASE+2)
@@ -39,9 +39,10 @@
 #define CLK_NOC0			(CLK_SYS_BASE+10)
 #define CLK_NOC1			(CLK_SYS_BASE+11)
 #define CLK_SENSOR_SRC		(CLK_SYS_BASE+12)
+#define CLK_PERIPH          (CLK_SYS_BASE+13)
 
 /* peripheral device clock */
-#define CLK_PERIP_BASE			25
+#define CLK_PERIP_BASE			27
 #define CLK_GPIO				(CLK_PERIP_BASE)
 #define CLK_TIMER				(CLK_PERIP_BASE+1)
 #define CLK_DSI					(CLK_PERIP_BASE+2)
@@ -105,7 +106,7 @@
 #define CLK_PCM1				(CLK_PERIP_BASE+70)
 #define CLK_PCM0				(CLK_PERIP_BASE+71)
 #define CLK_SPDIF				(CLK_PERIP_BASE+72)
-#define CLK_NR_CLKS				100
+#define CLK_NR_CLKS				102
 
 #endif /* __DT_BINDINGS_CLK_CANINOS_H */
 

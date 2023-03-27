@@ -1081,19 +1081,16 @@ static int caninos_dma_probe(struct platform_device *pdev)
 	switch(cd->devid)
 	{
 	case DEVID_K9_DMAC:
-		dev_info(cd->dev, "K9 DMA Controller found.\n");
 		cd->nr_pchans = 12;
 		cd->nr_vchans = 48;
 		break;
 		
 	case DEVID_K7_DMAC:
-		dev_info(cd->dev, "K7 DMA Controller found.\n");
 		cd->nr_pchans = 10;
 		cd->nr_vchans = 48;
 		break;
 		
 	case DEVID_K5_DMAC:
-		dev_info(cd->dev, "K5 DMA Controller found.\n");
 		cd->nr_pchans = 12;
 		cd->nr_vchans = 48;
 		break;
@@ -1102,9 +1099,6 @@ static int caninos_dma_probe(struct platform_device *pdev)
 		dev_err(cd->dev, "unrecognized hardware type.\n");
 		return -ENODEV;
 	}
-	
-	dev_info(cd->dev, "physical dma channels: %d.\n", cd->nr_pchans);
-	dev_info(cd->dev, "virtual dma channels: %d.\n", cd->nr_vchans);
 	
 	/* Set DMA mask to 32 bits */
 	if (!cd->dev->dma_mask)

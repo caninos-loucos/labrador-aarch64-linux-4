@@ -27,8 +27,6 @@
 
 #include "aotg_regs.h"
 
-/*#define USBH_DEBUG*/
-
 #define	PERIODIC_SIZE		64
 #define MAX_PERIODIC_LOAD	500 /*50%*/
 

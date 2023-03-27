@@ -123,6 +123,7 @@ static int atc260x_i2c_probe(struct i2c_client *i2c,
 		return ret;
 	}
 	
+	dev_info(&i2c->dev, "probe finished\n");
 	return 0;
 }
 
