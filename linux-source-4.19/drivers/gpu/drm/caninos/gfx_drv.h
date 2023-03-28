@@ -210,7 +210,7 @@ struct caninos_gfx
 	struct reset_control *cvbs_rst;
 	struct reset_control *de_rst;
 	
-	struct hdmi_ip *hdmi_ip;
+	struct caninos_hdmi *caninos_hdmi;
 };
 
 extern int caninos_gfx_pipe_init(struct drm_device *drm);

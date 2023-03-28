@@ -45,7 +45,7 @@
 
 #include "gfx_drv.h"
 
-static int caninos_gfx_load(struct drm_device *drm, struct hdmi_ip *hdmi_ip)
+static int caninos_gfx_load(struct drm_device *drm, struct caninos_hdmi *caninos_hdmi)
 {
     struct platform_device *pdev = to_platform_device(drm->dev);
     struct caninos_gfx *priv;
@@ -60,7 +60,7 @@ static int caninos_gfx_load(struct drm_device *drm, struct hdmi_ip *hdmi_ip)
     
     drm->dev_private = priv;
     priv->dev = &pdev->dev;
-    priv->hdmi_ip = hdmi_ip;
+    priv->caninos_hdmi = caninos_hdmi;
     
     ret = dma_set_mask_and_coherent(drm->dev, DMA_BIT_MASK(32));
     
@@ -181,7 +181,7 @@ static struct drm_driver caninos_gfx_driver = {
 static int caninos_gfx_probe(struct platform_device *pdev)
 {
 	struct platform_device *hdmi_pdev;
-	struct hdmi_ip *hdmi_ip = NULL;
+	struct caninos_hdmi *caninos_hdmi = NULL;
 	struct device_node *hdmi_np;
 	struct drm_device *drm;
 	int ret;
@@ -194,12 +194,12 @@ static int caninos_gfx_probe(struct platform_device *pdev)
 	}
 	
 	if ((hdmi_pdev = of_find_device_by_node(hdmi_np)) != NULL) {
-		hdmi_ip = platform_get_drvdata(hdmi_pdev);
+		caninos_hdmi = platform_get_drvdata(hdmi_pdev);
 	}
 	
 	of_node_put(hdmi_np);
 	
-	if (hdmi_ip == NULL) {
+	if (caninos_hdmi == NULL) {
 		dev_err(&pdev->dev, "hdmi-phy is not ready\n");
 		return -EPROBE_DEFER;
 	}
@@ -210,7 +210,7 @@ static int caninos_gfx_probe(struct platform_device *pdev)
 		return PTR_ERR(drm);
 	}
 	
-	ret = caninos_gfx_load(drm, hdmi_ip);
+	ret = caninos_gfx_load(drm, caninos_hdmi);
 	
 	if (ret) {
 		goto err_free;

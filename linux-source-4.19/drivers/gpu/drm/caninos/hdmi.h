@@ -23,6 +23,8 @@
 
 #include <linux/reset.h>
 #include <linux/clk.h>
+#include <sound/dmaengine_pcm.h>
+#include <sound/soc.h>
 
 /* horizontal and vertical sync active high */
 #define DSS_SYNC_HOR_HIGH_ACT  (1 << 0)
@@ -124,32 +126,33 @@ enum hdmi_packet_type {
 	PACKET_MAX,
 };
 
-struct hdmi_ip;
+struct caninos_hdmi;
 
-struct hdmi_ip_ops
+struct caninos_hdmi_ops
 {
-	int  (*init)(struct hdmi_ip *ip);
-	void (*exit)(struct hdmi_ip *ip);
+	int  (*init)(struct caninos_hdmi *ip);
+	void (*exit)(struct caninos_hdmi *ip);
 	
-	void (*hpd_enable)(struct hdmi_ip *ip);
-	void (*hpd_disable)(struct hdmi_ip *ip);
-	bool (*hpd_is_pending)(struct hdmi_ip *ip);
-	void (*hpd_clear_pending)(struct hdmi_ip *ip);
+	void (*hpd_enable)(struct caninos_hdmi *ip);
+	void (*hpd_disable)(struct caninos_hdmi *ip);
+	bool (*hpd_is_pending)(struct caninos_hdmi *ip);
+	void (*hpd_clear_pending)(struct caninos_hdmi *ip);
 	
-	bool (*cable_status)(struct hdmi_ip *ip);
+	bool (*cable_status)(struct caninos_hdmi *ip);
 	
-	int  (*video_enable)(struct hdmi_ip *ip);
-	void (*video_disable)(struct hdmi_ip *ip);
-	bool (*is_video_enabled)(struct hdmi_ip *ip);
+	int  (*video_enable)(struct caninos_hdmi *ip);
+	void (*video_disable)(struct caninos_hdmi *ip);
+	bool (*is_video_enabled)(struct caninos_hdmi *ip);
+
+	void (*audio_enable)(struct caninos_hdmi *ip);
+	void (*audio_disable)(struct caninos_hdmi *ip);
+	void (*set_audio_interface)(struct caninos_hdmi *ip);
 	
-	int  (*packet_generate)(struct hdmi_ip *ip, uint32_t no, uint8_t *pkt);
-	int  (*packet_send)(struct hdmi_ip *ip, uint32_t no, int period);
-	
-	int  (*audio_enable)(struct hdmi_ip *ip);
-	int  (*audio_disable)(struct hdmi_ip *ip);
+	int  (*packet_generate)(struct caninos_hdmi *ip, uint32_t no, uint8_t *pkt);
+	int  (*packet_send)(struct caninos_hdmi *ip, uint32_t no, int period);
 };
 
-struct hdmi_ip_settings
+struct caninos_hdmi_settings
 {
 	int hdmi_src;
 	int vitd_color;
@@ -163,14 +166,14 @@ struct hdmi_ip_settings
 	int bit_invert;
 };
 
-enum hdmi_ip_model {
-	HDMI_IP_MODEL_K5 = 1,
-	HDMI_IP_MODEL_K7,
+enum caninos_hdmi_model {
+	HDMI_MODEL_K5 = 1,
+	HDMI_MODEL_K7,
 };
 
-struct hdmi_ip_hwdiff
+struct caninos_hdmi_hwdiff
 {
-	enum hdmi_ip_model model;
+	enum caninos_hdmi_model model;
 	
 	int	hp_start;
 	int	hp_end;
@@ -187,7 +190,7 @@ struct hdmi_ip_hwdiff
 	uint32_t pll_debug1_reg;
 };
 
-struct hdmi_ip
+struct caninos_hdmi
 {
 	/* register address */
 	void __iomem *base;
@@ -197,7 +200,7 @@ struct hdmi_ip
 	struct reset_control *hdmi_rst;
 	struct clk *hdmi_dev_clk;
 	
-	struct hdmi_ip_settings settings;
+	struct caninos_hdmi_settings settings;
 	int vid; /* video mode */
 	struct videomode mode;
 	
@@ -215,11 +218,19 @@ struct hdmi_ip
 	uint32_t phyctrl_2;
 	
 	/* ip functions */
-	struct hdmi_ip_ops ops;
+	struct caninos_hdmi_ops ops;
 	
 	/* used for hardware specific configurations */
-	struct hdmi_ip_hwdiff *hwdiff;
+	struct caninos_hdmi_hwdiff *hwdiff;
 };
+
+static inline void caninos_hdmi_writel(struct caninos_hdmi *hdmi, const uint16_t idx, uint32_t val) {
+	writel(val, hdmi->base + idx);
+}
+
+static inline uint32_t caninos_hdmi_readl(struct caninos_hdmi *hdmi, const uint16_t idx) {
+	return readl(hdmi->base + idx);
+}
 
 #endif
 

@@ -353,7 +353,7 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
 	struct caninos_gfx *pipe = container_of(crtc, struct caninos_gfx, crtc);
 	struct drm_display_mode *drm_mode = &crtc->state->adjusted_mode;
-	struct hdmi_ip *hdmi_ip = pipe->hdmi_ip;
+	struct caninos_hdmi *caninos_hdmi = pipe->caninos_hdmi;
 	int width, height, vrefresh;
 	struct videomode mode;
 	
@@ -377,12 +377,12 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		mode.vbp = 33;
 		mode.sync = 0;
 		
-		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
-    	hdmi_ip->vid = VID640x480P_60_4VS3;
-		hdmi_ip->mode = mode;
-		hdmi_ip->interlace = false;
-		hdmi_ip->vstart = 1;
-		hdmi_ip->repeat = false;
+		caninos_hdmi->settings.prelines = caninos_de_calculate_preline(&mode);
+    	caninos_hdmi->vid = VID640x480P_60_4VS3;
+		caninos_hdmi->mode = mode;
+		caninos_hdmi->interlace = false;
+		caninos_hdmi->vstart = 1;
+		caninos_hdmi->repeat = false;
     }
     else if ((width == 720) && (height == 480) && (vrefresh == 60))
     {
@@ -399,12 +399,12 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		mode.vsw = 6;
 		mode.sync = 0;
 		
-		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
-		hdmi_ip->vid = VID720x480P_60_4VS3;
-		hdmi_ip->mode = mode;
-		hdmi_ip->interlace = false;
-		hdmi_ip->vstart = 7;
-		hdmi_ip->repeat = false;
+		caninos_hdmi->settings.prelines = caninos_de_calculate_preline(&mode);
+		caninos_hdmi->vid = VID720x480P_60_4VS3;
+		caninos_hdmi->mode = mode;
+		caninos_hdmi->interlace = false;
+		caninos_hdmi->vstart = 7;
+		caninos_hdmi->repeat = false;
     }
     else if ((width == 720) && (height == 576) && (vrefresh == 50))
     {
@@ -421,12 +421,12 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		mode.vsw = 5;
 		mode.sync = 0;
 		
-		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
-		hdmi_ip->vid = VID720x576P_50_4VS3;
-		hdmi_ip->mode = mode;
-		hdmi_ip->interlace = false;
-		hdmi_ip->vstart = 1;
-		hdmi_ip->repeat = false;
+		caninos_hdmi->settings.prelines = caninos_de_calculate_preline(&mode);
+		caninos_hdmi->vid = VID720x576P_50_4VS3;
+		caninos_hdmi->mode = mode;
+		caninos_hdmi->interlace = false;
+		caninos_hdmi->vstart = 1;
+		caninos_hdmi->repeat = false;
     }
     else if ((width == 1280) && (height == 720) && (vrefresh == 60)) //ok
     {
@@ -442,12 +442,12 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		mode.vbp = 20;
 		mode.sync = DSS_SYNC_HOR_HIGH_ACT | DSS_SYNC_VERT_HIGH_ACT;
     	
-    	hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
-    	hdmi_ip->vid = VID1280x720P_60_16VS9;
-		hdmi_ip->mode = mode;
-		hdmi_ip->interlace = false;
-		hdmi_ip->vstart = 1;
-		hdmi_ip->repeat = false;
+    	caninos_hdmi->settings.prelines = caninos_de_calculate_preline(&mode);
+    	caninos_hdmi->vid = VID1280x720P_60_16VS9;
+		caninos_hdmi->mode = mode;
+		caninos_hdmi->interlace = false;
+		caninos_hdmi->vstart = 1;
+		caninos_hdmi->repeat = false;
     }
     else if ((width == 1280) && (height == 720) && (vrefresh == 50))
     {
@@ -464,12 +464,12 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		mode.vsw = 5;
 		mode.sync = DSS_SYNC_HOR_HIGH_ACT | DSS_SYNC_VERT_HIGH_ACT;
 		
-		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
-		hdmi_ip->vid = VID1280x720P_50_16VS9;
-		hdmi_ip->mode = mode;
-		hdmi_ip->interlace = false;
-		hdmi_ip->vstart = 1;
-		hdmi_ip->repeat = false;
+		caninos_hdmi->settings.prelines = caninos_de_calculate_preline(&mode);
+		caninos_hdmi->vid = VID1280x720P_50_16VS9;
+		caninos_hdmi->mode = mode;
+		caninos_hdmi->interlace = false;
+		caninos_hdmi->vstart = 1;
+		caninos_hdmi->repeat = false;
     }
     else if ((width == 1920) && (height == 1080) && (vrefresh == 50))
     {
@@ -486,12 +486,12 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		mode.vsw = 5;
 		mode.sync = DSS_SYNC_HOR_HIGH_ACT | DSS_SYNC_VERT_HIGH_ACT;
 		
-		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
-		hdmi_ip->vid = VID1920x1080P_50_16VS9;
-		hdmi_ip->mode = mode;
-		hdmi_ip->interlace = false;
-		hdmi_ip->vstart = 1;
-		hdmi_ip->repeat = false;
+		caninos_hdmi->settings.prelines = caninos_de_calculate_preline(&mode);
+		caninos_hdmi->vid = VID1920x1080P_50_16VS9;
+		caninos_hdmi->mode = mode;
+		caninos_hdmi->interlace = false;
+		caninos_hdmi->vstart = 1;
+		caninos_hdmi->repeat = false;
     }
     else //if ((width == 1920) && (height == 1080) && (vrefresh == 60) //ok 
     {
@@ -507,24 +507,24 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		mode.vbp = 36;
 		mode.sync = DSS_SYNC_HOR_HIGH_ACT | DSS_SYNC_VERT_HIGH_ACT;
 		
-		hdmi_ip->settings.prelines = caninos_de_calculate_preline(&mode);
-		hdmi_ip->vid = VID1920x1080P_60_16VS9;
-		hdmi_ip->mode = mode;
-		hdmi_ip->interlace = false;
-		hdmi_ip->vstart = 1;
-		hdmi_ip->repeat = false;
+		caninos_hdmi->settings.prelines = caninos_de_calculate_preline(&mode);
+		caninos_hdmi->vid = VID1920x1080P_60_16VS9;
+		caninos_hdmi->mode = mode;
+		caninos_hdmi->interlace = false;
+		caninos_hdmi->vstart = 1;
+		caninos_hdmi->repeat = false;
     }
 	
-	width = hdmi_ip->mode.xres;
-	height = hdmi_ip->mode.yres;
-	vrefresh = hdmi_ip->mode.refresh;
+	width = caninos_hdmi->mode.xres;
+	height = caninos_hdmi->mode.yres;
+	vrefresh = caninos_hdmi->mode.refresh;
 	
-	hdmi_ip->ops.video_disable(hdmi_ip);
+	caninos_hdmi->ops.video_disable(caninos_hdmi);
 	
 	caninos_de_reset(crtc);
 	caninos_de_path_set_out_con(crtc, DE_OUTPUT_CON_HDMI);
 	caninos_de_path_set_size(crtc, width, height);
-	caninos_de_path_ilace_enable(crtc, hdmi_ip->interlace);
+	caninos_de_path_ilace_enable(crtc, caninos_hdmi->interlace);
 	caninos_de_path_yuv_enable(crtc, false);
 	caninos_de_path_set_bk_color(crtc, 0x0);
 	
@@ -538,7 +538,7 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	caninos_de_video_enable(crtc, true);
 	caninos_de_path_enable(crtc, true);
 	
-	hdmi_ip->ops.video_enable(hdmi_ip);
+	caninos_hdmi->ops.video_enable(caninos_hdmi);
 }
 
 irqreturn_t caninos_gfx_irq_handler(int irq, void *data)
