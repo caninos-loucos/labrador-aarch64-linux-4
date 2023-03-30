@@ -160,6 +160,11 @@ kernel/drivers/devfreq/governor_passive.ko
 kernel/drivers/dma/virt-dma.ko
 kernel/drivers/extcon/extcon-core.ko
 kernel/drivers/gpio/gpio-generic.ko
+kernel/drivers/gpu/drm/drm_kms_helper.ko
+kernel/drivers/gpu/drm/drm.ko
+kernel/drivers/gpu/drm/drm_panel_orientation_quirks.ko
+kernel/drivers/gpu/drm/caninos/caninos-drm.ko
+kernel/drivers/gpu/drm/caninos/caninos-hdmi.ko
 kernel/drivers/hid/hid.ko
 kernel/drivers/hid/hid-generic.ko
 kernel/drivers/hid/usbhid/usbhid.ko
@@ -167,6 +172,7 @@ kernel/drivers/hwmon/hwmon.ko
 kernel/drivers/i2c/i2c-core.ko
 kernel/drivers/i2c/i2c-dev.ko
 kernel/drivers/i2c/i2c-mux.ko
+kernel/drivers/i2c/algos/i2c-algo-bit.ko
 kernel/drivers/i2c/muxes/i2c-demux-pinctrl.ko
 kernel/drivers/i2c/muxes/i2c-mux-pinctrl.ko
 kernel/drivers/input/input-core.ko
@@ -213,6 +219,7 @@ kernel/drivers/net/wireless/realtek/rtlwifi/rtl_usb.ko
 kernel/drivers/net/wireless/realtek/rtlwifi/rtl8192c/rtl8192c-common.ko
 kernel/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/rtl8192cu.ko
 kernel/drivers/remoteproc/remoteproc.ko
+kernel/drivers/thermal/thermal_sys.ko
 kernel/drivers/tty/serdev/serdev.ko
 kernel/drivers/tty/serial/serial_core.ko
 kernel/drivers/uio/uio.ko
@@ -226,6 +233,14 @@ kernel/drivers/usb/host/xhci-plat-hcd.ko
 kernel/drivers/usb/mon/usbmon.ko
 kernel/drivers/vfio/vfio.ko
 kernel/drivers/vfio/vfio_iommu_type1.ko
+kernel/drivers/video/fbdev/core/fb.ko
+kernel/drivers/video/fbdev/core/cfbfillrect.ko
+kernel/drivers/video/fbdev/core/cfbcopyarea.ko
+kernel/drivers/video/fbdev/core/cfbimgblt.ko
+kernel/drivers/video/fbdev/core/sysfillrect.ko
+kernel/drivers/video/fbdev/core/syscopyarea.ko
+kernel/drivers/video/fbdev/core/sysimgblt.ko
+kernel/drivers/video/fbdev/core/fb_sys_fops.ko
 kernel/drivers/virtio/virtio.ko
 kernel/drivers/virtio/virtio_ring.ko
 kernel/sound/soundcore.ko
@@ -361,6 +376,7 @@ kernel/lib/ts_bm.ko
 kernel/lib/ts_fsm.ko
 kernel/lib/asn1_decoder.ko
 kernel/lib/oid_registry.ko
+kernel/lib/fonts/font.ko
 kernel/lib/lz4/lz4_decompress.ko
 kernel/lib/lzo/lzo_compress.ko
 kernel/lib/lzo/lzo_decompress.ko

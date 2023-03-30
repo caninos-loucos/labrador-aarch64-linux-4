@@ -417,8 +417,8 @@ config MTK_THERMAL
 
 config CANINOS_THERMAL
 	bool "Temperature sensor driver for Caninos Labrador SBCs"
-	depends on ARM64 && (ARCH_CANINOS || COMPILE_TEST)
-	default (ARCH_CANINOS && ARM64)
+	depends on (ARCH_CANINOS || COMPILE_TEST)
+	default (ARCH_CANINOS)
 	help
 	  Enable this option to support thermal sensors on Caninos Labrador SBCs.
 

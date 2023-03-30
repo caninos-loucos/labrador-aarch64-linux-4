@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 
 /dts-v1/;
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -611,8 +611,16 @@
 			resets = <&rst RST_TVOUT>, <&rst RST_DE>;
 			reset-names = "tvout", "de";
 			hdmi-phy = <&hdmi>;
-			status = "okay";
+			status = "disabled";
 		};
+
+		thermal@0xb01b00e8 {
+			compatible = "caninos,k5-tmu";
+			reg = <0xb01b00e8 0x8>;
+			clocks = <&cmu CLK_THERMAL_SENSOR>;
+			clock-names = "thermal_sensor";
+			status = "okay";
+		};		
 	};
 };
 

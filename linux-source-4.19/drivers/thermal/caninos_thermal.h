@@ -23,12 +23,20 @@
 #define CANINOS_TMU_ACTIVE_INTERVAL (1000)
 #define CANINOS_TMU_IDLE_INTERVAL   (3000)
 
+#define CANINOS_TMU_SENSOR_COUNT_K7 3
+#define CANINOS_TMU_SENSOR_COUNT_K5 1
+
+enum caninos_tmu_model 
+{
+	TMU_MODEL_K5 = 1,
+	TMU_MODEL_K7 = 2,
+};
+
 enum caninos_tmu_sensor_type
 {
 	CANINOS_TMU_CPU          = 0,
 	CANINOS_TMU_GPU          = 1,
 	CANINOS_TMU_CORELOGIC    = 2,
-	CANINOS_TMU_SENSOR_COUNT = 3,
 };
 
 struct caninos_tmu_sensor
@@ -47,7 +55,10 @@ struct caninos_tmu_data
 	struct delayed_work work;
 	struct mutex lock;
 	
-	struct caninos_tmu_sensor sensor[CANINOS_TMU_SENSOR_COUNT];
+	struct caninos_tmu_sensor sensor[CANINOS_TMU_SENSOR_COUNT_K7];
+
+	enum caninos_tmu_model model;
+	int sensor_count;
 };
 
 #endif /* __CANINOS_THERMAL_H */
