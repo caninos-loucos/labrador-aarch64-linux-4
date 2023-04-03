@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0
+# Caninos Ethernet devices
+
+config NET_K5_ETHERNET
+	bool "Caninos K5 Ethernet devices"
+	default y
