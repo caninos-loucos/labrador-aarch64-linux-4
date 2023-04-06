@@ -167,8 +167,6 @@ struct ethernet_buffer_desc {
 #define ETH_MAC_LEN 6
 #define ETH_CRC_LEN 4
 
-/**/
-/* 
 static inline void eth_writel(struct caninos_eth *eth, u32 data, int idx)
 {
     writel(data, eth->base + idx);
@@ -177,4 +175,4 @@ static inline void eth_writel(struct caninos_eth *eth, u32 data, int idx)
 static inline u32 eth_readl(struct caninos_eth *eth, int idx)
 {
     return readl(eth->base + idx);
-} */
+}

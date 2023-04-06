@@ -26,6 +26,7 @@
 #include <uapi/linux/mii.h>
 #include <linux/delay.h>
 #include <linux/reset.h>
+#include <linux/pm_runtime.h>
 
 #include "caninos-ethernet-k5-regs.h"
 
@@ -1968,6 +1969,8 @@ static const struct net_device_ops ethernet_netdev_ops = {
     .ndo_set_mac_address = ethernet_netdev_set_mac_address
 };
 
+static int eth_driver_suspend(struct platform_device *pdev, pm_message_t msg);
+
 static int __init eth_driver_probe(struct platform_device * pdev)
 {
     int ret, irq;
@@ -2113,6 +2116,12 @@ static int __init eth_driver_probe(struct platform_device * pdev)
 		ERR_MSG("Could not register netdev\n");
 		goto out_error;
 	}
+
+	pm_runtime_dont_use_autosuspend(dev);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+	pm_runtime_get(dev);	
 	
 	platform_set_drvdata(pdev, &global_phy_gpio);
     return 0;
@@ -2136,6 +2145,9 @@ out_error:
         gpio_free(global_phy_gpio.phy_reset_gpio);
         global_phy_gpio.phy_reset_gpio = -1;
     }
+
+    pm_runtime_put(dev);
+    pm_runtime_disable(dev);
     
     return ret;
 }
@@ -2161,6 +2173,9 @@ static int __exit eth_driver_remove(struct platform_device *pdev)
         global_phy_gpio.phy_reset_gpio = -1;
     }
 
+    pm_runtime_put(&pdev->dev);
+    pm_runtime_disable(&pdev->dev);
+
 	return 0;
 }
 
@@ -2168,6 +2183,27 @@ static const struct of_device_id eth_dt_match[]  = {
 	{.compatible = "caninos,ethernet-k5"},
 	{}
 };
+
+#ifdef CONFIG_PM_SLEEP
+static int caninos_eth_suspend(struct device *dev)
+{
+	dev_info(dev, "eth suspend\n");
+	return -EBUSY;
+}
+
+static int caninos_eth_resume(struct device *dev)
+{
+	dev_info(dev, "eth resume\n");
+	return 0;
+}
+#else
+#define caninos_eth_suspend NULL
+#define caninos_eth_resume NULL
+#endif
+
+
+static SIMPLE_DEV_PM_OPS(caninos_eth_pm_ops,
+                         caninos_eth_suspend, caninos_eth_resume);
 
 MODULE_DEVICE_TABLE(of, eth_dt_match);
 
@@ -2178,6 +2214,7 @@ static struct platform_driver __refdata eth_driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = eth_dt_match,
+		.pm = &caninos_eth_pm_ops,
 	},
 };
 
