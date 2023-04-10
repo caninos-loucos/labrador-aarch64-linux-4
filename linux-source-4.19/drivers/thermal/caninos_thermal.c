@@ -48,13 +48,15 @@ static struct thermal_zone_device_ops caninos_tmu_ops = {
 
 static int caninos_tsensdata_to_mcelsius_k5(unsigned int tsens_data)
 {
-	u32 tmp1, tmp2;
+	s32 tmp1, tmp2;
+
+	tsens_data &= 0x7ff;
 
 	/* T = (838.45*5.068/(1024*12/count+7.894)-162 */
 	
 	tmp1 = 83845*5068;
 	tmp2 = 1024*12*100;
-	tmp2 = tmp2/tsens_data+789;
+	tmp2 = tmp2/(tsens_data+1)+789;
 	tmp1 = tmp1/tmp2;
 	tmp1 -= 162000;
 
@@ -63,8 +65,11 @@ static int caninos_tsensdata_to_mcelsius_k5(unsigned int tsens_data)
 
 static int caninos_tsensdata_to_mcelsius_k7(unsigned int tsens_data)
 {
-	u32 temp1, temp2;
+#ifdef CONFIG_ARM64
+	s64 temp1, temp2;
 	
+	tsens_data &= 0x3FF;
+
 	/* T=5.6534D2/10000 + 1.1513D - 447.1272 */
 	
 	temp1 = tsens_data + 10;
@@ -73,6 +78,9 @@ static int caninos_tsensdata_to_mcelsius_k7(unsigned int tsens_data)
 	temp2 = (56534 * temp2) / 10000;
 	
 	return (int)((temp1 + temp2) / 100);
+#else
+	return THERMAL_TEMP_INVALID;
+#endif
 }
 
 static int read_raw_thermal_sensor_k5(struct caninos_tmu_data *data)
@@ -93,7 +101,7 @@ static int read_raw_thermal_sensor_k5(struct caninos_tmu_data *data)
 		
 		if(tmp & (1 << 25))
 		{
-			temperature = caninos_tsensdata_to_mcelsius_k5(tmp & 0x7FF);
+			temperature = caninos_tsensdata_to_mcelsius_k5(tmp);
 			break;
 		}
 		retry--;
@@ -134,7 +142,7 @@ static int read_raw_thermal_sensor_k7(int id, struct caninos_tmu_data *data)
 		
 		if(tmp & (0x1 << 11))
 		{
-			temperature = caninos_tsensdata_to_mcelsius_k7(tmp & 0x7FF);
+			temperature = caninos_tsensdata_to_mcelsius_k7(tmp);
 			break;
 		}
 		retry--;
