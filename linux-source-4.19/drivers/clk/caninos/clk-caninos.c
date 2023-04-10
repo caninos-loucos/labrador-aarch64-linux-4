@@ -148,11 +148,12 @@ caninos_clk_register_div(struct caninos_clk_provider *ctx,
     {
     	const struct caninos_div_clock *info = &clks[i];
     	
-        clk = clk_register_divider(NULL, info->name,
+        clk = clk_register_divider_table(NULL, info->name,
                                    info->parent_name, info->flags,
 		                           ctx->reg_base + info->offset,
 		                           info->shift, info->width,
-		                           info->div_flags, &ctx->lock);
+		                           info->div_flags, info->table,
+                                   &ctx->lock);
         
         if (IS_ERR(clk))
         {

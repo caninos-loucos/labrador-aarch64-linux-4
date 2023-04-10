@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 
 /dts-v1/;
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -611,8 +611,42 @@
 			resets = <&rst RST_TVOUT>, <&rst RST_DE>;
 			reset-names = "tvout", "de";
 			hdmi-phy = <&hdmi>;
-			status = "okay";
+			status = "disabled";
 		};
+
+		thermal@0xb01b00e8 {
+			compatible = "caninos,k5-tmu";
+			reg = <0xb01b00e8 0x8>;
+			clocks = <&cmu CLK_THERMAL_SENSOR>;
+			clock-names = "thermal_sensor";
+			status = "okay";
+		};		
+
+	    
+	    ethernet: ethernet@b0310000 {
+		    compatible = "caninos,ethernet-k5";
+		    reg = <0xb0310000 0x10000>;
+			reg-names = "ethernet";
+		    interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
+		    pinctrl-names = "default";
+		    pinctrl-0 = <&eth_state_rmii>;
+
+			clocks = <&cmu CLK_ETHERNET>, <&cmu CLK_RMII_REF>;
+			clock-names = "ethernet", "rmii-ref";
+			
+			resets = <&rst RST_ETHERNET>;
+			reset-names = "ethernet";
+		    
+		    phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>; 
+		    phy-reset-gpio = <&gpiod 31 GPIO_ACTIVE_HIGH>; 
+		    phy_addr = <1>;
+		    
+		    address-bits = <48>;
+		    max-frame-size = <1518>;
+
+		    status = "okay";
+	    };
+	    
 	};
 };
 

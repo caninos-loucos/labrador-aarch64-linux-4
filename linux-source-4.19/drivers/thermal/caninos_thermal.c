@@ -23,19 +23,6 @@
 
 #include "caninos_thermal.h"
 
-static int caninos_tsensdata_to_mcelsius(unsigned int tsens_data)
-{
-	long long temp1, temp2;
-	
-	temp1 = tsens_data + 10;
-	temp2 = temp1 * temp1;
-	
-	temp1 = (11513 * temp1) - 4471272;
-	temp2 = (56534 * temp2) / 10000;
-	
-	return (int)((temp1 + temp2) / 10);
-}
-
 static int caninos_get_mode(struct thermal_zone_device *thermal,
                             enum thermal_device_mode *mode)
 {
@@ -59,12 +46,80 @@ static struct thermal_zone_device_ops caninos_tmu_ops = {
 	.get_mode = caninos_get_mode,
 };
 
-static int read_raw_thermal_sensor(int id, struct caninos_tmu_data *data)
+static int caninos_tsensdata_to_mcelsius_k5(unsigned int tsens_data)
 {
-	u32 tmp = readl(data->base) & 0xCF840FFF;
+	s32 tmp1, tmp2;
+
+	tsens_data &= 0x7ff;
+
+	/* T = (838.45*5.068/(1024*12/count+7.894)-162 */
+	
+	tmp1 = 83845*5068;
+	tmp2 = 1024*12*100;
+	tmp2 = tmp2/(tsens_data+1)+789;
+	tmp1 = tmp1/tmp2;
+	tmp1 -= 162000;
+
+	return (int) tmp1;
+}
+
+static int caninos_tsensdata_to_mcelsius_k7(unsigned int tsens_data)
+{
+#ifdef CONFIG_ARM64
+	s64 temp1, temp2;
+	
+	tsens_data &= 0x3FF;
+
+	/* T=5.6534D2/10000 + 1.1513D - 447.1272 */
+	
+	temp1 = tsens_data + 10;
+	temp2 = temp1 * temp1;	
+	temp1 = (11513 * temp1) - 4471272;
+	temp2 = (56534 * temp2) / 10000;
+	
+	return (int)((temp1 + temp2) / 100);
+#else
+	return THERMAL_TEMP_INVALID;
+#endif
+}
+
+static int read_raw_thermal_sensor_k5(struct caninos_tmu_data *data)
+{
+	u32 tmp = readl(data->base);
 	int temperature = THERMAL_TEMP_INVALID;
 	int retry = 5;
+
+	void __iomem *out = data->base + 4;
+
+	tmp = tmp | 0x1; //enable tsensor
+	writel(tmp, data->base);
 	
+	while(retry > 0)
+	{
+		usleep_range(1500, 2000);
+		tmp = readl(out);
+		
+		if(tmp & (1 << 25))
+		{
+			temperature = caninos_tsensdata_to_mcelsius_k5(tmp);
+			break;
+		}
+		retry--;
+	}
+	tmp = readl(data->base);
+	tmp &= ~(1); // disable tsensor
+	writel(tmp, data->base);
+
+	return temperature;
+}
+
+static int read_raw_thermal_sensor_k7(int id, struct caninos_tmu_data *data)
+{		
+	u32 tmp = readl(data->base);
+	int temperature = THERMAL_TEMP_INVALID;
+	int retry = 5;
+	tmp &= 0xCF840FFF;
+
 	switch(id)
 	{
 	case CANINOS_TMU_CPU:
@@ -87,7 +142,7 @@ static int read_raw_thermal_sensor(int id, struct caninos_tmu_data *data)
 		
 		if(tmp & (0x1 << 11))
 		{
-			temperature = caninos_tsensdata_to_mcelsius(tmp & 0x3FF);
+			temperature = caninos_tsensdata_to_mcelsius_k7(tmp);
 			break;
 		}
 		retry--;
@@ -104,14 +159,21 @@ static int read_thermal_sensor(int id, struct caninos_tmu_data *data)
 	int temperature;
 	int aux, i, j;
 	
-	if ((id < 0) || (id >= CANINOS_TMU_SENSOR_COUNT)) {
+	if ((id < 0) || (id >= data->sensor_count)) {
 		return THERMAL_TEMP_INVALID;
 	}
 	
 	/* fill temperature array */
 	for (i = 0; i < 4; i++)
 	{
-		temp_array[i] = read_raw_thermal_sensor(id, data);
+		switch(data->model){
+			case TMU_MODEL_K5:
+				temp_array[i] = read_raw_thermal_sensor_k5(data);
+				break;
+			case TMU_MODEL_K7:
+				temp_array[i] = read_raw_thermal_sensor_k7(id, data);
+				break;
+		}
 		
 		if (temp_array[i] == THERMAL_TEMP_INVALID) {
 			return THERMAL_TEMP_INVALID;
@@ -142,25 +204,25 @@ static int read_thermal_sensor(int id, struct caninos_tmu_data *data)
 static void caninos_thermal_polling_worker(struct work_struct *work)
 {
 	const unsigned long delay = msecs_to_jiffies(CANINOS_TMU_ACTIVE_INTERVAL);
-	int temperature[CANINOS_TMU_SENSOR_COUNT];
 	struct caninos_tmu_data *data;
 	int i;
-	
+	int temperature[CANINOS_TMU_SENSOR_COUNT_K7];
+		
 	data = container_of(work, struct caninos_tmu_data, work.work);
-	
-	for (i = 0; i < CANINOS_TMU_SENSOR_COUNT; i++) {
+
+	for (i = 0; i < data->sensor_count; i++) {
 		temperature[i] = read_thermal_sensor(i, data);
 	}
 	
 	mutex_lock(&data->lock);
 	
-	for (i = 0; i < CANINOS_TMU_SENSOR_COUNT; i++) {
+	for (i = 0; i < data->sensor_count; i++) {
 		data->sensor[i].temperature = temperature[i];
 	}
 	
 	mutex_unlock(&data->lock);
 	
-	for (i = 0; i < CANINOS_TMU_SENSOR_COUNT; i++)
+	for (i = 0; i < data->sensor_count; i++)
 	{
 		struct thermal_zone_device *zone = data->sensor[i].zone;
 		thermal_zone_device_update(zone, THERMAL_EVENT_UNSPECIFIED);
@@ -171,6 +233,8 @@ static void caninos_thermal_polling_worker(struct work_struct *work)
 
 static int caninos_tmu_probe(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
+	const struct of_device_id *match;
 	const char *names[] = {"cpu-temp", "gpu-temp", "corelogic-temp"};
 	struct caninos_tmu_data *data;
 	unsigned long delay;
@@ -184,12 +248,40 @@ static int caninos_tmu_probe(struct platform_device *pdev)
 	430146
 	*/
 	
+	if (!np) {
+		dev_err(&pdev->dev, "missing device OF node\n");
+		return -EINVAL;
+	}
+	
+	match = of_match_device(pdev->dev.driver->of_match_table, &pdev->dev);
+	
+	if (!match || !match->data)
+	{
+		dev_err(&pdev->dev, "could not get hardware specific data\n");
+		return -EINVAL;
+	}
+	
+	
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	
 	if (!data)
 	{
 		dev_err(&pdev->dev, "could not allocate driver structure\n");
 		return -ENOMEM;
+	}
+
+	data->model = (enum caninos_tmu_model)(match->data);
+	switch(data->model)
+	{
+		case TMU_MODEL_K5:
+			data->sensor_count = CANINOS_TMU_SENSOR_COUNT_K5;
+			break;
+		case TMU_MODEL_K7:
+			data->sensor_count = CANINOS_TMU_SENSOR_COUNT_K7;
+			break;
+		default:
+			dev_err(&pdev->dev, "could not get model\n");
+			return -EINVAL;
 	}
 	
 	data->tmu_clk = devm_clk_get(&pdev->dev, "thermal_sensor");
@@ -216,7 +308,7 @@ static int caninos_tmu_probe(struct platform_device *pdev)
 	
 	platform_set_drvdata(pdev, data);
 	
-	for (i = 0; i < CANINOS_TMU_SENSOR_COUNT; i++)
+	for (i = 0; i < data->sensor_count; i++)
 	{
 		data->sensor[i].id = i;
 		data->sensor[i].dev = &pdev->dev;
@@ -237,8 +329,10 @@ static int caninos_tmu_probe(struct platform_device *pdev)
 	
 	delay = msecs_to_jiffies(CANINOS_TMU_ACTIVE_INTERVAL);
 	queue_delayed_work(system_freezable_wq, &data->work, delay);
-	return 0;
-	
+
+	dev_info(&pdev->dev, "probe finished");
+
+	return 0;	
 err:
 	while (--i >= 0) {
 		thermal_zone_device_unregister(data->sensor[i].zone);
@@ -254,10 +348,11 @@ static int caninos_tmu_remove(struct platform_device *pdev)
 {
 	struct caninos_tmu_data *data = platform_get_drvdata(pdev);
 	int i;
+
 	
 	cancel_delayed_work_sync(&data->work);
 	
-	for (i = 0; i < CANINOS_TMU_SENSOR_COUNT; i++) {
+	for (i = 0; i < data->sensor_count; i++) {
 		thermal_zone_device_unregister(data->sensor[i].zone);
 	}
 	
@@ -268,7 +363,8 @@ static int caninos_tmu_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id caninos_tmu_match[] = {
-	{ .compatible = "caninos,k7-tmu" },
+	{ .compatible = "caninos,k7-tmu", .data = (void *)TMU_MODEL_K7 },
+	{ .compatible = "caninos,k5-tmu", .data = (void *)TMU_MODEL_K5 },
 	{ }
 };
 
