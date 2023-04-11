@@ -405,7 +405,7 @@ struct platform_driver caninos_hcd_driver = {
 		.name = HCD_DRIVER_NAME,
 		.of_match_table = caninos_hcd_dt_id,
 		.owner = THIS_MODULE,
-		.pm	= &caninos_hcd_pm_ops,
+		.pm = &caninos_hcd_pm_ops,
 	},
 	.probe = caninos_hcd_probe,
 	.remove = caninos_hcd_remove,

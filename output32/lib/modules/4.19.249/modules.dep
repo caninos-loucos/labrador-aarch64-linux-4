@@ -1,5 +1,9 @@
 kernel/crypto/crypto_engine.ko:
+kernel/drivers/net/phy/libphy.ko:
+kernel/drivers/net/phy/fixed_phy.ko: kernel/drivers/net/phy/libphy.ko
+kernel/drivers/net/phy/realtek.ko: kernel/drivers/net/phy/libphy.ko
 kernel/drivers/crypto/virtio/virtio_crypto.ko: kernel/crypto/crypto_engine.ko
+kernel/drivers/of/of_mdio.ko: kernel/drivers/net/phy/fixed_phy.ko kernel/drivers/net/phy/libphy.ko
 kernel/drivers/staging/rtl8723bs/r8723bs.ko:
 kernel/drivers/staging/rtl8712/r8712u.ko:
 kernel/drivers/staging/rtl8188eu/r8188eu.ko: kernel/net/wireless/lib80211.ko
