@@ -213,11 +213,15 @@ kernel/drivers/mtd/afs.ko
 kernel/drivers/mtd/mtd_blkdevs.ko
 kernel/drivers/mtd/mtdblock.ko
 kernel/drivers/mtd/chips/chipreg.ko
+kernel/drivers/net/phy/libphy.ko
+kernel/drivers/net/phy/fixed_phy.ko
+kernel/drivers/net/phy/realtek.ko
 kernel/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.ko
 kernel/drivers/net/wireless/realtek/rtlwifi/rtlwifi.ko
 kernel/drivers/net/wireless/realtek/rtlwifi/rtl_usb.ko
 kernel/drivers/net/wireless/realtek/rtlwifi/rtl8192c/rtl8192c-common.ko
 kernel/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/rtl8192cu.ko
+kernel/drivers/of/of_mdio.ko
 kernel/drivers/remoteproc/remoteproc.ko
 kernel/drivers/thermal/thermal_sys.ko
 kernel/drivers/tty/serdev/serdev.ko

@@ -63,16 +63,16 @@ static int caninos_tsensdata_to_mcelsius_k5(unsigned int tsens_data)
 	return (int) tmp1;
 }
 
-static int caninos_tsensdata_to_mcelsius_k7(unsigned int tsens_data)
+static int caninos_tsensdata_to_mcelsius_k7(u32 code)
 {
 #ifdef CONFIG_ARM64
 	s64 temp1, temp2;
 	
-	tsens_data &= 0x3FF;
+	code &= 0x3FF;
 	
 	/* T=5.6534D2/10000 + 1.1513D - 447.1272 */
 	
-	temp1 = tsens_data;
+	temp1 = code;
 	temp2 = temp1 * temp1;
 	temp1 = (11513 * temp1) - 4471272;
 	temp2 = (56534 * temp2) / 10000;
@@ -115,22 +115,28 @@ static int read_raw_thermal_sensor_k5(struct caninos_tmu_data *data)
 
 static int read_raw_thermal_sensor_k7(int id, struct caninos_tmu_data *data)
 {
-	u32 tmp = readl(data->base);
 	int temperature = THERMAL_TEMP_INVALID;
 	int retry = 5;
-	tmp &= 0xCF840FFF;
-
+	u32 tmp;
+	
+	tmp = readl(data->base) & 0xCF840FFF;
+	
 	switch(id)
 	{
 	case CANINOS_TMU_CPU:
-		tmp |= (0x1 << 20) | (0x20 << 12);
+		tmp |= (0x1 << 20) | (0x1 << 19) | (0x20 << 12);
 		break;
+		
 	case CANINOS_TMU_GPU:
-		tmp |= (0x1 << 21) | (0x21 << 12) | (0x1 << 28);
+		tmp |= (0x1 << 21) | (0x1 << 28) | (0x1 << 19)  | (0x21 << 12);
 		break;
+		
 	case CANINOS_TMU_CORELOGIC:
-		tmp |= (0x1 << 22) | (0x20 << 12) | (0x1 << 29);
+		tmp |= (0x1 << 22) | (0x1 << 29) | (0x1 << 19) | (0x20 << 12);
 		break;
+		
+	default:
+		return temperature;
 	}
 	
 	writel(tmp, data->base);
