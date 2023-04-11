@@ -176,7 +176,7 @@
 			status = "okay";
 		};
 		
-		ti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mer: timer@b0168000 {
+		timer: timer@b0168000 {
 			compatible = "caninos,k5-timer";
 			reg = <0xb0168000 0x100>;
 			interrupts = <GIC_SPI  8 IRQ_TYPE_LEVEL_HIGH>,
