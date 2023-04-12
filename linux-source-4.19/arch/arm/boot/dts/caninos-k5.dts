@@ -571,7 +571,7 @@
 			clock-names = "pllen", "phy", "cce";
 			resets = <&rst RST_USBH0>;
 			reset-names = "usb";
-			status = "disabled";
+			status = "okay";
 		};
 		
 		usb2h1: usb@b0700000 {
@@ -585,7 +585,7 @@
 			clock-names = "pllen", "phy", "cce";
 			resets = <&rst RST_USBH1>;
 			reset-names = "usb";
-			status = "disabled";
+			status = "okay";
 		};
 		
 		hdmi: hdmi@b02c0000 {

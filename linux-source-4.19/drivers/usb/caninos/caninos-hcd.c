@@ -1184,7 +1184,7 @@ static irqreturn_t aotg_hub_irq(struct usb_hcd *hcd)
 				else
 				{
 					acthcd->discon_happened = 1;
-					hrtimer_start(&acthcd->hotplug_timer, ktime_set(0, NSEC_PER_MSEC), HRTIMER_MODE_REL);
+					hrtimer_start(&acthcd->hotplug_timer, ktime_set(0, 10*NSEC_PER_MSEC), HRTIMER_MODE_REL);
 				}
 			}
 			else {
@@ -1366,7 +1366,7 @@ enum hrtimer_restart aotg_hub_hotplug_timer(struct hrtimer *hrtimer)
 			acthcd->discon_happened = 0;
 
 			if (readb(acthcd->base + OTGSTATE) == AOTG_STATE_A_HOST)
-				hrtimer_start(&acthcd->hotplug_timer, ktime_set(0, 1000*NSEC_PER_MSEC), HRTIMER_MODE_REL);
+				hrtimer_start(&acthcd->hotplug_timer, ktime_set(1, 0), HRTIMER_MODE_REL);
 		}
 	}
 
@@ -1381,7 +1381,7 @@ enum hrtimer_restart aotg_hub_hotplug_timer(struct hrtimer *hrtimer)
 	if ((acthcd->inserted == 0) && (connect_changed == 1) &&
 		(readb(acthcd->base + OTGSTATE) != AOTG_STATE_A_HOST)) {
 		acthcd->put_aout_msg = 1;
-		hrtimer_start(&acthcd->hotplug_timer, ktime_set(0, 1000*NSEC_PER_MSEC), HRTIMER_MODE_REL);
+		hrtimer_start(&acthcd->hotplug_timer, ktime_set(2, 200*NSEC_PER_MSEC), HRTIMER_MODE_REL);
 	}
 	acthcd->suspend_request_pend = 0;
 
