@@ -26,6 +26,11 @@
 #define RING_SIZE (NUM_TRBS * 16)
 #endif
 
+enum caninos_hw_model {
+	CANINOS_HW_MODEL_K5 = 1,
+	CANINOS_HW_MODEL_K7,
+};
+
 struct aotg_trb {
 	u32 hw_buf_ptr;
 	u32 hw_buf_len;
@@ -42,6 +47,8 @@ struct aotg_plat_data {
 	struct clk *clk_usbh_pllen;
 	struct clk *clk_usbh_phy;
 	struct clk *clk_usbh_cce;
+	struct reset_control *rst;
+	enum caninos_hw_model model;
 	int irq;
 	int id;
 };

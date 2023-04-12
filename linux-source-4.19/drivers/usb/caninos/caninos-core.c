@@ -25,6 +25,7 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/pm_runtime.h>
+#include <linux/reset.h>
 
 #include <asm/irq.h>
 #include <linux/regulator/consumer.h>
@@ -55,14 +56,14 @@
 #define USB2_ECS_SOFTID_P0      (27)
 #define USB2_ECS_SOFTVBUSEN_P0  (1<<24)
 #define USB2_ECS_SOFTVBUS_P0    (25)
-#define USB2_PLL_EN0            (1<<12)
-#define USB2_PLL_EN1            (1<<13)
 
 static struct kmem_cache *td_cache = NULL;
 
 static struct aotg_plat_data aotg_data[] = {
-	[0] = {.irq = -1, .id = 0},
-	[1] = {.irq = -1, .id = 1},
+	[0] = {.irq = -1, .id = 0, .model = CANINOS_HW_MODEL_K7},
+	[1] = {.irq = -1, .id = 1, .model = CANINOS_HW_MODEL_K7},
+	[2] = {.irq = -1, .id = 0, .model = CANINOS_HW_MODEL_K5},
+	[3] = {.irq = -1, .id = 1, .model = CANINOS_HW_MODEL_K5},
 };
 
 struct aotg_td *aotg_alloc_td(gfp_t mem_flags)
@@ -91,7 +92,7 @@ void aotg_release_td(struct aotg_td *td)
 	kmem_cache_free(td_cache, td);
 }
 
-static void aotg_DD_set_phy(void __iomem *base, u8 reg, u8 value)
+static void aotg_DD_set_phy(void __iomem *base, u8 reg, u8 value) //OK
 {
 	u8 addrlow, addrhigh;
 	int time = 1;
@@ -121,21 +122,40 @@ static void aotg_DD_set_phy(void __iomem *base, u8 reg, u8 value)
 
 static void aotg_set_hcd_phy(struct aotg_plat_data *pdata)
 {
-	aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
-	aotg_DD_set_phy(pdata->base, 0xe1, 0xcf);
-	aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
-	aotg_DD_set_phy(pdata->base, 0xe6, 0xcc);
-	aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
-	aotg_DD_set_phy(pdata->base, 0xe2, 0x02);
-	aotg_DD_set_phy(pdata->base, 0xe2, 0x16);
-	aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
-	aotg_DD_set_phy(pdata->base, 0xe7, 0xa1);
-	aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
-	aotg_DD_set_phy(pdata->base, 0xe0, 0x21);
-	aotg_DD_set_phy(pdata->base, 0xe0, 0x25);
-	aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
-	aotg_DD_set_phy(pdata->base, 0xe4, 0xa6);
-	aotg_DD_set_phy(pdata->base, 0xf0, 0xfc);
+	if (pdata->model == CANINOS_HW_MODEL_K7)
+	{
+		aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
+		aotg_DD_set_phy(pdata->base, 0xe1, 0xcf);
+		aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
+		aotg_DD_set_phy(pdata->base, 0xe6, 0xcc);
+		aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
+		aotg_DD_set_phy(pdata->base, 0xe2, 0x02);
+		aotg_DD_set_phy(pdata->base, 0xe2, 0x16);
+		aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
+		aotg_DD_set_phy(pdata->base, 0xe7, 0xa1);
+		aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
+		aotg_DD_set_phy(pdata->base, 0xe0, 0x21);
+		aotg_DD_set_phy(pdata->base, 0xe0, 0x25);
+		aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
+		aotg_DD_set_phy(pdata->base, 0xe4, 0xa6);
+		aotg_DD_set_phy(pdata->base, 0xf0, 0xfc);
+	}
+	else
+	{
+		aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
+		aotg_DD_set_phy(pdata->base, 0xe0, 0x35);
+		aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
+		aotg_DD_set_phy(pdata->base, 0xe1, 0xcf);
+		aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
+		aotg_DD_set_phy(pdata->base, 0xe6, 0xcb);
+		aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
+		aotg_DD_set_phy(pdata->base, 0xe7, 0x91);
+		aotg_DD_set_phy(pdata->base, 0xf4, 0xbb);
+		aotg_DD_set_phy(pdata->base, 0xe0, 0x31);
+		aotg_DD_set_phy(pdata->base, 0xf4, 0x9b);
+		aotg_DD_set_phy(pdata->base, 0xe4, 0xa6);
+		aotg_DD_set_phy(pdata->base, 0xf0, 0xfc);
+	}
 }
 
 static void aotg_powergate_on(struct aotg_plat_data *pdata)
@@ -161,6 +181,11 @@ static void aotg_powergate_off(struct aotg_plat_data *pdata)
 static int aotg_wait_reset(struct aotg_plat_data *pdata)
 {
 	int i = 0;
+	
+	reset_control_assert(pdata->rst);
+	udelay(1);
+	reset_control_deassert(pdata->rst);
+	
 	while (((readb(pdata->base + USBERESET) & USBERES_USBRESET) != 0) && (i < 300000)) {
 		i++;
 		udelay(1);
@@ -183,8 +208,15 @@ static void aotg_hardware_init(struct aotg_plat_data *pdata)
 	
 	aotg_powergate_on(pdata);
 	aotg_wait_reset(pdata);
+	
 	writel(0x1, pdata->base + HCDMABCKDOOR);
-	usb_writel(0x37000000 | (0x3<<4), pdata->usbecs);
+	
+	if (pdata->model == CANINOS_HW_MODEL_K7) {
+		usb_writel(0x37000000 | (0x3 << 4), pdata->usbecs);
+	}
+	else {
+		usb_writel(0x37000000 | (0x10 << 13) | (0xb << 4), pdata->usbecs);
+	}
 	
 	local_irq_restore(flags);
 	
@@ -202,8 +234,6 @@ static void aotg_hardware_init(struct aotg_plat_data *pdata)
 	
 	val8 = readb(pdata->base + BKDOOR);
 	val8 &= ~(1 << 7);
-	//if (is_ls_device[id])
-	//	val8 |= (1<<7);
 	writeb(val8, pdata->base + BKDOOR);
 	
 	mb();
@@ -276,6 +306,14 @@ static int caninos_hcd_probe(struct platform_device *pdev)
 	{
 		dev_err(&pdev->dev, "failed to ioremap usbecs resource\n");
 		return -ENOMEM;
+	}
+	
+	pdata->rst = devm_reset_control_get(&pdev->dev, NULL);
+	
+	if (!pdata->rst)
+	{
+		dev_err(&pdev->dev, "could not get device reset control.\n");
+		return -ENODEV;
 	}
 	
 	pdata->clk_usbh_pllen = devm_clk_get(&pdev->dev, "pllen");
@@ -391,8 +429,8 @@ static int __maybe_unused caninos_hcd_pm_resume(struct device *dev)
 struct of_device_id caninos_hcd_dt_id[] = {
 	{.compatible = "caninos,k7-usb2.0-0", .data = (void*)&aotg_data[0]},
 	{.compatible = "caninos,k7-usb2.0-1", .data = (void*)&aotg_data[1]},
-	{.compatible = "caninos,k5-usb2.0-0", .data = (void*)&aotg_data[0]},
-	{.compatible = "caninos,k5-usb2.0-1", .data = (void*)&aotg_data[1]},
+	{.compatible = "caninos,k5-usb2.0-0", .data = (void*)&aotg_data[2]},
+	{.compatible = "caninos,k5-usb2.0-1", .data = (void*)&aotg_data[3]},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, caninos_hcd_dt_id);
