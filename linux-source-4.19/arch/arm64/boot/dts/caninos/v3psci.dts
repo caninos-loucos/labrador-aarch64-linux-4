@@ -29,3 +29,7 @@
 	};
 };
 
+&eth0 {
+	phy-mode = "rmii";
+	max-speed = <100>;
+};

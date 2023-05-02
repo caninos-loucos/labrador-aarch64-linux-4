@@ -678,13 +678,12 @@
             status = "okay";
         };
 		
-		ethernet@e0220000 {
+		eth0: ethernet@e0220000 {
 			compatible = "caninos,k7-gmac", "snps,dwmac";
 			reg = <0 0xe0220000 0 0x2000>;
 			interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
-			phy-mode = "rmii";
-			max-speed = <100>;
+			
 			max-frame-size = <1518>;
 			clocks = <&cmu CLK_ETHERNET>, <&cmu CLK_RMII_REF>;
 			clock-names = "stmmaceth", "rmii_ref";

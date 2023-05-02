@@ -298,7 +298,7 @@ static int caninos_connector_get_modes(struct drm_connector *connector)
     count = drm_add_modes_noedid(connector, max_width, max_height);
     
     if (count) {
-        drm_set_preferred_mode(connector, max_width, max_height);
+        drm_set_preferred_mode(connector, 1920, 1080);
     }
     
     return count;

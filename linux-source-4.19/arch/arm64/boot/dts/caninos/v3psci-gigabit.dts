@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+/dts-v1/;
+#include "v3caninos.dtsi"
+
+/ {
+	chosen {
+		stdout-path = "serial3:115200n8";
+	};
+	
+	psci {
+		compatible = "arm,psci-0.2";
+		method = "smc";
+	};
+	
+	cpus {
+		cpu@0 {
+			enable-method = "psci";
+		};
+		cpu@1 {
+			enable-method = "psci";
+		};
+		cpu@2 {
+			enable-method = "psci";
+		};
+		cpu@3 {
+			enable-method = "psci";
+		};
+	};
+};
+
+&eth0 {
+	phy-mode = "rgmii";
+	max-speed = <1000>;
+};
