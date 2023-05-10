@@ -14,7 +14,6 @@ COMPILER32=arm-linux-gnueabihf-
 all: clean config kernel
 all32: clean32 config32 kernel32
 
-
 config32:
 	$(Q)mkdir $(BUILD32)
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD32) CROSS_COMPILE=$(COMPILER32) ARCH=arm caninos5_defconfig
@@ -40,7 +39,6 @@ kernel32: dtbs32
 clean32:
 	$(Q)rm -rf $(BUILD32)
 	
-
 config:
 	$(Q)mkdir $(BUILD)
 	$(Q)$(MAKE) -C $(KERNEL) O=$(BUILD) CROSS_COMPILE=$(COMPILER) ARCH=arm64 caninos7_defconfig

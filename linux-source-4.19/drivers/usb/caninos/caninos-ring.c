@@ -9,8 +9,7 @@
 
 void aotg_set_ring_linkaddr(struct aotg_ring *ring, u32 addr);
 int aotg_set_trb_as_ring_linkaddr(struct aotg_ring *ring, struct aotg_trb *trb);
-u32 ring_trb_virt_to_dma(struct aotg_ring *ring,
-							struct aotg_trb *trb_vaddr);
+u32 ring_trb_virt_to_dma(struct aotg_ring *ring, struct aotg_trb *trb_vaddr);
 void clear_ring_irq(struct aotg_hcd *acthcd, unsigned int irq_mask);
 
 void aotg_dump_linklist_reg_2(struct aotg_hcd *acthcd, int dmanr)

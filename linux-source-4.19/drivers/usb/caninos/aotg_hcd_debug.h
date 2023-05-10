@@ -34,8 +34,8 @@
 #define AOTG_DEBUG_FILE
 #define DEBUG_LINKLIST_DMA
 
-#define ACT_HCD_ERR		pr_warn("%s:%d, err!\n", __func__, __LINE__);
-#define ACT_HCD_DBG		pr_warn("%s:%d, dbg!\n", __func__, __LINE__);
+#define ACT_HCD_ERR pr_warn("%s:%d, err!\n", __func__, __LINE__);
+#define ACT_HCD_DBG pr_warn("%s:%d, dbg!\n", __func__, __LINE__);
 
 #ifdef ERR
 #undef ERR

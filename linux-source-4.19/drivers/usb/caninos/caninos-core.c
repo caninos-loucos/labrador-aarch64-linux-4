@@ -1,10 +1,10 @@
+
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/ioport.h>
 #include <linux/sched.h>
-#include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/timer.h>
@@ -36,12 +36,15 @@
 
 #include "aotg_hcd.h"
 #include "aotg_hcd_debug.h"
-#include "aotg_regs.h"
 #include "aotg.h"
 
+#define DRIVER_DESC "Caninos USB Host Controller Driver"
+#define DRIVER_NAME "caninos-hcd"
 
-#define HCD_DRIVER_DESC "Caninos USB Host Controller Driver"
-#define HCD_DRIVER_NAME "hcd-caninos"
+#ifdef pr_fmt
+#undef pr_fmt
+#endif
+#define pr_fmt(fmt) DRIVER_NAME ": " fmt
 
 /* usbecs register. */
 #define USB2_ECS_VBUS_P0        (10)
@@ -69,30 +72,33 @@ static struct aotg_plat_data aotg_data[] = {
 struct aotg_td *aotg_alloc_td(gfp_t mem_flags)
 {
 	struct aotg_td *td;
-
+	
 	td = kmem_cache_alloc(td_cache, GFP_ATOMIC);
-	if (!td)
+	
+	if (!td) {
 		return NULL;
+	}
+	
 	memset(td, 0, sizeof(struct aotg_td));
-
+	
 	td->cross_ring = 0;
 	td->err_count = 0;
 	td->urb = NULL;
 	INIT_LIST_HEAD(&td->queue_list);
 	INIT_LIST_HEAD(&td->enring_list);
 	INIT_LIST_HEAD(&td->dering_list);
-
+	
 	return td;
 }
 
 void aotg_release_td(struct aotg_td *td)
 {
-	if (!td)
-		return;
-	kmem_cache_free(td_cache, td);
+	if (td) {
+		kmem_cache_free(td_cache, td);
+	}
 }
 
-static void aotg_DD_set_phy(void __iomem *base, u8 reg, u8 value) //OK
+static void aotg_DD_set_phy(void __iomem *base, u8 reg, u8 value)
 {
 	u8 addrlow, addrhigh;
 	int time = 1;
@@ -165,12 +171,13 @@ static void aotg_powergate_on(struct aotg_plat_data *pdata)
 
 	clk_prepare_enable(pdata->clk_usbh_phy);
 	clk_prepare_enable(pdata->clk_usbh_pllen);
-	clk_prepare_enable(pdata->clk_usbh_cce);
+	//must not enable!
+	//clk_prepare_enable(pdata->clk_usbh_cce);
 }
 
 static void aotg_powergate_off(struct aotg_plat_data *pdata)
 {
-	clk_disable_unprepare(pdata->clk_usbh_cce);
+	//clk_disable_unprepare(pdata->clk_usbh_cce);
 	clk_disable_unprepare(pdata->clk_usbh_pllen);
 	clk_disable_unprepare(pdata->clk_usbh_phy);
 	
@@ -345,10 +352,15 @@ static int caninos_hcd_probe(struct platform_device *pdev)
 	
 	device_init_wakeup(&pdev->dev, true);
 	
-	hcd = usb_create_hcd(&act_hc_driver, &pdev->dev, dev_name(&pdev->dev));
+	caninos_hcd_fill_ops(&pdata->driver);
 	
-	if (!hcd)
-	{
+	pdata->driver.description = DRIVER_NAME;
+	pdata->driver.product_desc = DRIVER_DESC;
+	pdata->driver.hcd_priv_size = sizeof(struct aotg_hcd);
+	
+	hcd = usb_create_hcd(&pdata->driver, &pdev->dev, dev_name(&pdev->dev));
+	
+	if (!hcd) {
 		dev_err(&pdev->dev, "usb create hcd failed\n");
 		return -ENOMEM;
 	}
@@ -394,7 +406,7 @@ static int caninos_hcd_probe(struct platform_device *pdev)
 		del_timer_sync(&acthcd->trans_wait_timer);
 		del_timer_sync(&acthcd->check_trb_timer);
 		hrtimer_cancel(&acthcd->hotplug_timer);
-	
+		
 		aotg_hcd_release_queue(acthcd, NULL);
 		
 		aotg_hcd_exit(hcd);
@@ -413,20 +425,25 @@ static int caninos_hcd_probe(struct platform_device *pdev)
 
 static int caninos_hcd_remove(struct platform_device *pdev)
 {
+	dev_info(&pdev->dev, "caninos_hcd_remove() called\n");
 	return 0;
 }
 
-static int __maybe_unused caninos_hcd_pm_suspend(struct device *dev)
+static int __maybe_unused caninos_suspend(struct device *dev)
 {
+	dev_info(dev, "caninos_suspend() called\n");
 	return 0;
 }
 
-static int __maybe_unused caninos_hcd_pm_resume(struct device *dev)
+static int __maybe_unused caninos_resume(struct device *dev)
 {
+	dev_info(dev, "caninos_resume() called\n");
 	return 0;
 }
 
-struct of_device_id caninos_hcd_dt_id[] = {
+static SIMPLE_DEV_PM_OPS(caninos_pm_ops, caninos_suspend, caninos_resume);
+
+static const struct of_device_id caninos_hcd_dt_id[] = {
 	{.compatible = "caninos,k7-usb2.0-0", .data = (void*)&aotg_data[0]},
 	{.compatible = "caninos,k7-usb2.0-1", .data = (void*)&aotg_data[1]},
 	{.compatible = "caninos,k5-usb2.0-0", .data = (void*)&aotg_data[2]},
@@ -435,15 +452,12 @@ struct of_device_id caninos_hcd_dt_id[] = {
 };
 MODULE_DEVICE_TABLE(of, caninos_hcd_dt_id);
 
-static SIMPLE_DEV_PM_OPS(caninos_hcd_pm_ops, caninos_hcd_pm_suspend,
-                         caninos_hcd_pm_resume);
-
-struct platform_driver caninos_hcd_driver = {
+static struct platform_driver caninos_hcd_driver = {
 	.driver = {
-		.name = HCD_DRIVER_NAME,
+		.name = DRIVER_NAME,
 		.of_match_table = caninos_hcd_dt_id,
 		.owner = THIS_MODULE,
-		.pm = &caninos_hcd_pm_ops,
+		.pm = &caninos_pm_ops,
 	},
 	.probe = caninos_hcd_probe,
 	.remove = caninos_hcd_remove,
@@ -452,9 +466,22 @@ struct platform_driver caninos_hcd_driver = {
 
 static int __init caninos_usb_module_init(void)
 {
-	td_cache = kmem_cache_create(HCD_DRIVER_NAME, sizeof(struct aotg_td), 0,
-	                             SLAB_HWCACHE_ALIGN | SLAB_PANIC, NULL);
-	platform_driver_register(&caninos_hcd_driver);
+	int ret;
+	td_cache = KMEM_CACHE(aotg_td, SLAB_HWCACHE_ALIGN);
+	
+	if(!td_cache) {
+		return -ENOMEM;
+	}
+	
+	ret = platform_driver_register(&caninos_hcd_driver);
+	
+	if (ret) {
+		kmem_cache_destroy(td_cache);
+		td_cache = NULL;
+		return ret;
+	}
+	
+	pr_info("driver registered\n");
 	return 0;
 }
 
@@ -463,11 +490,16 @@ module_init(caninos_usb_module_init);
 static void __exit caninos_usb_module_exit(void)
 {
 	platform_driver_unregister(&caninos_hcd_driver);
-	kmem_cache_destroy(td_cache);
+	
+	if (td_cache) {
+		kmem_cache_destroy(td_cache);
+	}
+	
+	pr_info("driver unregistered\n");
 }
 
 module_exit(caninos_usb_module_exit);
 
-MODULE_DESCRIPTION(HCD_DRIVER_DESC);
-MODULE_LICENSE("GPL");
-
+MODULE_AUTHOR("Edgar Bernardi Righi <edgar.righi@lsitec.org.br>");
+MODULE_DESCRIPTION(DRIVER_DESC);
+MODULE_LICENSE("GPL v2");

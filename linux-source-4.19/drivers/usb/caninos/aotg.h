@@ -16,15 +16,8 @@
 #define AOTG_TRB_IOS  (1 << 1)
 #define TRB_OF        (1 << 0)
 
-#define USE_SG
-
-#ifdef USE_SG
-#define NUM_TRBS (256)
+#define NUM_TRBS  (256)
 #define RING_SIZE (NUM_TRBS * 16)
-#else
-#define NUM_TRBS (64)
-#define RING_SIZE (NUM_TRBS * 16)
-#endif
 
 enum caninos_hw_model {
 	CANINOS_HW_MODEL_K5 = 1,
@@ -49,6 +42,7 @@ struct aotg_plat_data {
 	struct clk *clk_usbh_cce;
 	struct reset_control *rst;
 	enum caninos_hw_model model;
+	struct hc_driver driver;
 	int irq;
 	int id;
 };

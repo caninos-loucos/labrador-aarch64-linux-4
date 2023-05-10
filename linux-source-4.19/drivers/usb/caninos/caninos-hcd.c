@@ -38,21 +38,12 @@
 #include "aotg_hcd_debug.h"
 #include "aotg.h"
 
-#define DRIVER_DESC "AOTG USB Host Controller Driver"
-
-
 static int handle_setup_packet(struct aotg_hcd *acthcd, struct aotg_queue *q);
 static void handle_hcep0_in(struct aotg_hcd *acthcd);
 static void handle_hcep0_out(struct aotg_hcd *acthcd);
 
-
-#define MAX_PACKET(x)	((x)&0x7FF)
-
-
 typedef void (*aotg_hub_symbol_func_t)(int);
 aotg_hub_symbol_func_t aotg_hub_notify_func;
-
-
 
 static void aotg_hub_notify_hcd_exit(int state)
 {
@@ -379,7 +370,7 @@ static int aotg_hcep_config(struct aotg_hcd *acthcd,
 		dev_err(acthcd->dev, "%s: no more available space for ep\n", __func__);
 		return -ENOSPC;
 	}
-
+	
 	addr = get_fifo_addr(acthcd, subbuffer_count * MAX_PACKET(ep->maxpacket));
 	if (addr == 0) {
 		dev_err(acthcd->dev, "buffer configuration overload!! addr: %08X, subbuffer_count: %d, ep->maxpacket: %u\n",
@@ -2597,76 +2588,52 @@ void aotg_hcd_exit(struct usb_hcd *hcd)
 				if (ep->ring)
 					ACT_HCD_DBG
 				kfree(ep);
-			}
 		}
-
-		
+	}
 }
 
 
 
-static const char hcd_driver_name[] = "aotg_hub_hcd";
-
-#define AOTG_BUF_NEED_MAP(x, y)	((x != NULL) && (((unsigned long)x & 0x3) == 0))
-
-static int aotg_map_urb_for_dma(struct usb_hcd *hcd, struct urb *urb,
-	gfp_t mem_flags)
+static int caninos_map_urb(struct usb_hcd *hcd, struct urb *urb, gfp_t flags)
 {
-	int ret = 0;
-
-	if (usb_pipetype(urb->pipe) == PIPE_INTERRUPT && usb_pipein(urb->pipe))
-		return ret;
-	ret = usb_hcd_map_urb_for_dma(hcd, urb, mem_flags);
-
-	return ret;
+	if (usb_pipetype(urb->pipe) == PIPE_INTERRUPT && usb_pipein(urb->pipe)) {
+		return 0;
+	}
+	return usb_hcd_map_urb_for_dma(hcd, urb, flags);
 }
 
-static void aotg_unmap_urb_for_dma(struct usb_hcd *hcd, struct urb *urb)
+static void caninos_unmap_urb(struct usb_hcd *hcd, struct urb *urb)
 {
-	if (usb_pipetype(urb->pipe) == PIPE_INTERRUPT && usb_pipein(urb->pipe))
+	if (usb_pipetype(urb->pipe) == PIPE_INTERRUPT && usb_pipein(urb->pipe)) {
 		return;
+	}
 	usb_hcd_unmap_urb_for_dma(hcd, urb);
-
-	return;
 }
 
-struct hc_driver act_hc_driver = {
-	.description = hcd_driver_name,
-	.hcd_priv_size = sizeof(struct aotg_hcd),
-	.product_desc = DRIVER_DESC,
-
-	/*
-	 * generic hardware linkage
-	 */
-	.irq = aotg_hub_irq,
-	.flags = HCD_USB2 | HCD_MEMORY,
-
-	/* Basic lifecycle operations */
-	.start = aotg_hcd_start,
-	.stop = aotg_hcd_stop,
-
-	/*
-	 * managing i/o requests and associated device resources
-	 */
-	.urb_enqueue = aotg_hub_urb_enqueue,
-	.urb_dequeue = aotg_hub_urb_dequeue,
-
-	.map_urb_for_dma = aotg_map_urb_for_dma,
-	.unmap_urb_for_dma = aotg_unmap_urb_for_dma,
-
-	.endpoint_disable = aotg_hub_endpoint_disable,
-
-	/*
-	 * periodic schedule support
-	 */
-	.get_frame_number = aotg_hcd_get_frame,
-
-	/*
-	 * root hub support
-	 */
-	.hub_status_data = aotg_hub_status_data,
-	.hub_control = aotg_hub_control,
-	.bus_suspend = NULL,
-	.bus_resume = NULL,
+void caninos_hcd_fill_ops(struct hc_driver *driver)
+{
+	/* generic hardware linkage */
+	driver->irq = aotg_hub_irq;
+	driver->flags = HCD_USB2 | HCD_MEMORY;
+	
+	/* basic lifecycle operations */
+	driver->start = aotg_hcd_start;
+	driver->stop = aotg_hcd_stop;
+	
+	/* managing i/o requests and associated device resources */
+	driver->urb_enqueue = aotg_hub_urb_enqueue;
+	driver->urb_dequeue = aotg_hub_urb_dequeue;
+	driver->map_urb_for_dma = caninos_map_urb;
+	driver->unmap_urb_for_dma = caninos_unmap_urb;
+	driver->endpoint_disable = aotg_hub_endpoint_disable;
+	
+	/* periodic schedule support */
+	driver->get_frame_number = aotg_hcd_get_frame;
+	
+	/* root hub support */
+	driver->hub_status_data = aotg_hub_status_data;
+	driver->hub_control = aotg_hub_control;
+	driver->bus_suspend = NULL;
+	driver->bus_resume = NULL;
 };
 
