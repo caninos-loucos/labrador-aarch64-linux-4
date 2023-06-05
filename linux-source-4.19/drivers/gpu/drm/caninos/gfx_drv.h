@@ -178,11 +178,11 @@
 #define DE_SCALER_SCOEF0(x) (DE_SCALER_BASE + (x) * 0x80 + 0x0020)
 #define DE_SCALER_SCOEF1(x) (DE_SCALER_BASE + (x) * 0x80 + 0x0024)
 #define DE_SCALER_SCOEF2(x) (DE_SCALER_BASE + (x) * 0x80 + 0x0028)
-#define DE_SCALER_SCOEF3(x)	(DE_SCALER_BASE + (x) * 0x80 + 0x002C)
-#define DE_SCALER_SCOEF4(x)	(DE_SCALER_BASE + (x) * 0x80 + 0x0030)
-#define DE_SCALER_SCOEF5(x)	(DE_SCALER_BASE + (x) * 0x80 + 0x0034)
+#define DE_SCALER_SCOEF3(x) (DE_SCALER_BASE + (x) * 0x80 + 0x002C)
+#define DE_SCALER_SCOEF4(x) (DE_SCALER_BASE + (x) * 0x80 + 0x0030)
+#define DE_SCALER_SCOEF5(x) (DE_SCALER_BASE + (x) * 0x80 + 0x0034)
 #define DE_SCALER_SCOEF6(x) (DE_SCALER_BASE + (x) * 0x80 + 0x0038)
-#define DE_SCALER_SCOEF7(x)	(DE_SCALER_BASE + (x) * 0x80 + 0x003C)
+#define DE_SCALER_SCOEF7(x) (DE_SCALER_BASE + (x) * 0x80 + 0x003C)
 
 #define RECOMMENDED_PRELINE_TIME (60)
 
@@ -192,13 +192,24 @@ enum caninos_blending_type
 	CANINOS_BLENDING_COVERAGE = 1,
 };
 
+enum caninos_de_hw_model
+{
+	CANINOS_DE_HW_MODEL_INV = 0x0,
+	CANINOS_DE_HW_MODEL_K5  = 0x55AA,
+	CANINOS_DE_HW_MODEL_K7  = 0xAA55,
+};
+
 struct caninos_gfx
 {
 	struct drm_connector connector;
 	struct drm_encoder encoder;
 	struct drm_plane plane;
 	struct drm_crtc crtc;
+	
+	struct drm_device *drm;
 	struct device *dev;
+	
+	enum caninos_de_hw_model model;
 	
 	void __iomem *base;
 	void __iomem *cvbs_base;
@@ -206,9 +217,9 @@ struct caninos_gfx
 	
 	struct clk *clk, *parent_clk;
 	struct clk *tvout_clk, *cvbspll_clk;
-	
 	struct reset_control *cvbs_rst;
 	struct reset_control *de_rst;
+	int irq;
 	
 	struct caninos_hdmi *caninos_hdmi;
 };
