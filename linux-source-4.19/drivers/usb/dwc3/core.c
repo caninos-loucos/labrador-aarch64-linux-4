@@ -1502,7 +1502,6 @@ static int dwc3_probe(struct platform_device *pdev)
 		goto err5;
 
 	pm_runtime_put(dev);
-
 	return 0;
 
 err5:

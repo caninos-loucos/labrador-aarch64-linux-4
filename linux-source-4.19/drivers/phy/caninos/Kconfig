@@ -1,0 +1,14 @@
+#
+# CANINOS PHY SUBSYSTEM
+#
+config CANINOS_USB2_GENERIC_PHY
+	tristate "Caninos USB2 PHY Driver"
+	help
+	  Enable this to support the USB2 PHY that is part of SOC. This
+	  driver takes care of all the PHY functionality.
+
+config CANINOS_USB3_GENERIC_PHY
+	tristate "Caninos USB3 PHY Driver"
+	help
+	  Enable this to support the USB3 PHY that is part of SOC. This
+	  driver takes care of all the PHY functionality.

@@ -183,16 +183,5 @@ config USB_ULPI_VIEWPORT
 	  Provides read/write operations to the ULPI phy register set for
 	  controllers with a viewport register (e.g. Chipidea/ARC controllers).
 
-config OWL_USB2PHY
-	tristate "ACTIONS OWL USB2 PHY Driver"
-	help
-	  Enable this to support the USB2 PHY that is part of SOC. This
-	  driver takes care of all the PHY functionality.
-
-config OWL_USB3PHY
-	tristate "ACTIONS OWL USB3 PHY Driver"
-	help
-	  Enable this to support the USB3 PHY that is part of SOC. This
-	  driver takes care of all the PHY functionality.
 
 endmenu

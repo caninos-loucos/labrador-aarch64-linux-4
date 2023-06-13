@@ -41,6 +41,7 @@ config PHY_XGENE
 	  This option enables support for APM X-Gene SoC multi-purpose PHY.
 
 source "drivers/phy/allwinner/Kconfig"
+source "drivers/phy/caninos/Kconfig"
 source "drivers/phy/amlogic/Kconfig"
 source "drivers/phy/broadcom/Kconfig"
 source "drivers/phy/hisilicon/Kconfig"

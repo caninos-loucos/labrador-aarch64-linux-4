@@ -25,6 +25,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
 #include <linux/delay.h>
+#include <linux/phy/phy.h>
 
 struct dwc3_caninos
 {
@@ -41,6 +42,7 @@ static int dwc3_caninos_probe(struct platform_device *pdev)
 	struct dwc3_caninos	*simple;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	struct phy *usb2, *usb3;
 	int	ret;
 	
 	simple = devm_kzalloc(dev, sizeof(*simple), GFP_KERNEL);
@@ -104,8 +106,39 @@ static int dwc3_caninos_probe(struct platform_device *pdev)
 	reset_control_assert(simple->reset);
 	udelay(100);
 	reset_control_deassert(simple->reset);
+	udelay(100);
+
+
+	usb2 = devm_phy_get(dev, "usb2-phy");
+	if (IS_ERR(usb2)) {
+		ret = PTR_ERR(usb2);
+		if (ret == -ENOSYS || ret == -ENODEV) {
+			usb2 = NULL;
+		} else if (ret == -EPROBE_DEFER) {
+			return ret;
+		} else {
+			dev_err(dev, "no usb2 phy configured\n");
+			return ret;
+		}
+	}
+
+	usb3 = devm_phy_get(dev, "usb3-phy");
+	if (IS_ERR(usb3)) {
+		ret = PTR_ERR(usb3);
+		if (ret == -ENOSYS || ret == -ENODEV) {
+			usb3 = NULL;
+		} else if (ret == -EPROBE_DEFER) {
+			return ret;
+		} else {
+			dev_err(dev, "no usb3 phy configured\n");
+			return ret;
+		}
+	}
+
+	//usb3->ops->init(usb3);
+	//usb2->ops->set_mode(usb2, PHY_MODE_USB_HOST);
 	
-	ret = of_platform_populate(np, NULL, NULL, dev);
+	//ret = of_platform_populate(np, NULL, NULL, dev);
 	
 	if (ret)
 	{
@@ -120,6 +153,8 @@ static int dwc3_caninos_probe(struct platform_device *pdev)
 		pm_runtime_put_noidle(dev);
 		pm_runtime_set_suspended(dev);
 	}
+
+	dev_info(dev, "probe finished");
 	
 	return ret;
 }
