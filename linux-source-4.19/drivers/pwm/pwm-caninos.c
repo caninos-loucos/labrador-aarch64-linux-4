@@ -68,7 +68,7 @@ static int caninos_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	{
 		c = clk_get_rate(pc->hosc);
 		c *= state->period;
-		c /= prescale;
+		do_div(c, prescale);
 		do_div(c, 1000000000);
 		period_cycles = c;
 		
@@ -85,7 +85,7 @@ static int caninos_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		{
 			c = clk_get_rate(pc->losc);
 			c *= state->period;
-			c /= prescale;
+			do_div(c, prescale);
 			do_div(c, 1000000000);
 			period_cycles = c;
 			
@@ -252,6 +252,7 @@ static int caninos_pwm_remove(struct platform_device *pdev)
 
 static const struct of_device_id caninos_pwm_dt_ids[] = {
 	{ .compatible = "caninos,k7-pwm", },
+	{ .compatible = "caninos,k5-pwm", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, caninos_pwm_dt_ids);

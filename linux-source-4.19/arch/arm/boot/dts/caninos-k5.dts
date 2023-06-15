@@ -293,6 +293,21 @@
 				groups = "eth_rmii_grp";
 			};
 		};
+
+		pwm: pwm@b01b0000 {
+			compatible = "caninos,k5-pwm";
+			reg = <0xb01b0000 0x1000>;
+			#pwm-cells = <3>;
+			
+			pinctrl-names = "default", "extio";
+			pinctrl-0 = <&pwm_state_gpio>;
+			pinctrl-1 = <&pwm_state_extio>;
+			
+			clocks = <&cmu CLK_PWM3>, <&cmu CLK_LOSC>, <&cmu CLK_HOSC>;
+			clock-names = "pwm3", "losc", "hosc";
+			
+			status = "okay";
+		};
 		
 		leds {
 			compatible = "gpio-leds";
