@@ -1,3 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * PWM driver for Caninos Labrador
+ *
+ * Copyright (c) 2022-2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Ana Clara Forcelli <ana.forcelli@lsitec.org.br>
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * Copyright (c) 2018-2020 LSITEC - Caninos Loucos
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/of_device.h>
@@ -68,7 +89,7 @@ static int caninos_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	{
 		c = clk_get_rate(pc->hosc);
 		c *= state->period;
-		c /= prescale;
+		do_div(c, prescale);
 		do_div(c, 1000000000);
 		period_cycles = c;
 		
@@ -85,7 +106,7 @@ static int caninos_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		{
 			c = clk_get_rate(pc->losc);
 			c *= state->period;
-			c /= prescale;
+			do_div(c, prescale);
 			do_div(c, 1000000000);
 			period_cycles = c;
 			
@@ -252,6 +273,7 @@ static int caninos_pwm_remove(struct platform_device *pdev)
 
 static const struct of_device_id caninos_pwm_dt_ids[] = {
 	{ .compatible = "caninos,k7-pwm", },
+	{ .compatible = "caninos,k5-pwm", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, caninos_pwm_dt_ids);
