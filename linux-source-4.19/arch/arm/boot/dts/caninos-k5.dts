@@ -452,7 +452,7 @@
 			reset-names = "mmc";
 			dmas = <&dma DMA_DRQ_SD2>;
 			dma-names = "mmc";
-			status = "disabled";
+			status = "okay";
 		};
 		
 		i2c0: i2c@b0170000 {
