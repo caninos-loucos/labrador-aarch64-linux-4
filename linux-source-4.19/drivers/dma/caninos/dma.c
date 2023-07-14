@@ -849,8 +849,7 @@ static inline void caninos_dma_phy_alloc_and_start(struct lab_dma_vchan *vchan)
 	
 	pchan = caninos_dma_get_pchan(cd, vchan);
 	
-	if (!pchan)
-	{
+	if (!pchan) {
 		vchan->state = CANINOS_VCHAN_WAITING;
 		return;
 	}

@@ -29,5 +29,6 @@ void caninos_k5_reserve(void);
 void caninos_k5_init_early(void);
 bool caninos_k5_pmic_setup(void);
 bool caninos_k5_cpu_set_clock(unsigned int freq, unsigned int voltage);
+bool caninos_k5_nandpll_set_clock(unsigned int freq);
 
 #endif /* _PLATFORM_H_ */

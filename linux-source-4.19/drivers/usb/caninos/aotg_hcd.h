@@ -340,8 +340,6 @@ static inline void aotg_enable_irq(struct aotg_hcd *acthcd)
 	writeb(USBEIRQ_USBIEN, acthcd->base + USBEIRQ);
 	usb_setbitsb(USBEIRQ_USBIEN, acthcd->base + USBEIEN);
 	usb_setbitsb(0x1<<2, acthcd->base + OTGIEN);
-	pr_info("USBEIEN(0x%p): 0x%02X\n", acthcd->base + USBEIEN,
-		readb(acthcd->base + USBEIEN));
 	usb_setbitsb(OTGCTRL_BUSREQ, acthcd->base + OTGCTRL);
 }
 

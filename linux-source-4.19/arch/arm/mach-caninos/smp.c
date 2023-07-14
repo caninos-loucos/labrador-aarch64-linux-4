@@ -46,6 +46,7 @@
 
 #define CPU_CORE_FREQ (1104U) /* MHz */
 #define CPU_CORE_VOLT (1175U) /* mV  */
+#define NAND_PLL_FREQ (12U)   /* MHz */
 
 #define BOOT_FLAG (0x55AA)
 
@@ -74,8 +75,11 @@ static void __init caninos_k5_smp_init_cpus(void)
 	if (!caninos_k5_pmic_setup()) {
 		panic("Could not setup the PMIC\n");
 	}
+	else if (!caninos_k5_nandpll_set_clock(NAND_PLL_FREQ)) {
+		panic("Unable to set NAND pll frequency\n");
+	}
 	else if (!caninos_k5_cpu_set_clock(CPU_CORE_FREQ, CPU_CORE_VOLT)) {
-		panic("Could not set CPU core speed\n");
+		panic("Unable to set CPU core frequency and voltage\n");
 	}
 	
 	node = of_find_compatible_node(NULL, NULL, "caninos,k5-sps");
