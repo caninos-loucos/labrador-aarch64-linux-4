@@ -173,6 +173,7 @@ static void caninos_mmc_update_delays(struct mmc_host *host)
 	
 	if (new_val != val) {
 		writel(new_val, HOST_CTL(priv));
+		readl(HOST_CTL(priv));
 	}
 }
 
@@ -250,6 +251,7 @@ static void caninos_mmc_stop_transmission(struct mmc_host *host)
 	/* the controller is stuck, just reset it */
 	caninos_mmc_hard_reset(host);
 	
+	writel(enable, HOST_EN(priv));
 	writel(config, HOST_CTL(priv));
 	writel(state, HOST_STATE(priv));
 }
@@ -327,16 +329,6 @@ static int caninos_mmc_prep_dma(struct mmc_host *host, struct mmc_data *data)
 		return 0;
 	}
 	
-	/* TODO: Use a local buffer as a fallback mechanism. */
-	if ((host->ios.timing == MMC_TIMING_UHS_DDR50) || 
-	    (host->ios.timing == MMC_TIMING_MMC_DDR52) ||
-	    (host->ios.timing == MMC_TIMING_UHS_SDR50))
-	{
-		if (data->blksz != 512U) {
-			dev_err(priv->dev, "unsupported block size:0x%x\n", data->blksz);
-			return -EINVAL;
-		}
-	}
 	for_each_sg(data->sg, sg, data->sg_len, i) {
 		if ((sg->offset & 0x3) || (sg->length & 0x3)) {
 			dev_err(priv->dev, "unsupported block with off:0x%x length:0x%x\n",
@@ -454,10 +446,28 @@ static int caninos_mmc_check_err(struct mmc_host *host, u32 err_mask)
 	if (val & SD_STATE_CRC7ER) {
 		return -EILSEQ;
 	}
-	if (val & SD_STATE_WC16ER) {
+	if (val & SD_STATE_WC16ER)
+	{
+		if (priv->curr_wdelay > 0) {
+			priv->curr_wdelay--;
+		}
+		else {
+			priv->curr_wdelay = 0xf;
+		}
+		dev_err(priv->dev, "write crc error, wdelay set to 0x%x\n",
+		        priv->curr_wdelay);
 		return -EILSEQ;
 	}
-	if (val & SD_STATE_RC16ER) {
+	if (val & SD_STATE_RC16ER)
+	{
+		if (priv->curr_rdelay > 0) {
+			priv->curr_rdelay--;
+		}
+		else {
+			priv->curr_rdelay = 0xf;
+		}
+		dev_err(priv->dev, "read crc error, rdelay set to 0x%x\n",
+		        priv->curr_rdelay);
 		return -EILSEQ;
 	}
 	if (val & SD_STATE_CLNR) {
@@ -496,7 +506,11 @@ static int caninos_mmc_do_transfer
 	u32 mode, config, err_mask, orig_config, rsp[2];
 	struct caninos_mmc_host *priv = mmc_priv(host);
 	unsigned int timeout_ms, timeout_us, khz;
+	u8 rdelay, wdelay;
 	int err;
+	
+	rdelay = priv->curr_rdelay;
+	wdelay = priv->curr_wdelay;
 	
 	if (!cmd) {
 		return -EINVAL;
@@ -653,6 +667,11 @@ static int caninos_mmc_do_transfer
 	/* recover original configuration */
 	writel(orig_config, HOST_CTL(priv));
 	
+	/* update delays (if needed) */
+	if ((priv->curr_rdelay != rdelay) || (priv->curr_wdelay != wdelay)) {
+		caninos_mmc_update_delays(host);
+	}
+	
 	if (err) {
 		caninos_mmc_wait_dma(host, data, 0U);
 	}
@@ -662,61 +681,6 @@ static int caninos_mmc_do_transfer
 	return err;
 }
 
-static int caninos_mmc_try_req(struct mmc_host *host, struct mmc_request *mrq)
-{
-	struct caninos_mmc_host *priv = mmc_priv(host);
-	struct mmc_command *cmd = mrq->cmd;
-	struct mmc_data *data = mrq->data;
-	u8 orig_delay, curr_delay;
-	unsigned long clock;
-	int ret;
-	
-	ret = caninos_mmc_do_transfer(host, cmd, data);
-	
-	if ((ret != -EILSEQ) || !data) {
-		return ret;
-	}
-	
-	if (data->flags & MMC_DATA_READ) {
-		orig_delay = priv->curr_rdelay;
-	}
-	else {
-		orig_delay = priv->curr_wdelay;
-	}
-	
-	curr_delay = (orig_delay == 0x0) ? (0xf) : (orig_delay - 0x1);
-	
-	while (curr_delay != orig_delay)
-	{
-		if (data->flags & MMC_DATA_READ) {
-			priv->curr_rdelay = curr_delay;
-		}
-		else {
-			priv->curr_wdelay = curr_delay;
-		}
-		caninos_mmc_update_delays(host);
-		ret = caninos_mmc_do_transfer(host, cmd, data);
-		
-		if (!ret) {
-			clock = host->actual_clock / 2UL;
-			dev_info(priv->dev, "dev clock: %lu wdelay: 0x%x rdelay: 0x%x\n",
-			         clock, (u32)priv->curr_wdelay, (u32)priv->curr_rdelay);
-			return 0;
-		}
-		curr_delay = (curr_delay == 0x0) ? (0xf) : (curr_delay - 0x1);
-	}
-	
-	if (data->flags & MMC_DATA_READ) {
-		priv->curr_rdelay = orig_delay;
-	}
-	else {
-		priv->curr_wdelay = orig_delay;
-	}
-	caninos_mmc_update_delays(host);
-	dev_err(priv->dev, "delay calibration failed\n");
-	return -EILSEQ;
-}
-
 static void caninos_mmc_request(struct mmc_host *host, struct mmc_request *mrq)
 {
 	struct mmc_command *stop = mrq->stop;
@@ -724,7 +688,7 @@ static void caninos_mmc_request(struct mmc_host *host, struct mmc_request *mrq)
 	struct mmc_data *data = mrq->data;
 	int ret;
 	
-	ret = caninos_mmc_try_req(host, mrq);
+	ret = caninos_mmc_do_transfer(host, cmd, data);
 	
 	if (!ret && data) {
 		data->bytes_xfered = data->blocks * data->blksz;
@@ -1012,7 +976,7 @@ static int caninos_mmc_get_model_and_delays(struct mmc_host *host)
 	struct caninos_mmc_host *priv = mmc_priv(host);
 	const struct of_device_id *match;
 	struct device *dev = priv->dev;
-	int id, model;
+	int model;
 	
 	match = of_match_device(dev->driver->of_match_table, dev);
 	model = (!match) ? (MMC_HW_MODEL_INV) : (int)((phys_addr_t)(match->data));
@@ -1029,41 +993,13 @@ static int caninos_mmc_get_model_and_delays(struct mmc_host *host)
 		return -EINVAL;
 	}
 	
-	id = of_alias_get_id(dev->of_node, "mmc");
+	priv->wdelay.delay_lowclk  = 0xf;
+	priv->wdelay.delay_midclk  = 0xa;
+	priv->wdelay.delay_highclk = 0x8;
 	
-	switch (id)
-	{
-	case 0:
-		priv->wdelay.delay_lowclk  = SDC0_WDELAY_LOW_CLK;
-		priv->wdelay.delay_midclk  = SDC0_WDELAY_MID_CLK;
-		priv->wdelay.delay_highclk = SDC0_WDELAY_HIGH_CLK;
-		priv->rdelay.delay_lowclk  = SDC0_RDELAY_LOW_CLK;
-		priv->rdelay.delay_midclk  = SDC0_RDELAY_MID_CLK;
-		priv->rdelay.delay_highclk = SDC0_RDELAY_HIGH_CLK;
-		break;
-		
-	case 1:
-		priv->wdelay.delay_lowclk  = SDC1_WDELAY_LOW_CLK;
-		priv->wdelay.delay_midclk  = SDC1_WDELAY_MID_CLK;
-		priv->wdelay.delay_highclk = SDC1_WDELAY_HIGH_CLK;
-		priv->rdelay.delay_lowclk  = SDC1_RDELAY_LOW_CLK;
-		priv->rdelay.delay_midclk  = SDC1_RDELAY_MID_CLK;
-		priv->rdelay.delay_highclk = SDC1_RDELAY_HIGH_CLK;
-		break;
-		
-	case 2:
-		priv->wdelay.delay_lowclk  = SDC2_WDELAY_LOW_CLK;
-		priv->wdelay.delay_midclk  = SDC2_WDELAY_MID_CLK;
-		priv->wdelay.delay_highclk = SDC2_WDELAY_HIGH_CLK;
-		priv->rdelay.delay_lowclk  = SDC2_RDELAY_LOW_CLK;
-		priv->rdelay.delay_midclk  = SDC2_RDELAY_MID_CLK;
-		priv->rdelay.delay_highclk = SDC2_RDELAY_HIGH_CLK;
-		break;
-		
-	default:
-		dev_err(dev, "invalid device alias: %d\n", id);
-		return -EINVAL;
-	}
+	priv->rdelay.delay_lowclk  = priv->wdelay.delay_lowclk;
+	priv->rdelay.delay_midclk  = priv->wdelay.delay_midclk;
+	priv->rdelay.delay_highclk = priv->wdelay.delay_highclk;
 	return 0;
 }
 
@@ -1238,13 +1174,10 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 	mmc->caps |= MMC_CAP_ERASE | MMC_CAP_NEEDS_POLL;
 	mmc->caps |= MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25;
 	mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_SDIO_IRQ;
+	mmc->caps |= MMC_CAP_1_8V_DDR | MMC_CAP_8_BIT_DATA;
+	mmc->caps |= MMC_CAP_UHS_DDR50;
 	
 	mmc->caps2 = MMC_CAP2_NO_WRITE_PROTECT | MMC_CAP2_BOOTPART_NOACC;
-	
-	if (priv->model == MMC_HW_MODEL_K7) {
-		mmc->caps |= MMC_CAP_1_8V_DDR | MMC_CAP_8_BIT_DATA;
-		mmc->caps |= MMC_CAP_UHS_DDR50 | MMC_CAP_UHS_SDR50;
-	}
 	
 	priv->ops.request   = caninos_mmc_request;
 	priv->ops.set_ios   = caninos_mmc_set_ios;

@@ -111,10 +111,11 @@ enum {
 /* SDC0 delays */
 #define SDC0_WDELAY_LOW_CLK  (0xf)
 #define SDC0_WDELAY_MID_CLK  (0xa)
-#define SDC0_WDELAY_HIGH_CLK (0x9)
+#define SDC0_WDELAY_HIGH_CLK (0x8)
 #define SDC0_RDELAY_LOW_CLK  (0xf)
 #define SDC0_RDELAY_MID_CLK  (0xa)
 #define SDC0_RDELAY_HIGH_CLK (0x8)
+
 
 /* SDC1 delays */
 #define SDC1_WDELAY_LOW_CLK  (0xf)
@@ -124,6 +125,7 @@ enum {
 #define SDC1_RDELAY_MID_CLK  (0xa)
 #define SDC1_RDELAY_HIGH_CLK (0x8)
 
+
 /* SDC2 delays */
 #define SDC2_WDELAY_LOW_CLK  (0xf)
 #define SDC2_WDELAY_MID_CLK  (0xa)
@@ -132,13 +134,6 @@ enum {
 #define SDC2_RDELAY_MID_CLK  (0xa)
 #define SDC2_RDELAY_HIGH_CLK (0x8)
 
-/* SDC3 delays */
-#define SDC3_WDELAY_LOW_CLK  (0xf)
-#define SDC3_WDELAY_MID_CLK  (0xa)
-#define SDC3_WDELAY_HIGH_CLK (0x8)
-#define SDC3_RDELAY_LOW_CLK  (0xf)
-#define SDC3_RDELAY_MID_CLK  (0xa)
-#define SDC3_RDELAY_HIGH_CLK (0x8)
 
 #endif
 

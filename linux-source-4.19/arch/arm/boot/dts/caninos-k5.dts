@@ -436,7 +436,7 @@
 			reset-names = "mmc";
 			dmas = <&dma DMA_DRQ_SD1>;
 			dma-names = "mmc";
-			power-gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>; // base v1.0a
+			power-gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>; //base v1.0a
 			enable-gpios = <&gpiob 30 GPIO_ACTIVE_HIGH>;
 			reset-gpios = <&gpioc 3 GPIO_ACTIVE_HIGH>;
 			status = "okay";
