@@ -8,7 +8,6 @@ kernel/drivers/phy/qualcomm/phy-qcom-usb-hs.ko
 kernel/drivers/phy/qualcomm/phy-qcom-usb-hsic.ko
 kernel/drivers/phy/ti/phy-tusb1210.ko
 kernel/drivers/phy/phy-xgene.ko
-kernel/drivers/video/backlight/backlight.ko
 kernel/drivers/xen/xen-gntdev.ko
 kernel/drivers/xen/xen-gntalloc.ko
 kernel/drivers/regulator/tps6105x-regulator.ko
@@ -798,6 +797,8 @@ kernel/drivers/hid/hid-wiimote.ko
 kernel/drivers/hid/hid-sensor-hub.ko
 kernel/drivers/hid/hid-sensor-custom.ko
 kernel/drivers/staging/rtl8723bs/r8723bs.ko
+kernel/drivers/staging/fbtft/fbtft.ko
+kernel/drivers/staging/fbtft/fb_ili9486.ko
 kernel/drivers/devfreq/governor_simpleondemand.ko
 kernel/drivers/gnss/gnss-serial.ko
 kernel/drivers/gnss/gnss-sirf.ko
