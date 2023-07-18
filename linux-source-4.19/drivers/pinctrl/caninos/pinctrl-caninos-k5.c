@@ -264,8 +264,8 @@ static int caninos_pinctrl_hwinit(struct caninos_pinctrl *pctl)
 	writel(0x10000600, pctl->base + MFP_CTL2);
 	writel(0x40000008, pctl->base + MFP_CTL3);
 	writel(0x00000000, pctl->base + PAD_PULLCTL0);
-	writel(0x0003e001, pctl->base + PAD_PULLCTL1);
-	writel(0x00000000, pctl->base + PAD_PULLCTL2);
+	writel(0x0203e001, pctl->base + PAD_PULLCTL1);
+	writel(0x00000004, pctl->base + PAD_PULLCTL2);
 	writel(0x40401880, pctl->base + PAD_ST0);
 	writel(0x00000140, pctl->base + PAD_ST1);
 	writel(0x00000002, pctl->base + PAD_CTL);

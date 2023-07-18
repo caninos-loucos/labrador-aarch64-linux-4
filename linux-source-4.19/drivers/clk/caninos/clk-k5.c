@@ -312,7 +312,7 @@ static const struct caninos_pll_clock k5_pll_clks[] __initdata =
 	            CLK_IS_CRITICAL),
 	
 	CANINOS_PLL(CLK_DEV_PLL, "dev_pll", "hosc",
-	            CMU_DEVPLL, 6000000, 8, 0, 8, 8, 126,
+	            CMU_DEVPLL, 6000000, 8, 0, 7, 8, 126,
 	            CANINOS_CLK_PLL_READ_ONLY, NULL,
 	            CLK_IS_CRITICAL),
 	
@@ -322,7 +322,7 @@ static const struct caninos_pll_clock k5_pll_clks[] __initdata =
 	            CLK_IS_CRITICAL),
 	
 	CANINOS_PLL(CLK_NAND_PLL, "nand_pll", "hosc",
-	            CMU_NANDPLL, 6000000, 8, 0, 8, 2, 86,
+	            CMU_NANDPLL, 6000000, 8, 0, 7, 2, 86,
 	            CANINOS_CLK_PLL_READ_ONLY, NULL,
 	            CLK_IS_CRITICAL),
 	

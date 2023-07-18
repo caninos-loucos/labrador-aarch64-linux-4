@@ -299,6 +299,40 @@ static bool __init pmic_dcdc1_set_selector(u32 selector)
 	return true;
 }
 
+bool __init caninos_k5_nandpll_set_clock(unsigned int freq)
+{
+	u32 val, new_val, selector, timeout;
+	
+	selector = (freq / 6U);
+	
+	if (selector < 2U) {
+		selector = 2U;
+	}
+	if (selector > 86U) {
+		selector = 86U;
+	}
+	
+	val = io_readl(CMU_NANDPLL);
+	new_val = (val & ~(0x7f)) | selector | BIT(8);
+	
+	if (new_val == val) {
+		return true;
+	}
+	
+	io_writel(new_val, CMU_NANDPLL);
+	
+	/* wait for the nand PLL to lock */
+	for (timeout = 0U; timeout < 1000U; timeout++)
+	{
+		if (io_readl(CMU_NANDPLLDEBUG) & BIT(31)) {
+			break;
+		}
+		timer0_delay_us(10);
+	}
+	
+	return !!(io_readl(CMU_NANDPLLDEBUG) & BIT(31));
+}
+
 bool __init caninos_k5_cpu_set_clock(unsigned int freq, unsigned int voltage)
 {
 	bool skip = false, safe_mode = false;
@@ -306,7 +340,7 @@ bool __init caninos_k5_cpu_set_clock(unsigned int freq, unsigned int voltage)
 	
 	/* find the nearest valid voltage and validate it (must round up) */
 	if (voltage % 25U) {
-		voltage = ((voltage / 25U) + 1) * 25U;
+		voltage = ((voltage / 25U) + 1U) * 25U;
 	}
 	if (voltage < 700U || voltage > 1400U) {
 		safe_mode = true;

@@ -29,6 +29,10 @@
 
 #define CMU_BASE           (0xB0160000)
 #define CMU_COREPLL        (CMU_BASE + 0x0000)
+#define CMU_NANDPLL        (CMU_BASE + 0x000C)
+#define CMU_SD0CLK         (CMU_BASE + 0x0050)
+#define CMU_SD1CLK         (CMU_BASE + 0x0054)
+#define CMU_SD2CLK         (CMU_BASE + 0x0058)
 #define CMU_ETHERNETPLL    (CMU_BASE + 0x0084)
 #define CMU_CORECTL        (CMU_BASE + 0x009C)
 #define CMU_DEVCLKEN0      (CMU_BASE + 0x00A0)
@@ -36,6 +40,7 @@
 #define CMU_DEVRST0        (CMU_BASE + 0x00A8)
 #define CMU_DEVRST1        (CMU_BASE + 0x00AC)
 #define CMU_COREPLLDEBUG   (CMU_BASE + 0x00D8)
+#define CMU_NANDPLLDEBUG   (CMU_BASE + 0x00E4)
 
 #define I2C0_BASE          (0xB0170000)
 #define I2C0_CTL           (I2C0_BASE + 0x0000)
