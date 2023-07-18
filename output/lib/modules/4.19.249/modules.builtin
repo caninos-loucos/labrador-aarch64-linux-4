@@ -275,6 +275,7 @@ kernel/drivers/input/evdev.ko
 kernel/drivers/input/keyboard/atkbd.ko
 kernel/drivers/input/misc/xen-kbdfront.ko
 kernel/drivers/input/touchscreen/of_touchscreen.ko
+kernel/drivers/input/touchscreen/ads7846.ko
 kernel/drivers/input/serio/serio.ko
 kernel/drivers/input/serio/serport.ko
 kernel/drivers/input/serio/libps2.ko
@@ -403,6 +404,10 @@ kernel/drivers/usb/caninos/aotg.ko
 kernel/drivers/usb/common/usb-common.ko
 kernel/drivers/usb/common/ulpi.ko
 kernel/drivers/usb/core/usbcore.ko
+kernel/drivers/usb/dwc2/dwc2.ko
+kernel/drivers/usb/dwc3/dwc3.ko
+kernel/drivers/usb/dwc3/dwc3-of-simple.ko
+kernel/drivers/usb/dwc3/dwc3-caninos.ko
 kernel/drivers/usb/gadget/libcomposite.ko
 kernel/drivers/usb/gadget/function/usb_f_acm.ko
 kernel/drivers/usb/gadget/function/usb_f_ss_lb.ko
@@ -439,6 +444,7 @@ kernel/drivers/usb/typec/ucsi/typec_ucsi.ko
 kernel/drivers/uwb/uwb.ko
 kernel/drivers/vfio/vfio.ko
 kernel/drivers/vfio/vfio_iommu_type1.ko
+kernel/drivers/video/backlight/backlight.ko
 kernel/drivers/video/fbdev/core/fb.ko
 kernel/drivers/video/fbdev/core/cfbfillrect.ko
 kernel/drivers/video/fbdev/core/cfbcopyarea.ko
