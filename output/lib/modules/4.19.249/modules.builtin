@@ -404,10 +404,6 @@ kernel/drivers/usb/caninos/aotg.ko
 kernel/drivers/usb/common/usb-common.ko
 kernel/drivers/usb/common/ulpi.ko
 kernel/drivers/usb/core/usbcore.ko
-kernel/drivers/usb/dwc2/dwc2.ko
-kernel/drivers/usb/dwc3/dwc3.ko
-kernel/drivers/usb/dwc3/dwc3-of-simple.ko
-kernel/drivers/usb/dwc3/dwc3-caninos.ko
 kernel/drivers/usb/gadget/libcomposite.ko
 kernel/drivers/usb/gadget/function/usb_f_acm.ko
 kernel/drivers/usb/gadget/function/usb_f_ss_lb.ko

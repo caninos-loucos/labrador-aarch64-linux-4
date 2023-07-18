@@ -722,7 +722,7 @@
 			resets	= <&rst RST_USB3>;
 			reset-names = "usb3";
 			power-domains = <&sps PD_USB3>;
-			status = "okay";
+			status = "disabled";
 			
 			#address-cells = <2>;
 			#size-cells = <2>;

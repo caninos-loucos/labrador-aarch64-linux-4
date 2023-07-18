@@ -19,7 +19,7 @@
             tft35a@0 {
                 compatible = "ilitek,ili9486";
                 reg = <0>;
-                spi-max-frequency = <100000>;
+                spi-max-frequency = <1000000>;
                 txbuflen = <0x8000>;
                 rotate = <0x5a>;
                 bgr = <0x00>;
