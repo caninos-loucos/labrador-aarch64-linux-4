@@ -143,7 +143,7 @@ struct caninos_hdmi_ops
 	int  (*video_enable)(struct caninos_hdmi *ip);
 	void (*video_disable)(struct caninos_hdmi *ip);
 	bool (*is_video_enabled)(struct caninos_hdmi *ip);
-
+	
 	void (*audio_enable)(struct caninos_hdmi *ip);
 	void (*audio_disable)(struct caninos_hdmi *ip);
 	void (*set_audio_interface)(struct caninos_hdmi *ip);
@@ -175,16 +175,16 @@ struct caninos_hdmi_hwdiff
 {
 	enum caninos_hdmi_model model;
 	
-	int	hp_start;
-	int	hp_end;
-	int	vp_start;
+	int hp_start;
+	int hp_end;
+	int vp_start;
 	int vp_end;
-	int	mode_start;
-	int	mode_end;
+	int mode_start;
+	int mode_end;
 	
 	uint32_t pll_reg;
-	int	pll_24m_en;
-	int	pll_en;
+	int pll_24m_en;
+	int pll_en;
 	
 	uint32_t pll_debug0_reg;
 	uint32_t pll_debug1_reg;

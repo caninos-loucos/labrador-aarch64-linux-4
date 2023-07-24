@@ -1075,7 +1075,7 @@ static const struct caninos_hdmi_hwdiff caninos_hwdiff_k7 = {
 };
 
 static const struct caninos_hdmi_hwdiff caninos_hwdiff_k5 = {	
-	.model = HDMI_MODEL_K5,		
+	.model = HDMI_MODEL_K5,
 	.hp_start = 16,
 	.hp_end = 28,
 	.vp_start = 4,

@@ -282,14 +282,6 @@ static int caninos_gfx_probe(struct platform_device *pdev)
 		goto err_free;
 	}
 	
-	ret = devm_request_irq(&pdev->dev, priv->irq, caninos_gfx_irq_handler, 0,
-	                       dev_name(&pdev->dev), priv->drm);
-	
-	if (ret) {
-		dev_err(&pdev->dev, "failed to install IRQ handler\n");
-		goto err_free;
-	}
-	
 	ret = drm_dev_register(priv->drm, 0);
 	
 	if (ret) {

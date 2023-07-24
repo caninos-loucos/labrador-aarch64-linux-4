@@ -99,7 +99,7 @@ static int caninos_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {			
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			caninos_audio_disable(chip);
 		}
 		break;

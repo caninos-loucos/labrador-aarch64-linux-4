@@ -623,7 +623,7 @@
 			resets = <&rst RST_TVOUT>, <&rst RST_DE>;
 			reset-names = "tvout", "de";
 			hdmi-phy = <&hdmi>;
-			status = "disabled";
+			status = "okay";
 		};
 		
 		thermal@0xb01b00e8 {
