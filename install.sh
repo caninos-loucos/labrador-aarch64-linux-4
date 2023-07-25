@@ -21,7 +21,7 @@ fi
 
 if [ -d "$BOOTDIR" ]; then
 	sudo rm -f $BOOTDIR/*.dtb
-	sudo rm -f $BOOTDIR/linux64/boot/Image
+	sudo rm -f $BOOTDIR/Image
 else
 	sudo mkdir $BOOTDIR
 fi
