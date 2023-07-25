@@ -66,6 +66,7 @@ struct caninos_mmc_host
 	int power_gpio;
 	int enable_gpio;
 	int reset_gpio;
+	int id;
 	struct clk *clk;
 	struct dma_chan *dma;
 	struct dma_async_tx_descriptor *tx;
@@ -976,7 +977,7 @@ static int caninos_mmc_get_model_and_delays(struct mmc_host *host)
 	struct caninos_mmc_host *priv = mmc_priv(host);
 	const struct of_device_id *match;
 	struct device *dev = priv->dev;
-	int model;
+	int id, model;
 	
 	match = of_match_device(dev->driver->of_match_table, dev);
 	model = (!match) ? (MMC_HW_MODEL_INV) : (int)((phys_addr_t)(match->data));
@@ -993,9 +994,18 @@ static int caninos_mmc_get_model_and_delays(struct mmc_host *host)
 		return -EINVAL;
 	}
 	
+	id = of_alias_get_id(dev->of_node, "mmc");
+	
+	if ((id < 0) || (id > 2)) {
+		dev_err(dev, "invalid device alias: %d\n", id);
+		return -EINVAL;
+	}
+	
+	priv->id = id;
+	
 	priv->wdelay.delay_lowclk  = 0xf;
 	priv->wdelay.delay_midclk  = 0xa;
-	priv->wdelay.delay_highclk = 0x8;
+	priv->wdelay.delay_highclk = 0x6;
 	
 	priv->rdelay.delay_lowclk  = priv->wdelay.delay_lowclk;
 	priv->rdelay.delay_midclk  = priv->wdelay.delay_midclk;
@@ -1174,10 +1184,13 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 	mmc->caps |= MMC_CAP_ERASE | MMC_CAP_NEEDS_POLL;
 	mmc->caps |= MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25;
 	mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_SDIO_IRQ;
-	mmc->caps |= MMC_CAP_1_8V_DDR | MMC_CAP_8_BIT_DATA;
-	mmc->caps |= MMC_CAP_UHS_DDR50;
 	
 	mmc->caps2 = MMC_CAP2_NO_WRITE_PROTECT | MMC_CAP2_BOOTPART_NOACC;
+	
+	if ((priv->id != 0) || (priv->model == MMC_HW_MODEL_K7)) {
+		mmc->caps |= MMC_CAP_1_8V_DDR | MMC_CAP_8_BIT_DATA;
+		mmc->caps |= MMC_CAP_UHS_DDR50;
+	}
 	
 	priv->ops.request   = caninos_mmc_request;
 	priv->ops.set_ios   = caninos_mmc_set_ios;

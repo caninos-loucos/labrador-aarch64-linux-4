@@ -194,7 +194,7 @@ static int hdmi_gen_vs_infoframe(struct caninos_hdmi *hdmi)
 
 	if (hdmi->settings.mode_3d != 0)
 	{
-		pkt[7] = 0x2 << 5;	/* 3D format */
+		pkt[7] = 0x2 << 5; /* 3D format */
 
 		switch (hdmi->settings.mode_3d) {
 		case HDMI_3D_FRAME:
@@ -1074,7 +1074,7 @@ static const struct caninos_hdmi_hwdiff caninos_hwdiff_k7 = {
 	.pll_debug1_reg = 0xF4,
 };
 
-static const struct caninos_hdmi_hwdiff caninos_hwdiff_k5 = {	
+static const struct caninos_hdmi_hwdiff caninos_hwdiff_k5 = {
 	.model = HDMI_MODEL_K5,
 	.hp_start = 16,
 	.hp_end = 28,
