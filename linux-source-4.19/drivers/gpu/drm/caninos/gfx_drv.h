@@ -18,6 +18,8 @@
  * GNU General Public License for more details.
  */
 
+#include <drm/drm_simple_kms_helper.h>
+
 #include "hdmi.h"
 
 #define RECOMMENDED_PRELINE_TIME (60)
@@ -33,11 +35,8 @@ enum caninos_de_hw_model
 
 struct caninos_gfx
 {
+	struct drm_simple_display_pipe pipe;
 	struct drm_connector connector;
-	struct drm_encoder encoder;
-	struct drm_plane plane;
-	struct drm_crtc crtc;
-	
 	struct drm_device *drm;
 	struct device *dev;
 	

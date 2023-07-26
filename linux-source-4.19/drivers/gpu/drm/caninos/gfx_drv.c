@@ -69,9 +69,9 @@ static struct drm_driver caninos_gfx_driver = {
 	.gem_prime_mmap            = drm_gem_cma_prime_mmap,
 	.name                      = DRIVER_NAME,
 	.desc                      = DRIVER_DESC,
-	.date                      = "20230605",
+	.date                      = "20230725",
 	.major                     = 1,
-	.minor                     = 1,
+	.minor                     = 2,
 	.driver_features           = DRIVER_FEATURES,
 	.fops                      = &caninos_fops,
 };
@@ -282,14 +282,15 @@ static int caninos_gfx_probe(struct platform_device *pdev)
 		goto err_free;
 	}
 	
+	drm_mode_config_reset(priv->drm);
+	
+	drm_fbdev_generic_setup(priv->drm, 32);
+	
 	ret = drm_dev_register(priv->drm, 0);
 	
 	if (ret) {
 		goto err_unload;
 	}
-	
-	drm_mode_config_reset(priv->drm);
-	drm_fbdev_generic_setup(priv->drm, 32);
 	return 0;
 	
 err_unload:

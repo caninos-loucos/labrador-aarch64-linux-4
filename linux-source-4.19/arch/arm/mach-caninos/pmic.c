@@ -322,12 +322,12 @@ bool __init caninos_k5_nandpll_set_clock(unsigned int freq)
 	io_writel(new_val, CMU_NANDPLL);
 	
 	/* wait for the nand PLL to lock */
-	for (timeout = 0U; timeout < 1000U; timeout++)
+	for (timeout = 0U; timeout < 2000U; timeout++)
 	{
 		if (io_readl(CMU_NANDPLLDEBUG) & BIT(31)) {
 			break;
 		}
-		timer0_delay_us(10);
+		timer0_delay_us(100);
 	}
 	
 	return !!(io_readl(CMU_NANDPLLDEBUG) & BIT(31));

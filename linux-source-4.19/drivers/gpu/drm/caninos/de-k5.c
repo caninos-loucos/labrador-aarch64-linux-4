@@ -37,64 +37,72 @@ static inline caninos_de_k5_t *caninos_de_hw_to_k5(const caninos_de_hw_t *hw)
 
 static void caninos_de_plane_fbaddr_raw(struct caninos_gfx *priv, u32 paddr)
 {
-	writel(paddr, priv->base + DE_PLANE_BA0(DSS_PLANE1));
+	writel(paddr, priv->base + DE_PLANE_FB0(DSS_PLANE1));
 }
 
 static void caninos_de_plane_fmt_raw(struct caninos_gfx *priv, u32 color_mode)
 {
-	u32 val, alpha;
+	u32 val1, val2, val3;
 	
-	val = readl(priv->base + DE_PLANE_CFG(DSS_PLANE1));
-	val &= ~(DE_PLANE_CFG_FMT_MSK | DE_PLANE_CFG_FMT_BYTES_MSK);
+	val1 = readl(priv->base + DE_PLANE_CFG(DSS_PLANE1));
+	val2 = readl(priv->base + DE_PLANE_BLEND(DSS_PLANE1));
+	val3 = readl(priv->base + DE_PLANE_ALPHA(DSS_PLANE1));
+	
+	val1 &= ~(DE_PLANE_CFG_FMT_MSK | DE_PLANE_CFG_CRITICAL_MSK);
+	val2 &= ~DE_PLANE_BLEND_ALPHA_EN;
+	val3 &= ~DE_PLANE_ALPHA_VAL_MSK;
+	
+	val1 |= DE_PLANE_CFG_CRITICAL(DE_PLANE_CFG_CRITICAL_OFF);
 	
 	switch (color_mode)
 	{
 	case DRM_FORMAT_ARGB8888:
-		val |= DE_PLANE_CFG_FMT(0x1);
-		alpha = 0x0;
+		val1 |= DE_PLANE_CFG_FMT(DE_PLANE_CFG_FMT_ARGB8888);
 		break;
 		
 	case DRM_FORMAT_XRGB8888:
-		val |= DE_PLANE_CFG_FMT(0x1);
-		alpha = 0x1;
+		val1 |= DE_PLANE_CFG_FMT(DE_PLANE_CFG_FMT_ARGB8888);
+		val2 |= DE_PLANE_BLEND_ALPHA_EN;
+		val3 |= DE_PLANE_ALPHA_VAL(0xFF);
 		break;
 		
 	case DRM_FORMAT_RGBA8888:
-		val |= DE_PLANE_CFG_FMT(0x1) | DE_PLANE_CFG_FMT_BYTES(0xc);
-		alpha = 0x0;
+		val1 |= DE_PLANE_CFG_FMT(DE_PLANE_CFG_FMT_RGBA8888);
 		break;
 		
 	case DRM_FORMAT_RGBX8888:
-		val |= DE_PLANE_CFG_FMT(0x1) | DE_PLANE_CFG_FMT_BYTES(0xc);
-		alpha = 0x1;
+		val1 |= DE_PLANE_CFG_FMT(DE_PLANE_CFG_FMT_RGBA8888);
+		val2 |= DE_PLANE_BLEND_ALPHA_EN;
+		val3 |= DE_PLANE_ALPHA_VAL(0xFF);
 		break;
 		
 	case DRM_FORMAT_ABGR8888:
-		val |= DE_PLANE_CFG_FMT(0x5);
-		alpha = 0x0;
+		val1 |= DE_PLANE_CFG_FMT(DE_PLANE_CFG_FMT_ABGR8888);
 		break;
 		
 	case DRM_FORMAT_XBGR8888:
-		val |= DE_PLANE_CFG_FMT(0x5);
-		alpha = 0x1;
+		val1 |= DE_PLANE_CFG_FMT(DE_PLANE_CFG_FMT_ABGR8888);
+		val2 |= DE_PLANE_BLEND_ALPHA_EN;
+		val3 |= DE_PLANE_ALPHA_VAL(0xFF);
 		break;
 		
 	case DRM_FORMAT_BGRA8888:
-		val |= DE_PLANE_CFG_FMT(0x5) | DE_PLANE_CFG_FMT_BYTES(0xc);
-		alpha = 0x0;
+		val1 |= DE_PLANE_CFG_FMT(DE_PLANE_CFG_FMT_BGRA8888);
 		break;
 		
 	case DRM_FORMAT_BGRX8888:
-		val |= DE_PLANE_CFG_FMT(0x5) | DE_PLANE_CFG_FMT_BYTES(0xc);
-		alpha = 0x1;
+		val1 |= DE_PLANE_CFG_FMT(DE_PLANE_CFG_FMT_BGRA8888);
+		val2 |= DE_PLANE_BLEND_ALPHA_EN;
+		val3 |= DE_PLANE_ALPHA_VAL(0xFF);
 		break;
 		
 	default:
 		return;
 	}
-	writel(val, priv->base + DE_PLANE_CFG(DSS_PLANE1));
-	writel(0xFF, priv->base + DE_PLANE_ALPHA_CFG(DSS_PLANE1));
-	writel(alpha, priv->base + DE_PLANE_ALPHA_EN(DSS_PLANE1));
+	
+	writel(val1, priv->base + DE_PLANE_CFG(DSS_PLANE1));
+	writel(val2, priv->base + DE_PLANE_BLEND(DSS_PLANE1));
+	writel(val3, priv->base + DE_PLANE_ALPHA(DSS_PLANE1));
 }
 
 static void caninos_de_plane_rotate_raw(struct caninos_gfx *priv, u32 rotation)
@@ -276,8 +284,9 @@ static int k5_de_power_on(caninos_de_hw_t *hw)
 	val1 &= ~DE_OUTPUT_CON_PATH1_DEV_MSK;
 	val1 |= DE_OUTPUT_CON_PATH1_DEV(DE_OUTPUT_CON_HDMI);
 	
-	/* disable interlace and YUV */
-	val2 &= ~(DE_PATH_CTL_ILACE_EN | DE_PATH_CTL_YUV_EN);
+	/* disable interlace, 3d, dither, gamma and YUV */
+	val2 &= ~(DE_PATH_CTL_ILACE_EN | DE_PATH_CTL_YUV_EN | DE_PATH_CTL_3D_EN);
+	val2 &= ~(DE_PATH_CTL_DITHER_EN | DE_PATH_CTL_GAMMA_EN);
 	
 	wmb();
 	writel_relaxed(val1, priv->base + DE_OUTPUT_CON);

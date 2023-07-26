@@ -58,46 +58,46 @@ static int caninos_connector_get_modes(struct drm_connector *connector)
 	return count;
 }
 
-static void
-caninos_crtc_enable(struct drm_crtc *crtc, struct drm_crtc_state *old_state)
+static void caninos_update(struct drm_simple_display_pipe *pipe,
+                           struct drm_plane_state *plane_state)
 {
-	return;
-}
-
-static void
-caninos_crtc_disable(struct drm_crtc *crtc, struct drm_crtc_state *old_state)
-{
-	return;
-}
-
-static enum drm_mode_status
-caninos_crtc_mode(struct drm_crtc *crtc, const struct drm_display_mode *mode)
-{
-	int w = mode->hdisplay, h = mode->vdisplay;
-	int vrefresh = drm_mode_vrefresh(mode);
+	struct caninos_gfx *priv = container_of(pipe, struct caninos_gfx, pipe);
+	struct drm_crtc *crtc = &pipe->crtc;
+	struct drm_framebuffer *fb = pipe->plane.state->fb;
+	struct drm_pending_vblank_event *event;
+	struct drm_gem_cma_object *gem;
 	
-	if ((w == 640) && (h == 480) && (vrefresh == 60)) {
-		return MODE_OK;
+	spin_lock_irq(&crtc->dev->event_lock);
+	event = crtc->state->event;
+	
+	if (event) {
+		crtc->state->event = NULL;
+		drm_crtc_send_vblank_event(crtc, event);
 	}
-	if ((w == 720) && (h == 480) && (vrefresh == 60)) {
-		return MODE_OK;
+	
+	spin_unlock_irq(&crtc->dev->event_lock);
+	
+	if (!fb) {
+		return;
 	}
-	if ((w == 720) && (h == 576) && (vrefresh == 50)) {
-		return MODE_OK;
+	
+	gem = drm_fb_cma_get_gem_obj(fb, 0);
+	
+	if (!gem) {
+		return;
 	}
-	if ((w == 1280) && (h == 720) && ((vrefresh == 60) || (vrefresh == 50))) {
-		return MODE_OK;
-	}
-	if ((w == 1920) && (h == 1080) && ((vrefresh == 60) || (vrefresh == 50))) {
-		return MODE_OK;
-	}
-	return MODE_BAD;
+	
+	caninos_de_plane_fb_addr_set(priv->hw, gem->paddr);
+	caninos_de_plane_enable(priv->hw);
+	caninos_de_path_set_go(priv->hw);
 }
 
-static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
+static void caninos_enable(struct drm_simple_display_pipe *pipe,
+                           struct drm_crtc_state *crtc_state,
+                           struct drm_plane_state *plane_state)
 {
-	struct caninos_gfx *priv = container_of(crtc, struct caninos_gfx, crtc);
-	struct drm_display_mode *drm_mode = &crtc->state->adjusted_mode;
+	struct caninos_gfx *priv = container_of(pipe, struct caninos_gfx, pipe);
+	struct drm_display_mode *drm_mode = &crtc_state->adjusted_mode;
 	struct caninos_hdmi *caninos_hdmi = priv->caninos_hdmi;
 	int width, height, vrefresh;
 	struct videomode mode;
@@ -286,139 +286,62 @@ static void caninos_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	caninos_hdmi->ops.video_enable(caninos_hdmi);
 }
 
-static void caninos_plane_atomic_update(struct drm_plane *plane,
-                                        struct drm_plane_state *old_pstate)
+static enum drm_mode_status
+caninos_mode_valid(struct drm_crtc *crtc, const struct drm_display_mode *mode)
 {
-	struct caninos_gfx *priv = container_of(plane, struct caninos_gfx, plane);
-	struct drm_crtc *crtc = &priv->crtc;
-	struct drm_framebuffer *fb = priv->plane.state->fb;
-	struct drm_pending_vblank_event *event;
-	struct drm_gem_cma_object *gem;
+	int w = mode->hdisplay, h = mode->vdisplay;
+	int vrefresh = drm_mode_vrefresh(mode);
 	
-	spin_lock_irq(&crtc->dev->event_lock);
-	
-	event = crtc->state->event;
-	
-	if (event)
-	{
-		crtc->state->event = NULL;
-		
-		if (drm_crtc_vblank_get(crtc) == 0) {
-			drm_crtc_arm_vblank_event(crtc, event);
-		}
-		else {
-			drm_crtc_send_vblank_event(crtc, event);
-		}
+	if ((w == 640) && (h == 480) && (vrefresh == 60)) {
+		return MODE_OK;
 	}
-	
-	spin_unlock_irq(&crtc->dev->event_lock);
-	
-	if (fb == NULL) {
-		return;
+	if ((w == 720) && (h == 480) && (vrefresh == 60)) {
+		return MODE_OK;
 	}
-	
-	gem = drm_fb_cma_get_gem_obj(fb, 0);
-	
-	if (gem)
-	{
-		caninos_de_plane_fb_addr_set(priv->hw, gem->paddr);
-		caninos_de_plane_enable(priv->hw);
-		caninos_de_path_set_go(priv->hw);
+	if ((w == 720) && (h == 576) && (vrefresh == 50)) {
+		return MODE_OK;
 	}
+	if ((w == 1280) && (h == 720) && ((vrefresh == 60) || (vrefresh == 50))) {
+		return MODE_OK;
+	}
+	if ((w == 1920) && (h == 1080) && ((vrefresh == 60) || (vrefresh == 50))) {
+		return MODE_OK;
+	}
+	return MODE_BAD;
 }
 
-static int
-caninos_crtc_check(struct drm_crtc *crtc, struct drm_crtc_state *state)
-{
-	bool has_primary = state->plane_mask & drm_plane_mask(crtc->primary);
-	
-	if (has_primary != state->enable) {
-		return -EINVAL;
-	}
-	return drm_atomic_add_affected_planes(state->state, crtc);
-}
-
-static int caninos_plane_atomic_check(struct drm_plane *plane,
-                                      struct drm_plane_state *plane_state)
-{
-	struct caninos_gfx *pipe = container_of(plane, struct caninos_gfx, plane);
-	struct drm_crtc_state *crtc_state;
-	int ret;
-	
-	crtc_state = drm_atomic_get_new_crtc_state(plane_state->state, &pipe->crtc);
-	
-	ret = drm_atomic_helper_check_plane_state(plane_state, crtc_state,
-	                                          DRM_PLANE_HELPER_NO_SCALING,
-	                                          DRM_PLANE_HELPER_NO_SCALING,
-	                                          false, true);
-	return ret;
-}
-
-static const struct drm_mode_config_funcs caninos_mode_config_funcs = {
-	.fb_create = drm_gem_fb_create,
-	.atomic_check = drm_atomic_helper_check,
-	.atomic_commit = drm_atomic_helper_commit,
-};
-
-static const struct drm_plane_helper_funcs caninos_plane_helper_funcs = {
-	.prepare_fb = drm_gem_fb_prepare_fb,
-	.atomic_check = caninos_plane_atomic_check,
-	.atomic_update = caninos_plane_atomic_update,
-};
-
-static const struct drm_plane_funcs caninos_plane_funcs = {
-	.update_plane = drm_atomic_helper_update_plane,
-	.disable_plane = drm_atomic_helper_disable_plane,
-	.destroy = drm_plane_cleanup,
-	.reset = drm_atomic_helper_plane_reset,
-	.atomic_duplicate_state = drm_atomic_helper_plane_duplicate_state,
-	.atomic_destroy_state = drm_atomic_helper_plane_destroy_state,
-};
-
-static const struct drm_crtc_helper_funcs caninos_crtc_helper_funcs = {
-	.mode_valid = caninos_crtc_mode,
-	.atomic_check = caninos_crtc_check,
-	.atomic_enable = caninos_crtc_enable,
-	.atomic_disable = caninos_crtc_disable,
-	.mode_set_nofb = caninos_crtc_mode_set_nofb,
-};
-
-static const struct drm_crtc_funcs caninos_crtc_funcs = {
-	.reset = drm_atomic_helper_crtc_reset,
-	.destroy = drm_crtc_cleanup,
-	.set_config = drm_atomic_helper_set_config,
-	.page_flip = drm_atomic_helper_page_flip,
-	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
-	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
-};
-
-static const struct drm_encoder_funcs caninos_encoder_funcs = {
-	.destroy = drm_encoder_cleanup,
+static struct drm_simple_display_pipe_funcs caninos_gfx_funcs = {
+	.mode_valid = caninos_mode_valid,
+	.enable     = caninos_enable,
+	.update     = caninos_update,
+	.prepare_fb = drm_gem_fb_simple_display_pipe_prepare_fb,
 };
 
 static const struct drm_connector_funcs caninos_connector_funcs = {
-	.reset = drm_atomic_helper_connector_reset,
-	.fill_modes = drm_helper_probe_single_connector_modes,
-	.destroy = drm_connector_cleanup,
+	.fill_modes             = drm_helper_probe_single_connector_modes,
+	.destroy                = drm_connector_cleanup,
+	.reset                  = drm_atomic_helper_connector_reset,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
-	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+	.atomic_destroy_state   = drm_atomic_helper_connector_destroy_state,
 };
 
 static const struct drm_connector_helper_funcs caninos_connector_helper = {
 	.get_modes = caninos_connector_get_modes,
 };
 
-static const uint32_t caninos_formats[] = {
+static const struct drm_mode_config_funcs caninos_mode_config_funcs = {
+	.fb_create     = drm_gem_fb_create,
+	.atomic_check  = drm_atomic_helper_check,
+	.atomic_commit = drm_atomic_helper_commit,
+};
+
+static const uint32_t caninos_gfx_formats[] = {
 	DRM_FORMAT_XRGB8888,
 };
 
 int caninos_gfx_pipe_init(struct drm_device *drm)
 {
 	struct caninos_gfx *priv = drm->dev_private;
-	struct drm_connector *connector = &priv->connector;
-	struct drm_encoder *encoder = &priv->encoder;
-	struct drm_plane *plane = &priv->plane;
-	struct drm_crtc *crtc = &priv->crtc;
 	int ret;
 	
 	if (priv->model == CANINOS_DE_HW_MODEL_K7) {
@@ -441,39 +364,21 @@ int caninos_gfx_pipe_init(struct drm_device *drm)
 	
 	drm->mode_config.funcs = &caninos_mode_config_funcs;
 	
-	drm_connector_init(drm, connector, &caninos_connector_funcs,
-	                   DRM_MODE_CONNECTOR_HDMIA);
+	priv->connector.dpms = DRM_MODE_DPMS_OFF;
+	priv->connector.polled = 0;
 	
-	drm_connector_helper_add(connector, &caninos_connector_helper);
+	drm_connector_helper_add(&priv->connector, &caninos_connector_helper);
 	
-	drm_plane_helper_add(plane, &caninos_plane_helper_funcs);
+	ret = drm_connector_init(drm, &priv->connector, &caninos_connector_funcs,
+	                         DRM_MODE_CONNECTOR_HDMIA);
 	
-	ret = drm_universal_plane_init(drm, &priv->plane, 0, &caninos_plane_funcs,
-	                               caninos_formats, ARRAY_SIZE(caninos_formats),
-	                               NULL, DRM_PLANE_TYPE_PRIMARY, NULL);
-	
-	if (ret) {
+	if (ret < 0) {
 		return ret;
 	}
 	
-	drm_crtc_helper_add(crtc, &caninos_crtc_helper_funcs);
-	
-	ret = drm_crtc_init_with_planes(drm, crtc, plane, NULL,
-	                                &caninos_crtc_funcs, NULL);
-	
-	if (ret) {
-		return ret;
-	}
-	
-	encoder->possible_crtcs = drm_crtc_mask(crtc);
-	
-	ret = drm_encoder_init(drm, encoder, &caninos_encoder_funcs,
-	                       DRM_MODE_ENCODER_NONE, NULL);
-	
-	if (ret) {
-		return ret;
-	}
-	
-	return drm_connector_attach_encoder(connector, encoder);
+	return drm_simple_display_pipe_init(drm, &priv->pipe, &caninos_gfx_funcs,
+	                                    caninos_gfx_formats,
+	                                    ARRAY_SIZE(caninos_gfx_formats),
+	                                    NULL, &priv->connector);
 }
 
