@@ -235,35 +235,60 @@
 				gpio-ranges = <&pinctrl 0 0 32>;
 				gpio-controller;
 				#gpio-cells = <2>;
+
+				interrupt-controller;
+				interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
+				#interrupt-cells = <1>;
 			};
+
 			gpiob: bank@1 {
 				gpio-label = "GPIOB";
 				gpio-mask = <0xFFFFFFFF>;
 				gpio-ranges = <&pinctrl 0 32 32>;
 				gpio-controller;
 				#gpio-cells = <2>;
+
+				interrupt-controller;
+				interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
+				#interrupt-cells = <1>;
 			};
+
 			gpioc: bank@2 {
 				gpio-label = "GPIOC";
 				gpio-mask = <0xBFFFFFFF>;
 				gpio-ranges = <&pinctrl 0 64 32>;
 				gpio-controller;
 				#gpio-cells = <2>;
+
+				interrupt-controller;
+				interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
+				#interrupt-cells = <1>;
 			};
+
 			gpiod: bank@3 {
 				gpio-label = "GPIOD";
 				gpio-mask = <0xF3FFF400>;
 				gpio-ranges = <&pinctrl 0 96 32>;
 				gpio-controller;
 				#gpio-cells = <2>;
+
+				interrupt-controller;
+				interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
+				#interrupt-cells = <1>;
 			};
+
 			gpioe: bank@4 {
 				gpio-label = "GPIOE";
 				gpio-mask = <0x0000000F>;
 				gpio-ranges = <&pinctrl 0 128 4>;
 				gpio-controller;
 				#gpio-cells = <2>;
+
+				interrupt-controller;
+				interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+				#interrupt-cells = <1>;
 			};
+
 			i2c2_state_gpio: i2c2_gpio {
 				function = "i2c2";
 				groups = "i2c2_dummy_grp";

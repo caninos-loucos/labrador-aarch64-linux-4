@@ -27,7 +27,7 @@
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/pinconf-generic.h>
-#include <linux/gpio.h>
+#include <linux/gpio/driver.h>
 
 #define BANK_LABEL_LEN (16U)
 #define GPIO_PER_BANK  (32U)
@@ -68,6 +68,27 @@
 #define PAD_DRV0     0x80
 #define PAD_DRV1     0x84
 #define PAD_DRV2     0x88
+#define INTC_EXTCTL		 0x200
+#define INTC_GPIOCTL	 0x204
+#define INTC_GPIOA_PD	 0x208
+#define INTC_GPIOA_MSK	 0x20c
+#define INTC_GPIOB_PD	 0x210
+#define INTC_GPIOB_MSK	 0x214
+#define INTC_GPIOC_PD	 0x218
+#define INTC_GPIOC_MSK	 0x21c
+#define INTC_GPIOD_PD	 0x220
+#define INTC_GPIOD_MSK	 0x224
+#define INTC_GPIOE_PD	 0x228
+#define INTC_GPIOE_MSK	 0x22c
+#define INTC_GPIOA_TYPE0 0x230
+#define INTC_GPIOA_TYPE1 0x234
+#define INTC_GPIOB_TYPE0 0x238
+#define INTC_GPIOB_TYPE1 0x23c
+#define INTC_GPIOC_TYPE0 0x240
+#define INTC_GPIOC_TYPE1 0x244
+#define INTC_GPIOD_TYPE0 0x248
+#define INTC_GPIOD_TYPE1 0x24c
+#define INTC_GPIOE_TYPE	 0x250
 
 /* CTLR */
 #define GPIO_CTLR_PENDING        (0x1 << 0)
