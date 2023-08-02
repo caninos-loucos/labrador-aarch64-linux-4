@@ -1182,14 +1182,14 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 	mmc->caps  = MMC_CAP_4_BIT_DATA;
 	mmc->caps |= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED;
 	mmc->caps |= MMC_CAP_ERASE | MMC_CAP_NEEDS_POLL;
-	mmc->caps |= MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25;
-	mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_SDIO_IRQ;
+	mmc->caps |= MMC_CAP_UHS_SDR12 | MMC_CAP_SDIO_IRQ;
+	mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY;
 	
 	mmc->caps2 = MMC_CAP2_NO_WRITE_PROTECT | MMC_CAP2_BOOTPART_NOACC;
 	
-	if ((priv->id != 0) || (priv->model == MMC_HW_MODEL_K7)) {
+	if (priv->model == MMC_HW_MODEL_K7) {
 		mmc->caps |= MMC_CAP_1_8V_DDR | MMC_CAP_8_BIT_DATA;
-		mmc->caps |= MMC_CAP_UHS_DDR50;
+		mmc->caps |= MMC_CAP_UHS_DDR50 | MMC_CAP_UHS_SDR25;
 	}
 	
 	priv->ops.request   = caninos_mmc_request;
