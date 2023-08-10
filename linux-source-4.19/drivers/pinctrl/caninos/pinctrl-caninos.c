@@ -26,6 +26,9 @@
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/irqdomain.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
+#include <linux/gpio/driver.h>
 #include "pinctrl-caninos.h"
 #include "../pinctrl-utils.h"
 
@@ -312,12 +315,155 @@ static int caninos_gpio_get_direction(struct gpio_chip *chip, unsigned offset)
 	return caninos_raw_get_direction(bank, offset);
 }
 
-static void caninos_gpio_irq_ack(struct irq_data *data) {}
-static void caninos_gpio_irq_enable(struct irq_data *data) {}
-static void caninos_gpio_irq_disable(struct irq_data *data) {}
-static void caninos_gpio_irq_set_type(struct irq_data *data) {}
-static void caninos_gpio_irq_mask(struct irq_data *data) {}
-static void caninos_gpio_irq_unmask(struct irq_data *data) {}
+static void caninos_gpio_irq_ack(struct irq_data *data) 
+{
+	struct caninos_gpio_chip *bank = irq_data_get_irq_chip_data(data);
+	u32 val;
+	unsigned long type, flags;
+	int line, hwirq;
+
+	val = readl(bank->pinctrl->base + INTC_GPIOCTL);
+
+	hwirq = irq_linear_revmap(data->domain, data->irq);
+	line = data->irq - hwirq;
+
+	if (line >= 16) {
+		type = readl(bank->pinctrl->base + INTC_GPIOX_TYPE0((int)bank->addr));
+		type &= 0x3 << 2*(line - 16);
+		type = (type >> (30 - 2*(line/2))); // justify type
+	} else {
+		type = readl(bank->pinctrl->base + INTC_GPIOX_TYPE1((int)bank->addr));
+		type &= (0x3 << (30 - 2*(15 - line)));
+		type = (type >> (2*line - 30));
+	}
+
+	raw_spin_lock_irqsave(bank->lock, flags);	
+	if (type && 0x2)
+	{
+		val &= ~INTC_GPIOCTL_GPIOX_PD(bank->addr);
+		// add reserved values?
+		writel(val, bank->pinctrl->base + INTC_GPIOCTL);
+	}
+	raw_spin_unlock_irqrestore(bank->lock, flags);
+}
+
+static void caninos_gpio_irq_enable(struct irq_data *data) 
+{
+	struct caninos_gpio_chip *bank = irq_data_get_irq_chip_data(data);
+	u32 val;
+	unsigned long flags;
+
+	val = readl(bank->pinctrl->base + INTC_GPIOCTL);
+	val |= INTC_GPIOCTL_GPIOX_EN((int)bank->addr);
+
+	raw_spin_lock_irqsave(bank->lock, flags);
+	writel(val, bank->pinctrl->base + INTC_GPIOCTL);
+	raw_spin_unlock_irqrestore(bank->lock, flags);
+}
+
+static void caninos_gpio_irq_disable(struct irq_data *data) 
+{
+	struct caninos_gpio_chip *bank = irq_data_get_irq_chip_data(data);
+	u32 val;
+	unsigned long flags;
+
+	val = readl(bank->pinctrl->base + INTC_GPIOCTL);
+	val &= ~INTC_GPIOCTL_GPIOX_EN((int)bank->addr);
+
+	raw_spin_lock_irqsave(bank->lock, flags);
+	writel(val, bank->pinctrl->base + INTC_GPIOCTL);
+	raw_spin_unlock_irqrestore(bank->lock, flags);
+}
+
+static int caninos_gpio_irq_set_type(struct irq_data *data, unsigned int flow_type) 
+{
+	struct caninos_gpio_chip *bank = irq_data_get_irq_chip_data(data);
+	u32 val0, val1;
+	unsigned long flags, type;
+	int line, hwirq;
+
+	val0 = readl(bank->pinctrl->base + INTC_GPIOX_TYPE0((int)bank->addr));
+	val1 = readl(bank->pinctrl->base + INTC_GPIOX_TYPE1((int)bank->addr));
+
+	hwirq = irq_linear_revmap(data->domain, data->irq);
+	line = data->irq - hwirq;
+
+	pr_info("LABEL %s, irq = %d, hwirq = %d, line = %d", bank->label, data->irq, hwirq, line);
+
+	switch(flow_type)
+	{
+		case IRQ_TYPE_LEVEL_HIGH:
+			type = GPIO_INT_TYPE_HIGH;
+		case IRQ_TYPE_LEVEL_LOW:
+			type = GPIO_INT_TYPE_LOW;
+		case IRQ_TYPE_EDGE_RISING:
+			type = GPIO_INT_TYPE_RISING;
+		case IRQ_TYPE_EDGE_FALLING:
+			type = GPIO_INT_TYPE_FALLING;
+		default:
+			dev_err(bank->pinctrl->dev, "unsupported external interrupt type\n");
+			return -EINVAL;
+	}
+
+	if (line >= 16) {
+		val0 &= ~(0x3 << 2*(line - 16));
+		val0 |= (type << 2*(line - 16));
+	} else {
+		val1 &= ~(0x3 << (30 - 2*(15 - line)));
+		val1 |= (type << (30 - 2*(15 - line)));
+	}
+
+	raw_spin_lock_irqsave(bank->lock, flags);	
+	writel(val0, bank->pinctrl->base + INTC_GPIOX_TYPE0((int)bank->addr));
+	writel(val1, bank->pinctrl->base + INTC_GPIOX_TYPE1((int)bank->addr));
+	raw_spin_unlock_irqrestore(bank->lock, flags);
+
+	return 0;
+}
+
+static void caninos_gpio_irq_mask(struct irq_data *data)
+{
+	struct caninos_gpio_chip *bank = irq_data_get_irq_chip_data(data);
+	u32 val;
+	unsigned long flags;
+	int line, hwirq;
+
+	val = readl(bank->pinctrl->base + INTC_GPIOX_MSK((int)bank->addr));
+
+	hwirq = irq_linear_revmap(data->domain, data->irq);
+	line = data->irq - hwirq;
+
+	pr_info("LABEL %s, irq = %d, hwirq = %d, line = %d", bank->label, data->irq, hwirq, line);
+
+	val |= (1 << line);
+
+	raw_spin_lock_irqsave(bank->lock, flags);
+	// mask reserved values?
+	writel(val, bank->pinctrl->base + INTC_GPIOX_MSK(bank->addr));
+	raw_spin_unlock_irqrestore(bank->lock, flags);
+}
+
+static void caninos_gpio_irq_unmask(struct irq_data *data) 
+{
+	struct caninos_gpio_chip *bank = irq_data_get_irq_chip_data(data);
+	u32 val;
+	unsigned long flags;
+	int line, hwirq;
+
+	val = readl(bank->pinctrl->base + INTC_GPIOX_MSK((int)bank->addr));
+
+	hwirq = irq_linear_revmap(data->domain, data->irq);
+	line = data->irq - hwirq;
+
+	pr_info("LABEL %s, irq = %d, hwirq = %d, line = %d", bank->label, data->irq, hwirq, line);
+
+	val &= ~(1 << line);
+
+	raw_spin_lock_irqsave(bank->lock, flags);
+	// mask reserved values?
+	writel(val, bank->pinctrl->base + INTC_GPIOX_MSK(bank->addr));
+	raw_spin_unlock_irqrestore(bank->lock, flags);
+}
 
 static struct pinctrl_ops caninos_pctrl_ops = {
 	.get_groups_count = caninos_get_groups_count,
@@ -354,52 +500,46 @@ static const struct irq_domain_ops caninos_irq_domain_ops = {
 	.xlate = irq_domain_xlate_twocell,
 };
 
-static void caninos_gpio_irq_handler(struct irq_desc* desc)
+static irqreturn_t caninos_handle_irq(int irq, void *data)
 {
-	unsigned int irq = irq_desc_get_irq(desc);
-	struct irq_chip *chip = irq_desc_get_chip(desc);
-	struct caninos_gpio_bank *bank = irq_desc_get_handler_data(desc);
-	unsigned long bank, reg, val;
-
-	chained_irq_enter(chip, desc);
-
-	reg = sunxi_irq_status_reg_from_bank(pctl->desc, bank);
-	val = readl(pctl->membase + reg);
-
-	if (val) {
-		int irqoffset;
-
-		for_each_set_bit(irqoffset, &val, IRQ_PER_BANK) {
-			virq = irq_linear_revmap(bank->irq_domain, pin);
-			generic_handle_irq(pin_irq);
-		}
-	}
-
-	chained_irq_exit(chip, desc);
+	//irq_lienar_revmap
+	generic_handle_irq(irq);
+	return IRQ_HANDLED;
 }
 
 static int caninos_gpio_register_bank_irqs(struct caninos_gpio_chip *bank,
-											struct device_node *bank_np,
-											struct device *bank_dev)
+											struct device_node *bank_np)
 {
-	int ret, irq;
-	struct gpio_irq_chip *girq = bank->gpio_chip.irq->irq_chip;
+	int ret;
+	pr_info("cast@510 ");
+	struct gpio_irq_chip *girq = &bank->gpio_chip.irq;
+	pr_info("correct\n");
 
-	gpio_irq_chip_set_chip(girq, &caninos_gpio_irq_chip);
+	girq->chip = (struct irq_chip *) &caninos_gpio_irq_chip; // drop the const because that's what 
+															 // gpio_irq_chip_set_chip does
+	pr_info ("chip set");
 
-	bank->gpio_chip.irq->domain = irq_domain_add_linear(bank_np, bank->npins, 
+	girq->domain = irq_domain_add_linear(bank_np, bank->npins, 
 								&caninos_irq_domain_ops, bank);
 
-	if(!bank->gpio_chip.irq->domain){
+	if(!girq->domain){
 		dev_err(bank->pinctrl->dev, "failed to create GPIO IRQ domain on %s", bank->label);
 		return -ENXIO;
 	}
 
-	irq = of_irq_get(bank_np, 0);
-	ret = devm_request_irq(bank_dev, irq, caninos_gpio_irq_handler,
-					0, dev_name(bank_dev), d);
+	ret = request_irq(bank->irq, caninos_handle_irq, 0, bank->label, NULL); // should this be here or in parse bank?
+																			// and should this be devm_request_irq
+																			// using bank->pinctrl->dev?
+
 	if (ret) {
-		dev_err(dev, "irq request failed\n");
+		dev_err(bank->pinctrl->dev, "irq request failed for bank %s\n", bank->label);
+		return -ENXIO;
+	}
+
+	ret = irq_set_chip_data(bank->irq, bank);
+	
+	if (ret) {
+		dev_err(bank->pinctrl->dev, "irq_set_chip_data failed for bank %s\n", bank->label);
 		return -ENXIO;
 	}
 
@@ -432,6 +572,7 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 	struct caninos_gpio_chip *bank = &pctl->banks[pctl->nbanks];
 	struct device *dev = pctl->dev;
 	int i = 0, ret, bank_nr, npins;
+	unsigned int irq;
 	struct of_phandle_args args;
 	const char *label;
 	u32 mask;
@@ -468,6 +609,13 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 		dev_err(dev, "missing gpio-mask property on bank %s\n", np->full_name);
 		return ret;
 	}
+	if ((irq = of_irq_get(np, 0)) < 0)
+	{
+		dev_err(dev, "unable to get IRQ for bank %s\n", np->full_name);
+		return -EINVAL;
+	}
+
+	pr_info("got irq %d", irq);
 		
 	strlcpy(bank->label, label, BANK_LABEL_LEN);
 	
@@ -475,6 +623,7 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 	bank->addr = bank_nr;
 	bank->npins = npins;
 	bank->mask = mask;
+	bank->irq = irq;
 	
 	memset(&bank->gpio_chip, 0, sizeof(bank->gpio_chip));
 	
@@ -494,6 +643,7 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 	bank->gpio_chip.base = bank_nr * GPIO_PER_BANK;
 	bank->gpio_chip.owner = THIS_MODULE;
 	bank->gpio_chip.can_sleep = false;
+
 
 	return 0;
 }
@@ -567,6 +717,8 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 		dev_err(dev, "gpio banks memory allocation failed\n");
 		return -ENOMEM;
 	}
+
+	pctl->nbanks = nbanks;
 	
 	for_each_available_child_of_node(np, child)
 	{
@@ -574,8 +726,8 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 		{
 			if ((ret = caninos_gpiolib_parse_bank(pctl, child)) < 0)
 				return ret;
-			
-			pctl->nbanks++;
+			//if((ret = caninos_gpio_register_bank_irqs(&pctl->banks[--nbanks], child)) < 0)
+			//	return ret;
 		}
 	}
 	

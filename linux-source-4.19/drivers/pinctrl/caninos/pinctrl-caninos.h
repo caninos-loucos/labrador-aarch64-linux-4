@@ -68,34 +68,14 @@
 #define PAD_DRV0     0x80
 #define PAD_DRV1     0x84
 #define PAD_DRV2     0x88
-#define INTC_EXTCTL		 0x200
-#define INTC_GPIOCTL	 0x204
-#define INTC_GPIOA_PD	 0x208
-#define INTC_GPIOA_MSK	 0x20c
-#define INTC_GPIOB_PD	 0x210
-#define INTC_GPIOB_MSK	 0x214
-#define INTC_GPIOC_PD	 0x218
-#define INTC_GPIOC_MSK	 0x21c
-#define INTC_GPIOD_PD	 0x220
-#define INTC_GPIOD_MSK	 0x224
-#define INTC_GPIOE_PD	 0x228
-#define INTC_GPIOE_MSK	 0x22c
-#define INTC_GPIOA_TYPE0 0x230
-#define INTC_GPIOA_TYPE1 0x234
-#define INTC_GPIOB_TYPE0 0x238
-#define INTC_GPIOB_TYPE1 0x23c
-#define INTC_GPIOC_TYPE0 0x240
-#define INTC_GPIOC_TYPE1 0x244
-#define INTC_GPIOD_TYPE0 0x248
-#define INTC_GPIOD_TYPE1 0x24c
-#define INTC_GPIOE_TYPE	 0x250
-
-/* CTLR */
-#define GPIO_CTLR_PENDING        (0x1 << 0)
-#define GPIO_CTLR_ENABLE         (0x1 << 1)
-#define GPIO_CTLR_SAMPLE_CLK     (0x1 << 2)
-#define	GPIO_CTLR_SAMPLE_CLK_32K (0x0 << 2)
-#define	GPIO_CTLR_SAMPLE_CLK_24M (0x1 << 2)
+#define INTC_GPIOCTL 0x204
+#define INTC_GPIOCTL_GPIOX_EN(x) (1 << 5*x)
+#define INTC_GPIOCTL_GPIOX_PD(x) (1 << (5*x + 1))
+#define INTC_GPIOCTL_GPIOX_CLK(x) (1 << (5*x + 2))
+#define INTC_GPIOX_PD(x) 	(0x208 + 0x8*x)
+#define INTC_GPIOX_MSK(x) 	(0x20c + 0x8*x)
+#define INTC_GPIOX_TYPE0(x) (0x230 + 0x8*x)
+#define INTC_GPIOX_TYPE1(x)	(0x234 + 0x8*x)
 
 /* TYPE */
 #define GPIO_INT_TYPE_MASK    (0x3)
@@ -103,9 +83,6 @@
 #define GPIO_INT_TYPE_LOW     (0x1)
 #define GPIO_INT_TYPE_RISING  (0x2)
 #define GPIO_INT_TYPE_FALLING (0x3)
-
-/* pending mask for share intc_ctlr */
-#define GPIO_CTLR_PENDING_MASK (0x42108421)
 
 #define to_caninos_gpio_chip(x) \
 	container_of(x, struct caninos_gpio_chip, gpio_chip)
@@ -131,8 +108,10 @@ struct caninos_gpio_chip
 {
 	struct caninos_pinctrl *pinctrl;
 	struct gpio_chip gpio_chip;
+	raw_spinlock_t *lock;
 	char label[BANK_LABEL_LEN];
 	int addr, npins;
+	unsigned int irq;
 	u32 mask;
 };
 
