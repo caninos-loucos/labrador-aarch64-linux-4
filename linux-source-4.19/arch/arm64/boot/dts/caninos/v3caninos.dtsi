@@ -172,7 +172,7 @@
 			             <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
 			             <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
 			             <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
-			#dma-cells = <1>;	
+			#dma-cells = <1>;
 			clocks = <&cmu CLK_DMAC>;
 			clock-names = "dmac";
 			power-domains = <&sps PD_DMAC>;

@@ -975,22 +975,17 @@ static void caninos_exit(struct caninos_hdmi *hdmi)
 
 static int caninos_power_on(struct caninos_hdmi *hdmi)
 {
-	int ret = 0;
-	
-	if (!caninos_is_video_enabled(hdmi)) {
-		reset_control_assert(hdmi->hdmi_rst);
-	}
-	
 	clk_prepare_enable(hdmi->hdmi_dev_clk);
-	mdelay(1);
 	
-	if (!caninos_is_video_enabled(hdmi))
-	{
-		reset_control_deassert(hdmi->hdmi_rst);
-		mdelay(1);
+	if (caninos_is_video_enabled(hdmi)) {
+		caninos_video_disable(hdmi);
 	}
 	
-	return ret;
+	reset_control_assert(hdmi->hdmi_rst);
+	usleep_range(5000, 6000);
+	reset_control_deassert(hdmi->hdmi_rst);
+	usleep_range(5000, 6000);
+	return 0;
 }
 
 static int caninos_init(struct caninos_hdmi *hdmi)
@@ -1005,6 +1000,7 @@ static int caninos_init(struct caninos_hdmi *hdmi)
 	hdmi->settings.prelines = 0;
 	hdmi->settings.channel_invert = 0;
 	hdmi->settings.bit_invert = 0;
+	
 	return caninos_power_on(hdmi);
 }
 static const struct caninos_hdmi_hwdiff caninos_hwdiff_k7 = {

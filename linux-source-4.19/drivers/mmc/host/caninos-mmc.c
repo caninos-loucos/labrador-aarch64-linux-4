@@ -61,7 +61,7 @@ struct caninos_mmc_host
 	struct mmc_host_ops ops;
 	void __iomem *base;
 	spinlock_t lock;
-	bool device_powered;
+	bool device_enabled;
 	int irq;
 	int power_gpio;
 	int enable_gpio;
@@ -856,27 +856,23 @@ static void caninos_mmc_set_ios(struct mmc_host *host, struct mmc_ios *ios)
 	
 	if (ios->power_mode == MMC_POWER_ON)
 	{
-		if (!priv->device_powered)
+		if (!priv->device_enabled)
 		{
-			/* power on the SD/SDIO/EMMC device (optional) */
-			if (gpio_is_valid(priv->power_gpio)) {
-				gpio_set_value(priv->power_gpio, 1);
-				usleep_range(10000, 12500);
-			}
 			/* enable the SD/SDIO/EMMC device (optional) */
 			if (gpio_is_valid(priv->enable_gpio)) {
 				gpio_set_value(priv->enable_gpio, 1);
 			}
 			if (gpio_is_valid(priv->reset_gpio)) {
+				usleep_range(10000, 12500);
 				gpio_set_value(priv->reset_gpio, 1);
 			}
-			priv->device_powered = true;
+			priv->device_enabled = true;
 		}
 	}
 	
 	if (ios->power_mode == MMC_POWER_OFF)
 	{
-		if (priv->device_powered)
+		if (priv->device_enabled)
 		{
 			/* disable the SD/SDIO/EMMC device (optional) */
 			if (gpio_is_valid(priv->reset_gpio)) {
@@ -885,11 +881,7 @@ static void caninos_mmc_set_ios(struct mmc_host *host, struct mmc_ios *ios)
 			if (gpio_is_valid(priv->enable_gpio)) {
 				gpio_set_value(priv->enable_gpio, 0);
 			}
-			/* turn off the SD/SDIO/EMMC device (optional) */
-			if (gpio_is_valid(priv->power_gpio)) {
-				gpio_set_value(priv->power_gpio, 0);
-			}
-			priv->device_powered = false;
+			priv->device_enabled = false;
 		}
 	}
 }
@@ -1025,10 +1017,11 @@ static int caninos_mmc_hardware_init(struct mmc_host *host)
 		gpio_direction_output(priv->enable_gpio, 0);
 	}
 	if (gpio_is_valid(priv->power_gpio)) {
-		gpio_direction_output(priv->power_gpio, 0);
+		gpio_direction_output(priv->power_gpio, 1);
+		usleep_range(10000, 12500);
 	}
 	
-	priv->device_powered = false;
+	priv->device_enabled = false;
 	clk_prepare_enable(priv->clk);
 	reset_control_deassert(priv->rst);
 	caninos_mmc_disable_all_irqs(host);

@@ -110,6 +110,7 @@ static void caninos_raw_direction_output(struct caninos_gpio_chip *chip,
 		}
 		
 		writel(val, dat);
+		readl(dat);
 		
 		spin_unlock_irqrestore(&pinctrl->lock, flags);
 	}
@@ -137,6 +138,7 @@ static void caninos_raw_direction_input(struct caninos_gpio_chip *chip,
 		val = readl(inen);
 		val |= BIT(offset);
 		writel(val, inen);
+		readl(inen);
 		
 		spin_unlock_irqrestore(&pinctrl->lock, flags);
 	}
@@ -164,6 +166,7 @@ static void caninos_raw_direction_device(struct caninos_gpio_chip *chip,
 		val = readl(inen);
 		val &= ~BIT(offset);
 		writel(val, inen);
+		readl(inen);
 		
 		spin_unlock_irqrestore(&pinctrl->lock, flags);
 	}
@@ -200,6 +203,7 @@ static void caninos_raw_gpio_set(struct caninos_gpio_chip *chip,
 		}
 		
 		writel(val, base + GPIO_ADAT);
+		readl(base + GPIO_ADAT);
 	}
 }
 
@@ -361,7 +365,7 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 	struct of_phandle_args args;
 	const char *label;
 	u32 mask;
-		
+	
 	if (!of_parse_phandle_with_fixed_args(np, "gpio-ranges", 3, i, &args))
 	{
 		bank_nr = args.args[1] / GPIO_PER_BANK;
