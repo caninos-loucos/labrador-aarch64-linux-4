@@ -7,13 +7,12 @@
             compatible = "spi-gpio";
             #address-cells = <1>;
             #size-cells = <0>;
-            //ranges;
-
+            
             gpio-mosi = <&gpioc 0 GPIO_ACTIVE_HIGH>;
             gpio-sck = <&gpioe 2 GPIO_ACTIVE_HIGH>;
             gpio-miso = <&gpiob 18 GPIO_ACTIVE_HIGH>;
-            cs-gpios = <&gpioe 3 GPIO_ACTIVE_LOW>; //, <&gpiob 19 GPIO_ACTIVE_LOW>;
-            num-chipselects = <1>;
+            cs-gpios = <&gpioe 3 GPIO_ACTIVE_LOW>, <&gpiob 19 GPIO_ACTIVE_LOW>;
+            num-chipselects = <2>;
             status = "okay";
             
             tft35a@0 {
@@ -45,15 +44,16 @@
                     0x28 0x1000011 0x1000029>;
                 };
 
-        //tft35a-ts@1 {
-         //       compatible = "ti,ads7846";
-          //      reg = <1>;
-           //     spi-max-frequency = <10000>;
-            //    //interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_LOW>;
-             //   pendown-gpio = <&gpioc 0 GPIO_ACTIVE_LOW>;
-              //  ti,x-plate-ohms = [00 3c];
-               // ti,pressure-max = [00 ff];
-           // };
+            tft35a-ts@1 {
+                compatible = "ti,ads7846";
+                reg = <1>;
+                spi-max-frequency = <10000>;
+                interrupt-parent = <&gpioc>;
+                interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+                pendown-gpio = <&gpioc 0 GPIO_ACTIVE_LOW>;
+                ti,x-plate-ohms = [00 3c];
+                ti,pressure-max = [00 ff];
+            };
         };
     };
 };

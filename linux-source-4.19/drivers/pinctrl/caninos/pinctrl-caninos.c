@@ -322,8 +322,10 @@ static void caninos_gpio_irq_ack(struct irq_data *data)
 	unsigned long type, flags;
 	int line, hwirq;
 
-	val = readl(bank->pinctrl->base + INTC_GPIOCTL);
+	raw_spin_lock_irqsave(bank->lock, flags);
 
+	pr_err("here?");
+	val = readl(bank->pinctrl->base + INTC_GPIOCTL);
 	hwirq = irq_linear_revmap(data->domain, data->irq);
 	line = data->irq - hwirq;
 
@@ -337,7 +339,6 @@ static void caninos_gpio_irq_ack(struct irq_data *data)
 		type = (type >> (2*line - 30));
 	}
 
-	raw_spin_lock_irqsave(bank->lock, flags);	
 	if (type && 0x2)
 	{
 		val &= ~INTC_GPIOCTL_GPIOX_PD(bank->addr);
@@ -511,22 +512,17 @@ static int caninos_gpio_register_bank_irqs(struct caninos_gpio_chip *bank,
 											struct device_node *bank_np)
 {
 	int ret;
-	pr_info("cast@510 ");
 	struct gpio_irq_chip *girq = &bank->gpio_chip.irq;
-	pr_info("correct\n");
 
 	girq->chip = (struct irq_chip *) &caninos_gpio_irq_chip; // drop the const because that's what 
 															 // gpio_irq_chip_set_chip does
-	pr_info ("chip set");
-
 	girq->domain = irq_domain_add_linear(bank_np, bank->npins, 
 								&caninos_irq_domain_ops, bank);
-
 	if(!girq->domain){
 		dev_err(bank->pinctrl->dev, "failed to create GPIO IRQ domain on %s", bank->label);
 		return -ENXIO;
 	}
-
+	
 	ret = request_irq(bank->irq, caninos_handle_irq, 0, bank->label, NULL); // should this be here or in parse bank?
 																			// and should this be devm_request_irq
 																			// using bank->pinctrl->dev?
@@ -537,11 +533,6 @@ static int caninos_gpio_register_bank_irqs(struct caninos_gpio_chip *bank,
 	}
 
 	ret = irq_set_chip_data(bank->irq, bank);
-	
-	if (ret) {
-		dev_err(bank->pinctrl->dev, "irq_set_chip_data failed for bank %s\n", bank->label);
-		return -ENXIO;
-	}
 
 	return 0;
 }
@@ -567,9 +558,9 @@ static int caninos_gpiolib_register_banks(struct caninos_pinctrl *pctl)
 }
 
 static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
-                                      struct device_node *np)
+                                      struct device_node *np, int bank_n)
 {
-	struct caninos_gpio_chip *bank = &pctl->banks[pctl->nbanks];
+	struct caninos_gpio_chip *bank = &pctl->banks[bank_n];
 	struct device *dev = pctl->dev;
 	int i = 0, ret, bank_nr, npins;
 	unsigned int irq;
@@ -580,6 +571,11 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 	if (!of_parse_phandle_with_fixed_args(np, "gpio-ranges", 3, i, &args))
 	{
 		bank_nr = args.args[1] / GPIO_PER_BANK;
+
+		if (bank_nr != bank_n) {
+			dev_err(dev, "gpio bank number mismatch between OF and driver");
+			return -EINVAL;
+		}
 		
 		bank->gpio_chip.base = args.args[1];
 		npins = args.args[0] + args.args[2];
@@ -594,28 +590,27 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 		        np->full_name);
 		return -ENODEV;
 	}
+
 	if (npins > GPIO_PER_BANK) {
 		dev_err(dev, "number of gpios on bank %s is too large %i\n",
 		        np->full_name, npins);
 		return ret;
 	}
-	if ((ret = of_property_read_string(np, "gpio-label", &label)) < 0)
-	{
+
+	if ((ret = of_property_read_string(np, "gpio-label", &label)) < 0) {
 		dev_err(dev, "missing gpio-label property on bank %s\n", np->full_name);
 		return ret;
 	}
-	if ((ret = of_property_read_u32(np, "gpio-mask", &mask)) < 0)
-	{
+
+	if ((ret = of_property_read_u32(np, "gpio-mask", &mask)) < 0) {
 		dev_err(dev, "missing gpio-mask property on bank %s\n", np->full_name);
 		return ret;
 	}
-	if ((irq = of_irq_get(np, 0)) < 0)
-	{
+
+	if ((irq = of_irq_get(np, 0)) < 0) {
 		dev_err(dev, "unable to get IRQ for bank %s\n", np->full_name);
 		return -EINVAL;
 	}
-
-	pr_info("got irq %d", irq);
 		
 	strlcpy(bank->label, label, BANK_LABEL_LEN);
 	
@@ -644,7 +639,6 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 	bank->gpio_chip.owner = THIS_MODULE;
 	bank->gpio_chip.can_sleep = false;
 
-
 	return 0;
 }
 
@@ -657,7 +651,7 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 	struct caninos_pinctrl *pctl;
 	struct device_node *child;
 	struct resource res;
-	int ret, nbanks = 0;
+	int ret, nbanks = 0, i = 0;
 	
 	if (!np) {
 		dev_err(dev, "missing device OF node\n");
@@ -666,8 +660,7 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 	
 	match = of_match_device(dev->driver->of_match_table, dev);
 	
-	if (!match || !match->data)
-	{
+	if (!match || !match->data) {
 		dev_err(dev, "could not get hardware specific data\n");
 		return -EINVAL;
 	}
@@ -701,36 +694,34 @@ static int caninos_pinctrl_probe(struct platform_device *pdev)
 	pctl->pctl_desc.pmxops = &caninos_pmxops;
 	
 	spin_lock_init(&pctl->lock);
-	
+		
 	for_each_available_child_of_node(np, child)
 		if (of_property_read_bool(child, "gpio-controller"))
 			nbanks++;
-	
+
 	if (!nbanks) {
 		dev_err(dev, "at least one GPIO bank is required\n");
 		return -EINVAL;
 	}
-	
+
+	pctl->nbanks = nbanks;	
 	pctl->banks = devm_kcalloc(dev, nbanks, sizeof(*pctl->banks), GFP_KERNEL);
 	
 	if (!pctl->banks) {
 		dev_err(dev, "gpio banks memory allocation failed\n");
 		return -ENOMEM;
 	}
-
-	pctl->nbanks = nbanks;
 	
-	for_each_available_child_of_node(np, child)
-	{
-		if (of_property_read_bool(child, "gpio-controller"))
-		{
-			if ((ret = caninos_gpiolib_parse_bank(pctl, child)) < 0)
+	for_each_available_child_of_node(np, child)	{
+		if (of_property_read_bool(child, "gpio-controller")) {
+			if ((ret = caninos_gpiolib_parse_bank(pctl, child, i)) < 0)
 				return ret;
-			//if((ret = caninos_gpio_register_bank_irqs(&pctl->banks[--nbanks], child)) < 0)
-			//	return ret;
+			if((ret = caninos_gpio_register_bank_irqs(&pctl->banks[i], child)) < 0)
+				return ret;
+			i++;
 		}
 	}
-	
+
 	if (!of_address_to_resource(np, 0, &res))
 		pctl->base = devm_ioremap(dev, res.start, resource_size(&res));
 	
