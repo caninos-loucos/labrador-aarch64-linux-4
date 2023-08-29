@@ -29,6 +29,7 @@
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/gpio/driver.h>
 
+#define BANK_MAX_COUNT (5U)
 #define BANK_LABEL_LEN (16U)
 #define GPIO_PER_BANK  (32U)
 
@@ -77,7 +78,7 @@
 #define INTC_GPIOX_TYPE0(x) (0x230 + 0x8*x)
 #define INTC_GPIOX_TYPE1(x)	(0x234 + 0x8*x)
 
-/* TYPE */
+/* IRQ TYPE */
 #define GPIO_INT_TYPE_MASK    (0x3)
 #define GPIO_INT_TYPE_HIGH    (0x0)
 #define GPIO_INT_TYPE_LOW     (0x1)
@@ -123,7 +124,8 @@ struct caninos_pinctrl
 	struct clk *clk;
 	struct pinctrl_desc pctl_desc;
 	struct pinctrl_dev *pctl_dev;
-	struct caninos_gpio_chip *banks;
+	
+	struct caninos_gpio_chip banks[BANK_MAX_COUNT];
 	int nbanks;
 	
 	const struct caninos_pmx_func *functions;
