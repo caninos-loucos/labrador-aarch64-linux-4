@@ -557,21 +557,6 @@
 			#size-cells = <0>;
 		};
 		
-		sound@b0100000 {
-			compatible = "caninos,sndcard";
-			reg = <0xb0100000 0x34>;
-			clocks = <&cmu CLK_I2SRX>,
-				     <&cmu CLK_I2STX>,
-				     <&cmu CLK_AUDIO_PLL>;
-			clock-names = "i2srx", "i2stx", "audio_pll";
-			resets = <&rst RST_AUDIO>;
-			reset-names = "audio_rst";
-			codec = <&atc260x_audio>;
-			dmas = <&dma DMA_DRQ_I2S_TX>, <&dma DMA_DRQ_I2S_RX>;
-			dma-names = "tx","rx";
-			status = "okay";
-		};
-		
 		usb2h0: usb@b0600000 {
 			compatible = "caninos,k5-usb2.0-0";
 			reg = <0xb0600000 0x1000>, <0xb0168084 0x4>;
@@ -600,29 +585,60 @@
 			status = "okay";
 		};
 		
+		sound@b0100000 {
+			compatible = "caninos,sndcard";
+			reg = <0xb0100000 0x34>;
+			clocks = <&cmu CLK_I2SRX>,
+				     <&cmu CLK_I2STX>,
+				     <&cmu CLK_AUDIO_PLL>;
+			clock-names = "i2srx", "i2stx", "audio_pll";
+			resets = <&rst RST_AUDIO>;
+			reset-names = "audio_rst";
+			codec = <&atc260x_audio>;
+			dmas = <&dma DMA_DRQ_I2S_TX>, <&dma DMA_DRQ_I2S_RX>;
+			dma-names = "tx","rx";
+			status = "okay";
+		};
+		
 		hdmi: hdmi@b02c0000 {
 			compatible = "caninos,k5-hdmi";
 			reg = <0xb02c0000 0x1f0>, <0xb0160000 0x100>;
 			reg-names = "hdmi", "cmu";
-			clocks = <&cmu CLK_HDMI_DEV>;
-			clock-names = "hdmi";
-			resets = <&rst RST_HDMI>;
-			reset-names = "hdmi";
+			clocks = <&cmu CLK_HDMI_DEV>, <&cmu CLK_TVOUT>;
+			clock-names = "hdmi", "tvout";
+			resets = <&rst RST_HDMI>, <&rst RST_TVOUT>;
+			reset-names = "hdmi", "tvout";
 			status = "okay";
 		};
 		
-		drm: video {
-			compatible = "caninos,k5-drm";
+		hdmi-audio@b0100000 {
+			compatible = "caninos,hdmi-audio";
+			reg = <0xb0100000 0x34>;
+			hdmi = <&hdmi>;
+			dmas = <&dma DMA_DRQ_HDMI_AUDIO>;
+			dma-names = "hdmi-tx";
+			clocks = <&cmu CLK_AUDIO_PLL>, <&cmu CLK_HDMI_AUDIO>;
+			clock-names = "audio-pll", "hdmia";
+			status = "disabled";
+		};
+		
+		vdc: vdc@0xb02e0000 {
+			compatible = "caninos,k5-vdc";
 			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
 			memory-region = <&fb_reserved>;
-			reg = <0xb02e0000 0x1014>, <0xb02b0000 0x80>, <0xb0290000 0x100>;
-			reg-names = "de", "cvbs", "dcu";
-			clocks = <&cmu CLK_TVOUT>, <&cmu CLK_CVBS_PLL>, <&cmu CLK_DE>,
-			         <&cmu CLK_DEV>;
-			clock-names = "tvout", "cvbs_pll", "clk", "parent_clk";
-			resets = <&rst RST_TVOUT>, <&rst RST_DE>;
-			reset-names = "tvout", "de";
-			hdmi-phy = <&hdmi>;
+			clocks = <&cmu CLK_DE>;
+			clock-names = "de";
+			reg = <0xb02e0000 0x1014>;
+			reg-names = "de";
+			resets = <&rst RST_DE>;
+			reset-names = "de";
+			status = "okay";
+		};
+		
+		drm {
+			compatible = "caninos,drm";
+			hdmi-controller = <&hdmi>;
+			display-controller = <&vdc>;
 			status = "okay";
 		};
 		

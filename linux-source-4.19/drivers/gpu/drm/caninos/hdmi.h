@@ -26,27 +26,7 @@
 #include <sound/dmaengine_pcm.h>
 #include <sound/soc.h>
 
-/* horizontal and vertical sync active high */
-#define DSS_SYNC_HOR_HIGH_ACT  (1 << 0)
-#define DSS_SYNC_VERT_HIGH_ACT (1 << 1)
-
-struct videomode
-{
-	int xres; /* visible resolution */
-	int yres;
-	int refresh; /* vertical refresh rate in hz */
-	/*
-	 * Timing: All values in pixclocks, except pixclock
-	 */
-	int pixclock; /* pixel clock in ps (pico seconds) */
-	int hfp; /* horizontal front porch */
-	int hbp; /* horizontal back porch */
-	int vfp; /* vertical front porch */
-	int vbp; /* vertical back porch */
-	int hsw; /* horizontal synchronization pulse width */
-	int vsw; /* vertical synchronization pulse width */
-	int sync; /* see DSS_SYNC_* */
-};
+#include "caninos-drm.h"
 
 enum SRC_SEL {
 	VITD = 0,
@@ -93,27 +73,26 @@ enum hdmi_3d_mode {
 	HDMI_3D_FRAME,
 };
 
-/*
- * a configuration structure to convet HDMI resolutoins
- * between vid and video_timings.
- * vid is some fix number defined by HDMI spec,
- * are used in EDID etc.
- */
+/* horizontal and vertical sync active high */
+#define DSS_SYNC_HOR_HIGH_ACT  (1 << 0)
+#define DSS_SYNC_VERT_HIGH_ACT (1 << 1)
 
-enum hdmi_vid_table {
-	VID640x480P_60_4VS3    =  1,
-	VID720x480P_60_4VS3    =  2,
-	VID1280x720P_60_16VS9  =  4,
-	VID1920x1080I_60_16VS9 =  5,
-	VID720x480I_60_4VS3    =  6,
-	VID1920x1080P_60_16VS9 = 16,
-	VID720x576P_50_4VS3    = 17,
-	VID1280x720P_50_16VS9  = 19,
-	VID1920x1080I_50_16VS9 = 20,
-	VID720x576I_50_4VS3    = 21,
-	VID1440x576P_50_4VS3   = 29,
-	VID1920x1080P_50_16VS9 = 31,
-	VID1920x1080P_24_16VS9 = 32,
+struct videomode
+{
+	int xres; /* visible resolution */
+	int yres;
+	int refresh; /* vertical refresh rate in hz */
+	/*
+	 * Timing: All values in pixclocks, except pixclock
+	 */
+	int pixclock; /* pixel clock in ps (pico seconds) */
+	int hfp; /* horizontal front porch */
+	int hbp; /* horizontal back porch */
+	int vfp; /* vertical front porch */
+	int vbp; /* vertical back porch */
+	int hsw; /* horizontal synchronization pulse width */
+	int vsw; /* vertical synchronization pulse width */
+	int sync; /* see DSS_SYNC_* */
 };
 
 enum hdmi_packet_type {
@@ -125,8 +104,6 @@ enum hdmi_packet_type {
 	PACKET_HFVS_SLOT  = 5,
 	PACKET_MAX,
 };
-
-struct caninos_hdmi;
 
 struct caninos_hdmi_ops
 {

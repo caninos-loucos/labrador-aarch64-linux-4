@@ -130,7 +130,7 @@
 			         <&cmu CLK_HOSC>, <&cmu CLK_PWM1>;
 			clock-names = "parent", "core", "hosc", "pwm1";
 			#clock-cells = <1>;
-			status = "okay";
+			status = "disabled";
 		};
 		
 		gic: interrupt-controller@e00f1000 {
@@ -260,14 +260,11 @@
 			compatible = "caninos,k7-pwm";
 			reg = <0 0xe01b0000 0 0x1000>;
 			#pwm-cells = <3>;
-			
 			pinctrl-names = "default", "extio";
 			pinctrl-0 = <&pwm_state_gpio>;
 			pinctrl-1 = <&pwm_state_extio>;
-			
 			clocks = <&cmu CLK_PWM3>, <&cmu CLK_LOSC>, <&cmu CLK_HOSC>;
 			clock-names = "pwm3", "losc", "hosc";
-			
 			status = "okay";
 		};
 		
@@ -341,41 +338,43 @@
 		
 		hdmi: hdmi@e02c0000 {
 			compatible = "caninos,k7-hdmi";
-			reg = <0x0 0xe02c0000 0x0 0x1f0>,
-			      <0x0 0xe0168000 0x0 0x100>;
+			reg = <0x0 0xe02c0000 0x0 0x1f0>, <0x0 0xe0168000 0x0 0x100>;
 			reg-names = "hdmi", "cmu";
-			clocks = <&cmu CLK_HDMI_DEV>;
-			clock-names = "hdmi";
-			resets = <&rst RST_HDMI>;
-			reset-names = "hdmi";
+			clocks = <&cmu CLK_HDMI_DEV>, <&cmu CLK_TVOUT>;
+			clock-names = "hdmi", "tvout";
+			resets = <&rst RST_HDMI>, <&rst RST_TVOUT>;
+			reset-names = "hdmi", "tvout";
 			status = "okay";
 		};
 		
 		hdmi-audio@e0166000 {
-			compatible = "caninos,k7-hdmi-audio";
-			reg = <0x0 0xe0166000 0x0 0x010>; 
+			compatible = "caninos,hdmi-audio";
+			reg = <0x0 0xe0166000 0x0 0x34>; 
 			hdmi = <&hdmi>;
 			dmas = <&dma DMA_DRQ_HDMI_AUDIO>;
 			dma-names = "hdmi-tx";
-			clocks = <&cmu CLK_AUDIO_PLL>, 
-			         <&cmu CLK_HDMI_AUDIO>;
+			clocks = <&cmu CLK_AUDIO_PLL>, <&cmu CLK_HDMI_AUDIO>;
 			clock-names = "audio-pll", "hdmia";
+			status = "disabled";
+		};
+		
+		vdc: vdc@0xe02e0000 {
+			compatible = "caninos,k7-vdc";
+			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
+			memory-region = <&fb_reserved>;
+			clocks = <&cmu CLK_DE>;
+			clock-names = "de";
+			reg = <0x0 0xe02e0000 0x0 0x1014>;
+			reg-names = "de";
+			resets = <&rst RST_DE>;
+			reset-names = "de";
 			status = "okay";
 		};
 		
-		drm: video {
-			compatible = "caninos,k7-drm";
-			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
-			memory-region = <&fb_reserved>;
-			reg = <0x0 0xe02e0000 0x0 0x1014>, <0x0 0xe02b0000 0x0 0x80>,
-			      <0x0 0xe0290000 0x0 0x100>;
-			reg-names = "de", "cvbs", "dcu";
-			clocks = <&cmu CLK_TVOUT>, <&cmu CLK_CVBS_PLL>, <&cmu CLK_DE>,
-			         <&cmu CLK_DEV>;
-			clock-names = "tvout", "cvbs_pll", "clk", "parent_clk";
-			resets = <&rst RST_TVOUT>, <&rst RST_DE>;
-			reset-names = "tvout", "de";
-			hdmi-phy = <&hdmi>;
+		drm {
+			compatible = "caninos,drm";
+			hdmi-controller = <&hdmi>;
+			display-controller = <&vdc>;
 			status = "okay";
 		};
 		
@@ -654,7 +653,7 @@
 			clock-names = "bus", "core";
 			resets = <&rst RST_GPU3D>;
 			
-			status = "okay";
+			status = "disabled";
 		};
 		
 		eth0: ethernet@e0220000 {

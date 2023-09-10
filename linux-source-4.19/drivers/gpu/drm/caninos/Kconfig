@@ -6,26 +6,19 @@ config DRM_CANINOS
 	select DRM_KMS_HELPER
 	select DRM_KMS_CMA_HELPER
 	select VIDEOMODE_HELPERS
+	select SND_SOC_HDMI_CODEC if DRM_CANINOS_HDMI_AUDIO && SND_SOC
 	help
 	 This is a KMS driver for Caninos Labrador Display Engine.
-	 If M is selected the module will be called caninos-drm.
+	 If M is selected the module will be called caninosdrm.
 
 if DRM_CANINOS
 
-config DRM_CANINOS_HDMI
-	tristate "Caninos Labrador HDMI Video Interface Support"
-	default DRM_CANINOS
-	help
-	 Support the HDMI Video Interface of Caninos Labrador SBCs.
-	 If M is selected the module will be called caninos-hdmi.
-
 config DRM_CANINOS_HDMI_AUDIO
-	tristate "Caninos Labrador HDMI Audio Interface Support"
+	bool "Enable Caninos Labrador HDMI Audio Interface Support"
 	depends on SND_SOC
-	depends on DRM_CANINOS_HDMI
-	select SND_SOC_HDMI_CODEC
+	depends on DRM_CANINOS
 	help
-	 Support the HDMI Audio Interface of Caninos Labrador SBCs.
-	 If M is selected the module will be called caninos-hdmi-audio.
+	 This selects support for HDMI Audio Interface. If you want to enable
+	 hdmi audio output on Caninos Labrador SBCs, you should select this option.
 
 endif

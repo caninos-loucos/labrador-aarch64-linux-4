@@ -1,5 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 LSI-TEC - Caninos Loucos
+ * Caninos HDMI Soundcard Driver
+ *
+ * Copyright (c) 2022-2023 ITEX - LSITEC - Caninos Loucos
+ * Author: Ana Clara Forcelli <ana.forcelli@lsitec.org.br>
+ * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ *
+ * Copyright (c) 2019 LSITEC - Caninos Loucos
  * Author: Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,7 +33,6 @@
 
 #include "hdmi.h"
 #include "hdmi-regs.h"
-
 
 #define SPDIF_HDMI_CTL 0x10
 #define	HDMFR  1  // hdmi fifo reset
@@ -153,7 +159,6 @@ static int caninos_pcm_hw_params
 	return 0;
 }
 
-
 static int caninos_pcm_set_runtime_hwparams(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
@@ -213,7 +218,7 @@ static int caninos_pcm_prepare(struct snd_pcm_substream *substream)
 }
 
 static struct snd_pcm_ops caninos_pcm_ops = {
-	.open =	caninos_pcm_open,
+	.open = caninos_pcm_open,
 	.close = snd_dmaengine_pcm_close,
 	.ioctl = snd_pcm_lib_ioctl,
 	.hw_params = caninos_pcm_hw_params,
@@ -382,7 +387,7 @@ static int snd_caninos_probe(struct platform_device *pdev)
 	chip->pcm = pcm;
 	
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &caninos_pcm_ops);
-
+	
 	caninos_set_rate(chip);
 	
 	/* Setup Playback Substream DMA channel */
@@ -419,34 +424,28 @@ static int snd_caninos_remove(struct platform_device *pdev)
 {
 	struct snd_card *card = platform_get_drvdata(pdev);
 	
-	if (card)
-	{
-		struct snd_hdmi_caninos *chip = card->private_data;
+	if (card) {
 		snd_card_free(card);
 	}
-	
 	return 0;
 }
 
 static const struct of_device_id sndcard_of_match[] = {
-	{.compatible = "caninos,k7-hdmi-audio",},
-	{.compatible = "caninos,k5-hdmi-audio",},
-	{}
+	{ .compatible = "caninos,hdmi-audio" },
+	{ /* sentinel */ }
 };
-MODULE_DEVICE_TABLE(of, sndcard_of_match);
 
-static struct platform_driver snd_caninos_driver = {
+struct platform_driver caninos_hdmi_audio_plat_driver = {
 	.probe = snd_caninos_probe,
-	.remove	= snd_caninos_remove,
-	.driver	= {
+	.remove = snd_caninos_remove,
+	.driver = {
 		.name = "caninos-hdmi-audio",
-		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(sndcard_of_match),
+		.owner = THIS_MODULE,
 	},
 };
 
-module_platform_driver(snd_caninos_driver);
-
+MODULE_AUTHOR("Ana Clara Forcelli <ana.forcelli@lsitec.org.br>");
+MODULE_AUTHOR("Edgar Bernardi Righi <edgar.righi@lsitec.org.br>");
 MODULE_DESCRIPTION("Caninos HDMI Soundcard Driver");
-MODULE_LICENSE("GPL");
-
+MODULE_LICENSE("GPL v2");
