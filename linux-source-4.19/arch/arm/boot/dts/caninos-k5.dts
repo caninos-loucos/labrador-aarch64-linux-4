@@ -663,7 +663,7 @@
 			
 			resets = <&rst RST_ETHERNET>;
 			reset-names = "ethernet";
-			 
+			
 			phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>; 
 			phy-reset-gpio = <&gpiod 31 GPIO_ACTIVE_HIGH>; 
 			phy_addr = <1>;

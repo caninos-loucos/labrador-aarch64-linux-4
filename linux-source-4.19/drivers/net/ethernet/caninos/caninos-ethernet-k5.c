@@ -13,7 +13,6 @@
 #include <linux/of.h>
 #include <linux/gpio.h>
 #include <linux/of_platform.h>
-#include <linux/of_net.h>
 #include <linux/of_gpio.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/etherdevice.h>
@@ -25,21 +24,15 @@
 #include <linux/random.h>
 #include <uapi/linux/mii.h>
 #include <linux/delay.h>
-#include <linux/reset.h>
 #include <linux/pm_runtime.h>
+#include <linux/reset.h>
 
-#include "caninos-ethernet-k5-regs.h"
+#include "caninos-ethernet-k5.h"
 
-#define DRIVER_NAME "caninos-k5-ethernet"
+#define DRIVER_NAME "labrador-ethernet"
 
 #define INFO_MSG(fmt,...) pr_info(DRIVER_NAME ": " fmt, ##__VA_ARGS__)
 #define ERR_MSG(fmt,...) pr_err(DRIVER_NAME ": " fmt, ##__VA_ARGS__)
-
-/*struct ethernet_gpio {
-    int gpio;
-    int active;
-};*/
-
 
 typedef struct{
 	int phy_reset_gpio;
@@ -136,7 +129,7 @@ struct ethernet_buffer_desc {
 
 #define EC_RX_fetch_dsp (0x1 <<17)
 #define EC_RX_close_dsp (0x5 <<17)
-#define EC_RX_run_dsp 	(0x7 <<17)
+#define EC_RX_run_dsp  (0x7 <<17)
 #define EC_TX_run_dsp  (0x3 << 20)
 
 #define EC_BMODE_SWR (0x1) // software resetcani
@@ -178,8 +171,8 @@ struct ethernet_buffer_desc {
 #define PHY_RTL8201F_REG_PAGE_SELECT_ZERO     0x0
 
 #define PHY_RTL8201F_LINK_STATUS_CHANGE     (0x1<<11)
-#define PHY_RTL8201F_RMSR_CLK_DIR_INPUT	    (0x1<<12)
-#define PHY_RTL8201F_RMSR_RMII_MODE	        (0x1<<3)
+#define PHY_RTL8201F_RMSR_CLK_DIR_INPUT     (0x1<<12)
+#define PHY_RTL8201F_RMSR_RMII_MODE         (0x1<<3)
 #define PHY_RTL8201F_RMSR_RMII_RX_OFFSET    (0xF<<4)
 #define PHY_RTL8201F_RMSR_RMII_TX_OFFSET    (0xF<<8)
 #define PHY_RTL8201F_PIN_LINK_STATE_CHANGE  (0x1 <<4)
@@ -189,25 +182,23 @@ struct ethernet_buffer_desc {
 #define ETH_MAC_LEN 6
 #define ETH_CRC_LEN 4
 
-///////
-static void __iomem *base;
+struct reset_control *eth_rst = NULL;
 
+static void __iomem *base = NULL;
+
+static char default_mac_addr[ETH_MAC_LEN] = {0x00, 0x18, 0xFE, 0x61, 0xD5, 0xD6};
 static char mac_addr[ETH_MAC_LEN];
 
-static struct reset_control *eth_rst;
-
-static struct clk *ethernet_clk = NULL;
-static struct pinctrl *pcl = NULL;
-static struct pinctrl_state *state = NULL;
-static struct net_device *ethernet_dev = NULL;
+static struct clk * ethernet_clk = NULL;
+static struct pinctrl * ethernet_ppc = NULL;
+static struct net_device * ethernet_dev = NULL;
 
 static struct ethernet_buffer_desc *ethernet_tx_buf = NULL;
 static struct ethernet_buffer_desc *ethernet_rx_buf = NULL;
 
-static struct ethernet_buffer_desc *ethernet_cur_rx = NULL;
-static struct ethernet_buffer_desc *ethernet_cur_tx = NULL;
-
-static struct ethernet_buffer_desc *ethernet_dirty_tx = NULL;
+static volatile struct ethernet_buffer_desc *ethernet_cur_rx = NULL;
+static volatile struct ethernet_buffer_desc *ethernet_cur_tx = NULL;
+static volatile struct ethernet_buffer_desc *ethernet_dirty_tx = NULL;
 
 static struct sk_buff *ethernet_rx_skb[RX_RING_SIZE]; // rx_bd buffers
 static struct sk_buff *ethernet_tx_skb[TX_RING_SIZE]; // temp save transmited skb
@@ -219,7 +210,6 @@ static u32 ethernet_phy_addr;
 static bool ethernet_phy_linked = false;
 static bool ethernet_device_opened = false;
 
-
 static int ethernet_skb_cur = 0;
 static int ethernet_skb_dirty = 0;
 
@@ -228,58 +218,107 @@ static bool ethernet_tx_full = false;
 static DEFINE_SPINLOCK(ethernet_lock);
 
 static phy_gpio global_phy_gpio;
-//static struct ethernet_gpio phy_power_gpio;
-//static struct ethernet_gpio phy_reset_gpio;
-
 
 static void ethernet_phy_state_worker(struct work_struct *);
 
 static DECLARE_DELAYED_WORK(ethernet_phy_state_work, ethernet_phy_state_worker);
 
-/*generate an random mac address*/
-static int mac_gen(void){
-    int ret = 0, i = 0;
-    unsigned int rand_num = 0;
-    char *mac = (char *) mac_addr;
-    while(i<6){
-        get_random_bytes(&rand_num, sizeof(char));
-        if(i == 0){
-            mac[i] = 0x02;//localy administrated    
-        }else{
-            mac[i] = rand_num;
-        }
-        i++;
-    }
+static inline void act_writel(u32 val, u32 offset)
+{
+	writel(val, base + offset);
+}
 
-    return ret;
+static inline u32 act_readl(u32 offset)
+{
+	return readl(base + offset);
+}
+
+static int ethernet_tx_buffer_alloc(void);
+
+static void ethernet_tx_buffer_free(void);
+
+static int ethernet_rx_buffer_alloc(void);
+
+static void ethernet_rx_buffer_free(void);
+
+#define COPY_MAC_ADDR(dest, mac)  do {\
+    *(unsigned short *)(dest) = *(unsigned short *)(mac); \
+    *(unsigned short *)((dest) + 4) = *(unsigned short *)((mac) + 2); \
+    *(unsigned short *)((dest) + 8) = *(unsigned short *)((mac) + 4); \
+    (dest) += 12; \
+}while (0)
+
+/* generate an random mac address */
+static int mac_gen(void)
+{
+	int ret = 0, i = 0;
+	unsigned int rand_num = 0;
+	char *mac = (char *) mac_addr;
+	
+	while (i<6)
+	{
+		get_random_bytes(&rand_num, sizeof(char));
+		
+		if(i == 0) {
+			mac[i] = 0x02; //localy administrated    
+		}
+		else{
+ 			mac[i] = rand_num;
+		}
+		i++;
+	}
+	return ret;
+}
+
+static int ethernet_set_pin_mux(struct platform_device * pdev)
+{
+	ethernet_ppc = pinctrl_get_select_default(&pdev->dev);
+	
+	if (IS_ERR(ethernet_ppc))
+	{
+		ethernet_ppc = NULL;
+		return -ENODEV;
+	}
+	return 0;
+}
+
+static void ethernet_put_pin_mux(void)
+{
+	if (ethernet_ppc)
+	{
+		pinctrl_put(ethernet_ppc);
+		ethernet_ppc = NULL;
+	}
 }
 
 static int ethernet_get_clk(struct device *dev)
 {
-    unsigned long tfreq, freq;
-    struct clk * clk;
-    int ret;
-    
-    ethernet_clk = devm_clk_get(dev, "ethernet");
-    
-    if (IS_ERR(ethernet_clk))
-    {
-        ethernet_clk = NULL;
-        return -ENODEV;
-    }
-    
-    ret = clk_prepare(ethernet_clk);
+	unsigned long tfreq, freq;
+	struct clk * clk;
+	int ret;
+	
+	ethernet_clk = clk_get(dev, "ethernet");
+	
+	if (IS_ERR(ethernet_clk))
+	{
+		ethernet_clk = NULL;
+		return -ENODEV;
+	}
+	
+	ret = clk_prepare(ethernet_clk);
 	
 	if (ret)
 	{
+		clk_put(ethernet_clk);
 		ethernet_clk = NULL;
 		return ret;
 	}
 	
-	clk = devm_clk_get(dev, "rmii-ref");
+	clk = clk_get(dev, "rmii-ref");
 	
 	if (IS_ERR(clk))
 	{
+		clk_put(ethernet_clk);
 		ethernet_clk = NULL;
 		return -ENODEV;
 	}
@@ -290,137 +329,72 @@ static int ethernet_get_clk(struct device *dev)
 	
 	if (freq != tfreq)
 	{
-        INFO_MSG("could not get clock rate: %lu", freq);
+		clk_put(clk);
+		clk_put(ethernet_clk);
 		ethernet_clk = NULL;
-	    return -EINVAL;
+		return -EINVAL;
 	}
 	
 	ret = clk_set_rate(clk, freq);
 	
 	if (ret)
 	{
+		clk_put(clk);
+		clk_put(ethernet_clk);
 		ethernet_clk = NULL;
 		return ret;
 	}
 	
+	clk_put(clk);
 	return 0;
+}
+
+static void ethernet_put_clk(void)
+{
+	if (ethernet_clk)
+	{
+		clk_put(ethernet_clk);
+		ethernet_clk = NULL;
+	}
 }
 
 static int ethernet_clock_enable(int reset)
 {
 	int ret;
-
+	
 	if(ethernet_clk)
 	{
 		ret = clk_enable(ethernet_clk);
 		
 		if (ret) {
 			return ret;
-	    }
-	    
+		}
+		
 		udelay(100);
 		
 		if(reset){
 			reset_control_assert(eth_rst);
-            udelay(100);
-            reset_control_deassert(eth_rst);
+			udelay(100);
+			reset_control_deassert(eth_rst);
 		}
 		
 		udelay(100);
 	}
-	
 	return 0;
 }
-
-static int ethernet_mac_init(void)
-{
-	// hardware soft reset and set bus mode
-	
-	writel(readl(base + MAC_CSR0) | EC_BMODE_SWR, base + MAC_CSR0);
-	
-	do {
-		udelay(10);
-	} while (readl(base + MAC_CSR0) & EC_BMODE_SWR);
-	
-	// select clk input from external phy
-
-	writel(readl(base + MAC_CTRL) | (0x1 << 1), base + MAC_CTRL);
-	
-	writel(0, base + MAC_CSR10);
-	
-	writel(0xcc000000, base + MAC_CSR10);
-	
-	// physical address
-	
-	writel((u32)(ethernet_tx_buf_paddr), base + MAC_CSR4);
-	writel((u32)(ethernet_rx_buf_paddr), base + MAC_CSR3);
-	
-	// set flow control mode and force transmiter to pause about 100ms
-	
-	writel(EC_CACHETHR_CPTL(0x0) | EC_CACHETHR_CRTL(0x0) | EC_CACHETHR_PQT(0x4FFF), base + MAC_CSR18);
-	
-    writel(EC_FIFOTHR_FPTL(0x40) | EC_FIFOTHR_FRTL(0x10), base + MAC_CSR19);
-    
-    writel(EC_FLOWCTRL_ENALL, base + MAC_CSR20);
-    
-    writel(readl(base + MAC_CSR6) | EC_OPMODE_FD, base + MAC_CSR6); //Full-duplex
-	
-	writel(readl(base + MAC_CSR6) | EC_OPMODE_SPEED(0), base + MAC_CSR6); //100M
-	
-	writel(readl(base + MAC_CSR6) & (~EC_OPMODE_PR), base + MAC_CSR6);
-	
-	//interrupt mitigation control register
-	//NRP =7, RT =1, CS=0
-	
-	writel(0x004e0000, base + MAC_CSR11);
-	
-	return 0;
-}
-
-
-
-/*static int ethernet_parse_gpio(struct device_node * of_node, const char * propname, struct ethernet_gpio * gpio)
-{
-    enum of_gpio_flags gflags;
-    int	gpio_num;
-
-    gpio_num = of_get_named_gpio_flags(of_node, propname, 0, &gflags);
-    
-    if (gpio_num >= 0) {
-        gpio->gpio = gpio_num;
-    }
-    else
-    {
-        gpio->gpio = -1;
-        return -ENODEV;
-    }
-    
-    if (gpio_is_valid(gpio->gpio)) { 
-		gpio_request(gpio->gpio, propname);  
-	}
-	else
-    {
-        gpio->gpio = -1;
-        return -ENODEV;
-    }
-    
-    gpio->active = (gflags & OF_GPIO_ACTIVE_LOW);
-    return 0;
-}*/
-
 
 static int ethernet_write_phy_reg(u16 reg_addr, u16 val)
 {
 	u32 op_reg, phy_addr = ethernet_phy_addr;
 	
 	do {
-		op_reg = readl(base + MAC_CSR10);
+		op_reg = act_readl(MAC_CSR10);
 	} while (op_reg & MII_MNG_SB);
 	
-	writel(MII_MNG_SB | MII_MNG_OPCODE(MII_OP_WRITE) | MII_MNG_REGADD(reg_addr) | MII_MNG_PHYADD(phy_addr) | val, base + MAC_CSR10);
+	act_writel(MII_MNG_SB | MII_MNG_OPCODE(MII_OP_WRITE) | MII_MNG_REGADD(reg_addr) | MII_MNG_PHYADD(phy_addr) | val, MAC_CSR10);
 	
 	do {
-		op_reg = readl(base + MAC_CSR10);
+		op_reg = act_readl(MAC_CSR10);
 	} while (op_reg & MII_MNG_SB);
 	
 	return 0;
@@ -431,13 +405,13 @@ static int ethernet_read_phy_reg(u16 reg_addr, u16 * val)
 	u32 op_reg, phy_addr = ethernet_phy_addr;
 
 	do {
-		op_reg = readl(base + MAC_CSR10);
+		op_reg = act_readl(MAC_CSR10);
 	} while (op_reg & MII_MNG_SB);
 
-	writel(MII_MNG_SB | MII_MNG_OPCODE(MII_OP_READ) | MII_MNG_REGADD(reg_addr) | MII_MNG_PHYADD(phy_addr), base + MAC_CSR10);
+	act_writel(MII_MNG_SB | MII_MNG_OPCODE(MII_OP_READ) | MII_MNG_REGADD(reg_addr) | MII_MNG_PHYADD(phy_addr), MAC_CSR10);
 
 	do {
-		op_reg = readl(base + MAC_CSR10);
+		op_reg = act_readl(MAC_CSR10);
 	} while (op_reg & MII_MNG_SB);
 	
 	*val = MII_MNG_DATA(op_reg);
@@ -457,24 +431,10 @@ static int ethernet_phy_reg_set_bits(u16 reg_addr, u16 bits)
 	return 0;
 }
 
-static int ethernet_phy_reg_clear_bits(u16 reg_addr, u16 bits)
-{
-	u16 reg_val;
-
-	ethernet_read_phy_reg(reg_addr, &reg_val);
-	
-	reg_val &= ~bits;
-	
-	ethernet_write_phy_reg(reg_addr, reg_val);
-	ethernet_read_phy_reg(reg_addr, &reg_val);
-	return 0;
-}
-
 static int ethernet_phy_get_link(bool * linked)
 {
     u16 bmsr;
     int ret;
-    
     
     ret = ethernet_read_phy_reg(MII_BMSR, &bmsr);
     if (ret < 0) {
@@ -493,9 +453,7 @@ static int ethernet_phy_read_status(bool * speed, bool * full)
     // full - half duplex : false - full duplex : true
     
     ethernet_read_phy_reg(MII_BMCR, &bmcr);
-    
     ethernet_read_phy_reg(MII_LPA, &lpa);
-    
     ethernet_read_phy_reg(MII_ADVERTISE, &adv);
     
     // there is a priority order according to ieee 802.3u, as follow
@@ -582,8 +540,6 @@ static int ethernet_phy_read_status(bool * speed, bool * full)
     return 0;
 }
 
-
-
 static int ethernet_phy_set_mode(bool speed, bool duplex)
 {
     u16 bmcr, eval;
@@ -632,89 +588,6 @@ static int ethernet_phy_start_autoneg(void)
     }
     
     return ethernet_write_phy_reg(MII_BMCR, BMCR_ANENABLE | BMCR_ANRESTART);
-}
-
-
-
-static int ethernet_phy_init(void)
-{
-    u32 cnt, phy_id;
-	u16 reg_val;
-	
-	ethernet_phy_linked = false;
-	
-	ethernet_phy_reg_set_bits(MII_BMCR, BMCR_RESET);
-	
-	cnt = 0;
-	
-	do
-	{
-		ethernet_read_phy_reg(MII_BMCR, &reg_val);
-		
-		if (cnt++ > 1000)
-		{
-			ERR_MSG("Ethernet phy BMCR_RESET timedout\n");
-			return -ETIMEDOUT;
-		}
-		
-	} while (reg_val & BMCR_RESET);
-	
-	// get the phy ID
-	
-	ethernet_read_phy_reg(MII_PHYSID1, &reg_val);
-	
-	phy_id = ((u32)(reg_val) & 0xFFFF) << 16;
-	
-	ethernet_read_phy_reg(MII_PHYSID2, &reg_val);
-	
-	phy_id |= (u32)(reg_val) & 0xFFFF;
-	
-	phy_id &= PHY_ID_MASK;
-	
-	INFO_MSG("PHY ID = 0x%x\n", phy_id);
-	
-	if (phy_id != ETH_PHY_ID_RTL8201)
-	{
-	    ERR_MSG("Invalid phy ID\n");
-	    return -ENODEV;
-	}
-	
-	ethernet_write_phy_reg(PHY_RTL8201F_REG_PAGE_SELECT, PHY_RTL8201F_REG_PAGE_SELECT_SEVEN);
-
-	ethernet_write_phy_reg(PHY_RTL8201F_REG_INT_LED_FUNC, PHY_RTL8201F_PIN_LINK_STATE_CHANGE);
-	
-	ethernet_write_phy_reg(PHY_RTL8201F_REG_RMSR, PHY_RTL8201F_RMSR_CLK_DIR_INPUT | PHY_RTL8201F_RMSR_RMII_MODE | PHY_RTL8201F_RMSR_RMII_RX_OFFSET | PHY_RTL8201F_RMSR_RMII_TX_OFFSET);
-	
-	ethernet_write_phy_reg(PHY_RTL8201F_REG_PAGE_SELECT, PHY_RTL8201F_REG_PAGE_SELECT_ZERO);
-	
-	ethernet_phy_start_autoneg();
-
-    netif_carrier_off(ethernet_dev);
-	
-	INFO_MSG("Phy is not linked\n");
-	
-	schedule_delayed_work(&ethernet_phy_state_work, msecs_to_jiffies(PHY_POLL_INTERVAL));
-	
-	return 0;
-}
-
-static int ethernet_dma_init(void)
-{
-    ethernet_tx_buf = dma_alloc_coherent(NULL, sizeof(struct ethernet_buffer_desc) * TX_RING_SIZE, &ethernet_tx_buf_paddr, GFP_KERNEL);
-    
-    if (!ethernet_tx_buf) {
-        return -ENOMEM;
-    }
-    
-    ethernet_rx_buf = dma_alloc_coherent(NULL, sizeof(struct ethernet_buffer_desc) * RX_RING_SIZE, &ethernet_rx_buf_paddr, GFP_KERNEL);
-    
-    if (!ethernet_rx_buf)
-    {
-        dma_free_coherent(NULL, sizeof(struct ethernet_buffer_desc) * TX_RING_SIZE, ethernet_tx_buf, ethernet_tx_buf_paddr);
-        return -ENOMEM;
-    }
-    
-    return 0;
 }
 
 static inline void raw_rx_buffer_init(void)
@@ -785,15 +658,6 @@ static struct sk_buff * get_skb_aligned(unsigned int len)
     return skb;
 }
 
-
-
-#define COPY_MAC_ADDR(dest, mac)  do {\
-    *(unsigned short *)(dest) = *(unsigned short *)(mac); \
-    *(unsigned short *)((dest) + 4) = *(unsigned short *)((mac) + 2); \
-    *(unsigned short *)((dest) + 8) = *(unsigned short *)((mac) + 4); \
-    (dest) += 12; \
-}while (0)
-
 static char * ethernet_build_setup_frame(char * buffer, int buf_len)
 {
     char broadcast_mac[ETH_MAC_LEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
@@ -858,9 +722,9 @@ static int ethernet_transmit_setup_frame(void)
     
     // when call the routine, TX and Rx should have already stopped
     
-    writel(readl(base + MAC_CSR6) | EC_OPMODE_ST, base + MAC_CSR6);
+    act_writel(act_readl(MAC_CSR6) | EC_OPMODE_ST, MAC_CSR6);
     
-    writel(EC_TXPOLL_ST, base + MAC_CSR1);
+    act_writel(EC_TXPOLL_ST, MAC_CSR1);
 
     if (buf_des->control & TXBD_CTRL_TER) {
         ethernet_cur_tx = ethernet_tx_buf;
@@ -875,7 +739,7 @@ static int ethernet_transmit_setup_frame(void)
 
     // resume old status
     
-    writel(readl(base + MAC_CSR6) & ~EC_OPMODE_ST, base + MAC_CSR6);
+    act_writel(act_readl(MAC_CSR6) & ~EC_OPMODE_ST, MAC_CSR6);
 	
     return 0;
 }
@@ -1028,7 +892,7 @@ static void subisr_enet_rx(void)
 	struct sk_buff *skb_to_upper;
 	unsigned long status;
 	unsigned int pkt_len;
-	int	index;
+	int index;
 	
 	unsigned long flags;
     
@@ -1142,9 +1006,9 @@ static irqreturn_t ethernet_isr(int irq, void *cookie)
 	
     disable_irq_nosync(ethernet_dev->irq);
     
-    while ((status = readl(base + MAC_CSR5)) & intr_bits)
+    while ((status = act_readl(MAC_CSR5)) & intr_bits)
     {
-        writel(status, base + MAC_CSR5); // clear status
+        act_writel(status, MAC_CSR5); // clear status
         
         if (status & (EC_STATUS_TI | EC_STATUS_ETI))
         {
@@ -1181,7 +1045,7 @@ static irqreturn_t ethernet_isr(int irq, void *cookie)
             // set RPD could help if rx suspended & bd available
             
             if (ru_cnt == 2) {
-                writel(0x1, base + MAC_CSR2);
+                act_writel(0x1, MAC_CSR2);
             }
             
             subisr_enet_rx();
@@ -1198,8 +1062,6 @@ static irqreturn_t ethernet_isr(int irq, void *cookie)
 	
     return IRQ_HANDLED;
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 static int ethernet_netdev_start_xmit(struct sk_buff * skb, 
                                       struct net_device * _unused)
@@ -1251,21 +1113,16 @@ static int ethernet_netdev_start_xmit(struct sk_buff * skb,
     ethernet_cur_tx->status = TXBD_STAT_OWN;
     mb();
     
-    writel(EC_TXPOLL_ST, base + MAC_CSR1);
+    act_writel(EC_TXPOLL_ST, MAC_CSR1);
 
     ethernet_dev->stats.tx_bytes += skb->len;
     
     ethernet_tx_skb[ethernet_skb_cur] = skb;
     ethernet_skb_cur = (ethernet_skb_cur + 1) & TX_RING_MOD_MASK;
     
-    ////
-    
-    if (!(readl(base + MAC_CSR5) & EC_STATUS_TSM))
-    {
+    if (!(act_readl(MAC_CSR5) & EC_STATUS_TSM)) {
         ERR_MSG("TX stopped\n");
     }
-    
-    ////
     
     if (ethernet_cur_tx->control & TXBD_CTRL_TER) {
         ethernet_cur_tx = ethernet_tx_buf;
@@ -1287,8 +1144,6 @@ out:
     
     return NETDEV_TX_OK;
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 static int ethernet_netdev_open(struct net_device * _unused)
 {
@@ -1316,8 +1171,6 @@ out:
     return ret;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
 static int ethernet_netdev_close(struct net_device *dev)
 {
     unsigned long flags;
@@ -1337,81 +1190,67 @@ static int ethernet_netdev_close(struct net_device *dev)
     return 0;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-static int ethernet_tx_buffer_alloc(void);
-
-static void ethernet_tx_buffer_free(void);
-
-static int ethernet_rx_buffer_alloc(void);
-
-static void ethernet_rx_buffer_free(void);
-
-////////////////////////////////////////////////////////////////////////////////
-
 static int ethernet_mac_setup(void)
 {
 	// hardware soft reset and set bus mode
 	
-	writel(readl(base + MAC_CSR0) | EC_BMODE_SWR, base + MAC_CSR0);
+	act_writel(act_readl(MAC_CSR0) | EC_BMODE_SWR, MAC_CSR0);
 	
 	do {
 		udelay(10);
-	} while (readl(base + MAC_CSR0) & EC_BMODE_SWR);
+	} while (act_readl(MAC_CSR0) & EC_BMODE_SWR);
 	
 	// select clk input from external phy
 
-	writel(readl(base + MAC_CTRL) | (0x1 << 1),base +  MAC_CTRL);
+	act_writel(act_readl(MAC_CTRL) | (0x1 << 1), MAC_CTRL);
 	
-	writel(0,base +  MAC_CSR10);
+	act_writel(0, MAC_CSR10);
 	
-	writel(0xcc000000, base + MAC_CSR10);
+	act_writel(0xcc000000, MAC_CSR10);
 	
 	// set flow control mode and force transmiter to pause about 100ms
 	
-	writel(EC_CACHETHR_CPTL(0x0) | EC_CACHETHR_CRTL(0x0) | 
-	           EC_CACHETHR_PQT(0x4FFF), base + MAC_CSR18);
+	act_writel(EC_CACHETHR_CPTL(0x0) | EC_CACHETHR_CRTL(0x0) | 
+	           EC_CACHETHR_PQT(0x4FFF), MAC_CSR18);
 	
-    writel(EC_FIFOTHR_FPTL(0x40) | EC_FIFOTHR_FRTL(0x10), base + MAC_CSR19);
+    act_writel(EC_FIFOTHR_FPTL(0x40) | EC_FIFOTHR_FRTL(0x10), MAC_CSR19);
     
-    writel(EC_FLOWCTRL_ENALL, base + MAC_CSR20);
+    act_writel(EC_FLOWCTRL_ENALL, MAC_CSR20);
     
     // always set to work as full duplex because of a MAC bug
     
-    writel(readl(base + MAC_CSR6) | EC_OPMODE_FD, base + MAC_CSR6); //Full-duplex
+    act_writel(act_readl(MAC_CSR6) | EC_OPMODE_FD, MAC_CSR6); //Full-duplex
     
-    writel(readl(base + MAC_CSR6) & ~EC_OPMODE_10M, base + MAC_CSR6); //100M
+    act_writel(act_readl(MAC_CSR6) & ~EC_OPMODE_10M, MAC_CSR6); //100M
 	
-	writel(readl(base + MAC_CSR6) & (~EC_OPMODE_PR), base + MAC_CSR6);
+	act_writel(act_readl(MAC_CSR6) & (~EC_OPMODE_PR), MAC_CSR6);
 	
 	//interrupt mitigation control register
 	//NRP =7, RT =1, CS=0
 	
-	writel(0x004e0000, base + MAC_CSR11);
+	act_writel(0x004e0000, MAC_CSR11);
 	
 	// set mac address
 	
-    writel(*(u32 *)(mac_addr), base + MAC_CSR16);
-    writel(*(u16 *)(mac_addr + 4), base + MAC_CSR17);
+    act_writel(*(u32 *)(mac_addr), MAC_CSR16);
+    act_writel(*(u16 *)(mac_addr + 4), MAC_CSR17);
 
     // stop tx and rx and disable interrupts
     
-    writel(readl(base + MAC_CSR6) & (~(EC_OPMODE_ST | EC_OPMODE_SR)), base + MAC_CSR6);
-    writel(0, base + MAC_CSR7);
+    act_writel(act_readl(MAC_CSR6) & (~(EC_OPMODE_ST | EC_OPMODE_SR)), MAC_CSR6);
+    act_writel(0, MAC_CSR7);
     
 	return 0;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
 static int ethernet_mac_start(bool speed, bool duplex)
 {
-    int ret;
-    
-    ret = ethernet_rx_buffer_alloc();
-    
-    if (ret)
-    {
+	int ret;
+	
+	ret = ethernet_rx_buffer_alloc();
+	
+	if (ret)
+	{
         ERR_MSG("Could not setup RX buffer\n");
         return ret;
     }
@@ -1426,56 +1265,55 @@ static int ethernet_mac_start(bool speed, bool duplex)
 
 	// hardware soft reset and set bus mode
 	
-	writel(readl(base + MAC_CSR0) | EC_BMODE_SWR, base + MAC_CSR0);
+	act_writel(act_readl(MAC_CSR0) | EC_BMODE_SWR, MAC_CSR0);
 	
 	do {
 		udelay(10);
-	} while (readl(base + MAC_CSR0) & EC_BMODE_SWR);
+	} while (act_readl(MAC_CSR0) & EC_BMODE_SWR);
 	
 	// select clk input from external phy
 
-	writel(readl(base + MAC_CTRL) | (0x1 << 1), base + MAC_CTRL);
+	act_writel(act_readl(MAC_CTRL) | (0x1 << 1), MAC_CTRL);
 	
-	writel(0, base + MAC_CSR10);
+	act_writel(0, MAC_CSR10);
 	
-	writel(0xcc000000, base + MAC_CSR10);
+	act_writel(0xcc000000, MAC_CSR10);
 	
 	// physical buffer address
 	
-	writel((u32)(ethernet_tx_buf_paddr),base +  MAC_CSR4);
-	writel((u32)(ethernet_rx_buf_paddr),base +  MAC_CSR3);
+	act_writel((u32)(ethernet_tx_buf_paddr), MAC_CSR4);
+	act_writel((u32)(ethernet_rx_buf_paddr), MAC_CSR3);
 	
 	// set flow control mode and force transmiter to pause about 100ms
 	
-	writel(EC_CACHETHR_CPTL(0x0) | EC_CACHETHR_CRTL(0x0) | 
-	           EC_CACHETHR_PQT(0x4FFF), base + MAC_CSR18);
+	act_writel(EC_CACHETHR_CPTL(0x0) | EC_CACHETHR_CRTL(0x0) | 
+	           EC_CACHETHR_PQT(0x4FFF), MAC_CSR18);
 	
-    writel(EC_FIFOTHR_FPTL(0x40) | EC_FIFOTHR_FRTL(0x10),base +  MAC_CSR19);
+    act_writel(EC_FIFOTHR_FPTL(0x40) | EC_FIFOTHR_FRTL(0x10), MAC_CSR19);
     
-    writel(EC_FLOWCTRL_ENALL,base +  MAC_CSR20);
+    act_writel(EC_FLOWCTRL_ENALL, MAC_CSR20);
     
     // always set to work as full duplex because of a MAC bug
     
-    writel(readl(base + MAC_CSR6) | EC_OPMODE_FD, base + MAC_CSR6); //Full-duplex
+    act_writel(act_readl(MAC_CSR6) | EC_OPMODE_FD, MAC_CSR6); //Full-duplex
     
     if (speed) {
-	    writel(readl(base + MAC_CSR6) & ~EC_OPMODE_10M, base + MAC_CSR6); //100M
+	    act_writel(act_readl(MAC_CSR6) & ~EC_OPMODE_10M, MAC_CSR6); //100M
 	}
 	else {
-	    writel(readl(base + MAC_CSR6) | EC_OPMODE_10M, base + MAC_CSR6); //10M
+	    act_writel(act_readl(MAC_CSR6) | EC_OPMODE_10M, MAC_CSR6); //10M
 	}
 	
-	writel(readl(base + MAC_CSR6) & (~EC_OPMODE_PR), base + MAC_CSR6);
+	act_writel(act_readl(MAC_CSR6) & (~EC_OPMODE_PR), MAC_CSR6);
 	
 	//interrupt mitigation control register
 	//NRP =7, RT =1, CS=0
 	
-	writel(0x004e0000, base + MAC_CSR11);
+	act_writel(0x004e0000, MAC_CSR11);
 	
 	// set mac address
-	
-    writel(*(u32 *)(mac_addr), base + MAC_CSR16);
-    writel(*(u16 *)(mac_addr + 4), base + MAC_CSR17);
+    act_writel(*(u32 *)(mac_addr), MAC_CSR16);
+    act_writel(*(u16 *)(mac_addr + 4), MAC_CSR17);
     
     // send out a mac setup frame
     
@@ -1499,38 +1337,27 @@ static int ethernet_mac_start(bool speed, bool duplex)
     }
     
     // enable interrupts and start to tx and rx packets
-    
-    writel(EC_IEN_ALL, base + MAC_CSR7);
-    writel(readl(base + MAC_CSR6) | EC_OPMODE_ST | EC_OPMODE_SR, base + MAC_CSR6);
+    act_writel(EC_IEN_ALL, MAC_CSR7);
+    act_writel(act_readl(MAC_CSR6) | EC_OPMODE_ST | EC_OPMODE_SR, MAC_CSR6);
     
     INFO_MSG("MAC STARTED OK!");
 	return 0;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
 static int ethernet_mac_stop(void)
 {
-    // stop tx and rx and disable interrupts
-    
-    writel(readl(base + MAC_CSR6) & (~(EC_OPMODE_ST | EC_OPMODE_SR)), 
-               base + MAC_CSR6);
-    writel(0, base + MAC_CSR7);
-    
-    // free IRQ
-    
-    free_irq(ethernet_dev->irq, ethernet_dev);
-    
-    // free buffers
-    
-    ethernet_tx_buffer_free();
-    ethernet_rx_buffer_free();
-    
-    return 0;
+	// stop tx and rx and disable interrupts
+	act_writel(act_readl(MAC_CSR6) & (~(EC_OPMODE_ST | EC_OPMODE_SR)), MAC_CSR6);
+	act_writel(0x0, MAC_CSR7);
+	
+	// free IRQ
+	free_irq(ethernet_dev->irq, ethernet_dev);
+	
+	// free buffers
+	ethernet_tx_buffer_free();
+	ethernet_rx_buffer_free();
+	return 0;
 }
-
-////////////////////////////////////////////////////////////////////////////////
-
 
 static int ethernet_phy_setup(void)
 {
@@ -1540,50 +1367,54 @@ static int ethernet_phy_setup(void)
 	
 	if (gpio_is_valid(global_phy_gpio.phy_power_gpio))
 	{ 
-		gpio_set_value(global_phy_gpio.phy_power_gpio, 1);	
-	}else{
+		gpio_set_value(global_phy_gpio.phy_power_gpio, 1);
+	}
+	else {
 		ERR_MSG("phy_power_gpio is no Valid");
 		return -ENOMEM;
 	}
 	
 	if (gpio_is_valid(global_phy_gpio.phy_reset_gpio))
-	{		
+	{
 		gpio_set_value(global_phy_gpio.phy_reset_gpio, 1);
 		mdelay(150);//time for power up
 		gpio_set_value(global_phy_gpio.phy_reset_gpio, 0);
 		mdelay(12);//time for reset
 		gpio_set_value(global_phy_gpio.phy_reset_gpio, 1);
-
-		INFO_MSG("Reset_Done");	
-	}else{
+		
+		INFO_MSG("Reset_Done");
+	}
+	else {
 		ERR_MSG("phy_reset_gpio is no Valid");
 		return -ENOMEM;
 	}
+	
 	//time required to access registers
 	mdelay(150);
-
+	
 	//soft reset is not necessary
 	//ethernet_phy_reg_set_bits(MII_BMCR, BMCR_RESET);
 	//mdelay(50);
+	
 	cnt = 0;
+	
 	INFO_MSG("ETHERNET POWERED UP");
-	do
-	{
-		
+	
+	do {
 		ethernet_read_phy_reg(MII_BMCR, &reg_val);
 		//udelay(20);
 		
-		if(reg_val & BMCR_PDOWN){ //so power is off;
+		if(reg_val & BMCR_PDOWN) { //so power is off;
 			//try to force the power on
-            INFO_MSG("Power is off (Should not happen!");
+			INFO_MSG("Power is off (Should not happen!");
 			ethernet_phy_reg_set_bits(MII_BMCR, !BMCR_PDOWN);
-            mdelay(20);
+			mdelay(20);
 		}
-       		 if(reg_val & BMCR_RESET){ //so RESET is enable
+		if(reg_val & BMCR_RESET) { //so RESET is enable
 			//try to force out of reset state
-            INFO_MSG("Device is in Reset(should not happen!)");
+			INFO_MSG("Device is in Reset(should not happen!)");
 			ethernet_phy_reg_set_bits(MII_BMCR, BMCR_RESET);
-            mdelay(20);
+			mdelay(20);
 		}
 		if (cnt++ > 60)
 		{
@@ -1596,26 +1427,21 @@ static int ethernet_phy_setup(void)
 	// get the phy ID
 	
 	ethernet_read_phy_reg(MII_PHYSID1, &reg_val);
-	
 	phy_id = ((u32)(reg_val) & 0xFFFF) << 16;
-	
 	ethernet_read_phy_reg(MII_PHYSID2, &reg_val);
-	
 	phy_id |= (u32)(reg_val) & 0xFFFF;
-	
 	phy_id &= PHY_ID_MASK;
 	
 	INFO_MSG("PHY ID = 0x%x\n", phy_id);
 	
-	if (phy_id != ETH_PHY_ID_RTL8201)
-	{
+	if (phy_id != ETH_PHY_ID_RTL8201) {
 	    ERR_MSG("Invalid phy ID\n");
 	    return -ENODEV;
 	}
 	
 	ethernet_write_phy_reg(PHY_RTL8201F_REG_PAGE_SELECT, 
 	                       PHY_RTL8201F_REG_PAGE_SELECT_SEVEN);
-
+	
 	ethernet_write_phy_reg(PHY_RTL8201F_REG_INT_LED_FUNC, 
 	                       PHY_RTL8201F_PIN_LINK_STATE_CHANGE);
 	
@@ -1631,9 +1457,9 @@ static int ethernet_phy_setup(void)
 	ethernet_phy_start_autoneg();
 	
 	INFO_MSG("Phy is not linked\n");
-    
+	    
 	
-	netif_carrier_off(ethernet_dev);/////////////////////////////////////////////////////////
+	netif_carrier_off(ethernet_dev);
 	
 	schedule_delayed_work(&ethernet_phy_state_work, 
 	                      msecs_to_jiffies(PHY_POLL_INTERVAL));
@@ -1641,14 +1467,13 @@ static int ethernet_phy_setup(void)
 	return 0;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
 static void ethernet_tx_buffer_free(void)
 {
     const u32 total = sizeof(struct ethernet_buffer_desc) * TX_RING_SIZE;
     dma_addr_t * paddr = &ethernet_tx_buf_paddr, tmp;
     struct device * dev = &ethernet_dev->dev;
     int i;
+    
     if (!ethernet_tx_buf) {
         return;
     }
@@ -1674,16 +1499,16 @@ static void ethernet_tx_buffer_free(void)
     (*paddr) = (dma_addr_t)(0);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
 static int ethernet_tx_buffer_alloc(void)
 {
     const u32 total = sizeof(struct ethernet_buffer_desc) * TX_RING_SIZE;
     dma_addr_t * paddr = &ethernet_tx_buf_paddr;
     int i;
+    
     for (i = 0; i < TX_RING_SIZE; i++) {
         ethernet_tx_skb[i] = NULL;
     }
+    
     //GFP_ATOMIC
     //ethernet_tx_buf = dma_alloc_coherent(NULL, total, paddr, GFP_KERNEL);
     ethernet_tx_buf = dma_alloc_coherent(NULL, total, paddr, GFP_NOWAIT);
@@ -1712,14 +1537,13 @@ static int ethernet_tx_buffer_alloc(void)
     return 0;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
 static void ethernet_rx_buffer_free(void)
 {
     const u32 total = sizeof(struct ethernet_buffer_desc) * RX_RING_SIZE;
     dma_addr_t * paddr = &ethernet_rx_buf_paddr, tmp;
     struct device * dev = &ethernet_dev->dev;
     int i;
+    
     if (!ethernet_rx_buf) {
         return;
     }
@@ -1745,8 +1569,6 @@ static void ethernet_rx_buffer_free(void)
     (*paddr) = (dma_addr_t)(0);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
 static int ethernet_rx_buffer_alloc(void)
 {
     const u32 total = sizeof(struct ethernet_buffer_desc) * RX_RING_SIZE;
@@ -1754,7 +1576,9 @@ static int ethernet_rx_buffer_alloc(void)
     struct device * dev = &ethernet_dev->dev;
     struct sk_buff * skb;
     int i;
+    
     INFO_MSG("rx_buffer_alloc");
+    
     for (i = 0; i < RX_RING_SIZE; i++) {
         ethernet_rx_skb[i] = NULL;
     }
@@ -1806,39 +1630,37 @@ static int ethernet_rx_buffer_alloc(void)
     return 0;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
 static void ethernet_phy_state_worker(struct work_struct * _unused)
 {
-    bool linked, speed, full;
-    unsigned long flags;
-    int ret;
-    
-    spin_lock_irqsave(&ethernet_lock, flags);
-
-    ret = ethernet_phy_get_link(&linked);
-    if (ret)
-    {
-        ERR_MSG("Could not get phy link state\n");
-        goto out;
-    } 
-    
-    if (linked != ethernet_phy_linked)
-    {
-        ethernet_phy_linked = linked;
-        
-        if (linked)
-        {
-            INFO_MSG("IS LINKED");
-            ret = ethernet_phy_read_status(&speed, &full);
-            
-            if (ret)
-            {
-                ERR_MSG("Could not get phy aneg status\n");
-                ethernet_phy_linked = false;
-                goto out;
-            }
-            
+	bool linked, speed, full;
+	unsigned long flags;
+	int ret;
+	
+	spin_lock_irqsave(&ethernet_lock, flags);
+	
+	ret = ethernet_phy_get_link(&linked);
+	
+	if (ret) {
+		ERR_MSG("Could not get phy link state\n");
+		goto out;
+	}
+	
+	if (linked != ethernet_phy_linked)
+	{
+		ethernet_phy_linked = linked;
+		
+		if (linked)
+		{
+			INFO_MSG("IS LINKED");
+			ret = ethernet_phy_read_status(&speed, &full);
+			
+			if (ret)
+			{
+				ERR_MSG("Could not get phy aneg status\n");
+				ethernet_phy_linked = false;
+				goto out;
+			}
+			
             INFO_MSG("Phy is linked at %s %s-duplex\n", 
                      speed ? "100M" : "10M", full ? "full" : "half");
             
@@ -1873,315 +1695,280 @@ out:
     spin_unlock_irqrestore(&ethernet_lock, flags);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
 static int ethernet_netdev_init(struct net_device * _unused)
 {
-    int ret;
-	
+	int ret;
 	ret = ethernet_clock_enable(1);
 	
 	if (ret)
 	{
-	    ERR_MSG("Could not enable ethernet clock\n");
-	    return ret;
+		ERR_MSG("Could not enable ethernet clock\n");
+		return ret;
 	}
 	
 	ret = ethernet_mac_setup();
 	
 	if (ret)
 	{
-	    ERR_MSG("Could not setup ethernet MAC\n");
-	    return ret;
+		ERR_MSG("Could not setup ethernet MAC\n");
+		return ret;
 	}
-
+	
 	ret = ethernet_phy_setup();
 	
 	if (ret)
 	{
-	    ERR_MSG("Could not setup ethernet PHY\n");
-	    return ret;
+		ERR_MSG("Could not setup ethernet PHY\n");
+		return ret;
 	}
-	
-    return 0;
+	return 0;
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 static void ethernet_netdev_uninit(struct net_device * _unused)
 {
-    return;
+	return;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-
-static int ethernet_netdev_set_mac_address(struct net_device *ndev, void *address)
+static int ethernet_netdev_set_mac_address(struct net_device *ndev, void *p)
 {
-    char *mac = (char*)mac_addr; //pointer to global mac_address
-
-    address = (void*)((char*)address + 2);//i don't know why of this offset is necessary
-
-    if (address){
-
-        memcpy(ndev->dev_addr, address, ETH_MAC_LEN);
-        
-        if (!is_valid_ether_addr(ndev->dev_addr))
-        {
-            eth_random_addr(ndev->dev_addr);
-            INFO_MSG("MAC Address is not valid, randomic was inserted instead!");
-        }
-        
-        //update global mac_address variable
-        memcpy(mac, ndev->dev_addr, ETH_MAC_LEN);
-
-        //set mac
-        writel(*(u32 *)(mac_addr), base + MAC_CSR16);
-        writel(*(u16 *)(mac_addr + 4),base +  MAC_CSR17);
-
-        //broke link
-        ethernet_phy_start_autoneg();
-
-        netif_carrier_off(ethernet_dev);
+	struct sockaddr *addr = p;
+	char *mac = (char*)mac_addr; //pointer to global mac_address
 	
-	    INFO_MSG("Phy is not linked\n");
-        INFO_MSG("New MAC: %X:%X:%X:%X:%X:%X",mac_addr[0],mac_addr[1],mac_addr[2],mac_addr[3],mac_addr[4],mac_addr[5]);
-
-        //get new link
-        schedule_delayed_work(&ethernet_phy_state_work, 
-                          msecs_to_jiffies(PHY_POLL_INTERVAL));
-    }else{
-        INFO_MSG("MAC Address is NULL");
-    }
-        
-        
-    return 0;
+	if (addr->sa_data)
+	{
+		memcpy(ndev->dev_addr, addr->sa_data, sizeof(default_mac_addr));
+		
+		if (!is_valid_ether_addr(ndev->dev_addr))
+		{
+			eth_random_addr(ndev->dev_addr);
+			INFO_MSG("MAC Address is not valid, randomic was inserted instead!");
+		}
+		
+		//update global mac_address variable
+		memcpy(mac, ndev->dev_addr, sizeof(default_mac_addr));
+		
+		//set mac
+		act_writel(*(u32 *)(mac_addr), MAC_CSR16);
+		act_writel(*(u16 *)(mac_addr + 4), MAC_CSR17);
+		
+		//broke link
+		ethernet_phy_start_autoneg();
+		
+		netif_carrier_off(ethernet_dev);
+		
+		INFO_MSG("Phy is not linked\n");
+		INFO_MSG("New MAC: %X:%X:%X:%X:%X:%X", mac_addr[0], mac_addr[1], 
+		         mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+		
+		//get new link
+		schedule_delayed_work(&ethernet_phy_state_work, 
+		                      msecs_to_jiffies(PHY_POLL_INTERVAL));
+	}
+	else {
+		INFO_MSG("MAC Address is NULL");
+	}
+	return 0;
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 static const struct net_device_ops ethernet_netdev_ops = {
-    .ndo_init = ethernet_netdev_init,
-    .ndo_uninit = ethernet_netdev_uninit,
-    .ndo_open = ethernet_netdev_open,
-    .ndo_stop = ethernet_netdev_close,
-    .ndo_start_xmit = ethernet_netdev_start_xmit,
-    .ndo_set_mac_address = ethernet_netdev_set_mac_address
+	.ndo_init = ethernet_netdev_init,
+	.ndo_uninit = ethernet_netdev_uninit,
+	.ndo_open = ethernet_netdev_open,
+	.ndo_stop = ethernet_netdev_close,
+	.ndo_start_xmit = ethernet_netdev_start_xmit,
+	.ndo_set_mac_address = ethernet_netdev_set_mac_address
 };
 
-static int eth_driver_suspend(struct platform_device *pdev, pm_message_t msg);
-
-static int __init eth_driver_probe(struct platform_device * pdev)
+static int eth_driver_probe(struct platform_device *pdev)
 {
-    int ret, irq;
-    struct device *dev = &pdev->dev;
-    struct device_node *np = dev_of_node(dev);
-    const char *mac;
-    struct resource *res;
-
-    res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ethernet");
-    base = devm_ioremap(dev, res->start, resource_size(res));
-
+	struct device *dev = &pdev->dev;
+	struct resource *res;
+	int ret, irq;
+	
+	platform_set_drvdata(pdev, NULL);
+	
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ethernet");
+	
+	if (!res) {
+		dev_err(dev, "unable to get ioresource from dts\n");
+		return -ENODEV;
+	}
+	
+	base = devm_ioremap(dev, res->start, resource_size(res));
+	
+	if (!base) {
+		dev_err(dev, "unable to remap io memory\n");
+		return -ENOMEM;
+	}
+	
 	eth_rst = devm_reset_control_get(dev, "ethernet");
 	
 	if (IS_ERR(eth_rst)) {
 		dev_err(dev, "could not get ethernet reset control\n");
 		return PTR_ERR(eth_rst);
 	}
-
-    irq = platform_get_irq(pdev, 0);
-
-    ret = ethernet_get_clk(dev);
-    
-    if (ret)
-    {
-        ERR_MSG("Could not get device clock handler\n");
-        goto out_error;
-    }
-    
-    pcl = devm_pinctrl_get(dev);
-
-	if (IS_ERR(pcl))
+	
+	// generate a random Mac Address to begin
+	if(!mac_gen())
 	{
-		dev_err(dev, "devm_pinctrl_get() failed\n");
-		return PTR_ERR(pcl);
+		INFO_MSG("MAC ADDR: %X:%X:%X:%X:%X:%X", mac_addr[0], mac_addr[1],
+		         mac_addr[2],mac_addr[3],mac_addr[4],mac_addr[5]);
 	}
 	
-	state = pinctrl_lookup_state(pcl, PINCTRL_STATE_DEFAULT);
+	irq = platform_get_irq(pdev, 0);
 	
-	if (IS_ERR(state))
-	{
-		dev_err(dev, "could not get pinctrl default state\n");
-		return PTR_ERR(state);
-	}
-	
-	ret = pinctrl_select_state(pcl, state);
-
-	if (ret < 0)
-	{
-		dev_err(dev, "could not select default pinctrl state\n");
-		return ret;
-	}
-    
-    mac = of_get_mac_address(np);
-    
-    if (mac) {
-    	memcpy(mac_addr, mac, ETH_MAC_LEN);
-    }
-    else {
-    	mac_gen();
-    }
-    
-    INFO_MSG("MAC ADDR: %X:%X:%X:%X:%X:%X",
-             mac_addr[0],mac_addr[1],mac_addr[2],
-             mac_addr[3],mac_addr[4],mac_addr[5]);
-    
-    platform_set_drvdata(pdev, NULL);
-    
 	if (irq < 0)
 	{
 		ERR_MSG("Could not get irq\n");
 		ret = -ENODEV;
 		goto out_error;
 	}
-
-    ethernet_dev = alloc_etherdev(0);
-    
-    if (!ethernet_dev)
-    {
-        ERR_MSG("Could not alloc ethernet device\n");
-        ret = -ENOMEM;
-        goto out_error;
-    }
-    
-    if (of_property_read_u32(pdev->dev.of_node, "phy_addr", &ethernet_phy_addr))
-    {
-		ERR_MSG("Could not get phy addr from DTS\n");
-        ret = -ENODEV;
-        goto out_error;
+	
+	ret = ethernet_set_pin_mux(pdev);
+	
+	if (ret) {
+		ERR_MSG("Could not set device pin mux\n");
+		goto out_error;
 	}
-
+	
+	ret = ethernet_get_clk(dev);
+	
+	if (ret) {
+		ERR_MSG("Could not get device clock handler\n");
+		goto out_error;
+	}
+	
+	ethernet_dev = alloc_etherdev(0);
+	
+	if (!ethernet_dev) {
+		ERR_MSG("Could not alloc ethernet device\n");
+		ret = -ENOMEM;
+		goto out_error;
+	}
+	
+	if (of_property_read_u32(pdev->dev.of_node, "phy_addr", &ethernet_phy_addr))
+	{
+		ERR_MSG("Could not get phy addr from DTS\n");
+		ret = -ENODEV;
+		goto out_error;
+	}
+	
 	global_phy_gpio.phy_reset_gpio = 
 		of_get_named_gpio(dev->of_node, "phy-reset-gpio", 0);
 	
-	if (!gpio_is_valid(global_phy_gpio.phy_reset_gpio))
-	{
+	if (!gpio_is_valid(global_phy_gpio.phy_reset_gpio)) {
 		dev_err(dev, "could not get reset gpio\n");
 		return -ENODEV;
 	}
+	
 	global_phy_gpio.phy_power_gpio = 
 		of_get_named_gpio(dev->of_node, "phy-power-gpio", 0);
 	
-	if (!gpio_is_valid(global_phy_gpio.phy_power_gpio))
-	{
+	if (!gpio_is_valid(global_phy_gpio.phy_power_gpio)) {
 		dev_err(dev, "could not get power gpio\n");
 		return -ENODEV;
 	}
-    
-    ret = devm_gpio_request(dev, global_phy_gpio.phy_reset_gpio, "phy_reset");
 	
-	if (ret)
-	{
+	ret = devm_gpio_request(dev, global_phy_gpio.phy_reset_gpio, "phy_reset");
+	
+	if (ret) {
 		dev_err(dev, "could not request reset gpio\n");
 		return ret;
 	}
-    ret = devm_gpio_request(dev, global_phy_gpio.phy_power_gpio, "phy_power");
 	
-	if (ret)
-	{
+	ret = devm_gpio_request(dev, global_phy_gpio.phy_power_gpio, "phy_power");
+	
+	if (ret) {
 		dev_err(dev, "could not request power gpio\n");
 		return ret;
 	}
 	
-    
-    gpio_direction_output(global_phy_gpio.phy_reset_gpio, 0);
+	gpio_direction_output(global_phy_gpio.phy_reset_gpio, 0);
 	gpio_direction_output(global_phy_gpio.phy_power_gpio, 0);
-    gpio_set_value(global_phy_gpio.phy_power_gpio, 0);
- 
-    gpio_set_value(global_phy_gpio.phy_reset_gpio, 0);
-		
+	
+	gpio_set_value(global_phy_gpio.phy_power_gpio, 0);
+	gpio_set_value(global_phy_gpio.phy_reset_gpio, 0);
+	
 	SET_NETDEV_DEV(ethernet_dev, &pdev->dev);
 	
-    sprintf(ethernet_dev->name, "eth0");
-    
+	sprintf(ethernet_dev->name, "eth0");
+	
 	ethernet_dev->irq = irq;
 	ethernet_dev->watchdog_timeo = EC_TX_TIMEOUT;
 	ethernet_dev->netdev_ops = &ethernet_netdev_ops;
-
-	memcpy(ethernet_dev->dev_addr, mac_addr, ETH_MAC_LEN);
-    ret = register_netdev(ethernet_dev);
-    
-	if (ret)
-	{
+	
+	memcpy(ethernet_dev->dev_addr, mac_addr, sizeof(default_mac_addr));
+	
+	ret = register_netdev(ethernet_dev);
+	
+	if (ret) {
 		ERR_MSG("Could not register netdev\n");
 		goto out_error;
 	}
-
+	
 	pm_runtime_dont_use_autosuspend(dev);
 	pm_runtime_mark_last_busy(dev);
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
-	pm_runtime_get(dev);	
+	pm_runtime_get(dev);
 	
 	platform_set_drvdata(pdev, &global_phy_gpio);
-    return 0;
-    
+	return 0;
+	
 out_error:
-
-    if (ethernet_dev)
-    {
-        free_netdev(ethernet_dev);
-        ethernet_dev = NULL;
-    }
-    
-    if (global_phy_gpio.phy_power_gpio < 0)
-    {
-        gpio_free(global_phy_gpio.phy_power_gpio);
-        global_phy_gpio.phy_power_gpio = -1;
-    }
-    
-    if (global_phy_gpio.phy_reset_gpio < 0)
-    {
-        gpio_free(global_phy_gpio.phy_reset_gpio);
-        global_phy_gpio.phy_reset_gpio = -1;
-    }
-
-    pm_runtime_put(dev);
-    pm_runtime_disable(dev);
-    
-    return ret;
+	
+	if (ethernet_dev) {
+		free_netdev(ethernet_dev);
+		ethernet_dev = NULL;
+	}
+	
+	if (global_phy_gpio.phy_power_gpio < 0) {
+		gpio_free(global_phy_gpio.phy_power_gpio);
+		global_phy_gpio.phy_power_gpio = -1;
+	}
+	
+	if (global_phy_gpio.phy_reset_gpio < 0) {
+		gpio_free(global_phy_gpio.phy_reset_gpio);
+		global_phy_gpio.phy_reset_gpio = -1;
+	}
+	
+	ethernet_put_clk();
+	ethernet_put_pin_mux();
+	return ret;
 }
 
-static int __exit eth_driver_remove(struct platform_device *pdev)
+static int eth_driver_remove(struct platform_device *pdev)
 {
-    if (ethernet_dev)
-    {
-        unregister_netdev(ethernet_dev);
-        free_netdev(ethernet_dev);
-        ethernet_dev = NULL;
-    }
-    
-    if (global_phy_gpio.phy_power_gpio < 0)
-    {
-        gpio_free(global_phy_gpio.phy_power_gpio);
-        global_phy_gpio.phy_power_gpio = -1;
-    }
-    
-    if (global_phy_gpio.phy_reset_gpio < 0)
-    {
-        gpio_free(global_phy_gpio.phy_reset_gpio);
-        global_phy_gpio.phy_reset_gpio = -1;
-    }
-
-    pm_runtime_put(&pdev->dev);
-    pm_runtime_disable(&pdev->dev);
-
+	if (ethernet_dev)
+	{
+		unregister_netdev(ethernet_dev);
+		free_netdev(ethernet_dev);
+		ethernet_dev = NULL;
+	}
+	
+	if (global_phy_gpio.phy_power_gpio < 0)
+	{
+		gpio_free(global_phy_gpio.phy_power_gpio);
+		global_phy_gpio.phy_power_gpio = -1;
+	}
+	
+	if (global_phy_gpio.phy_reset_gpio < 0)
+	{
+		gpio_free(global_phy_gpio.phy_reset_gpio);
+		global_phy_gpio.phy_reset_gpio = -1;
+	}
+	
+	ethernet_put_clk();
+	ethernet_put_pin_mux();
+	
+	pm_runtime_put(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
 
 static const struct of_device_id eth_dt_match[]  = {
-	{.compatible = "caninos,ethernet-k5"},
-	{}
+	{ .compatible = "caninos,ethernet-k5" },
+	{ /* sentinel */ }
 };
 
 #ifdef CONFIG_PM_SLEEP
@@ -2201,7 +1988,6 @@ static int caninos_eth_resume(struct device *dev)
 #define caninos_eth_resume NULL
 #endif
 
-
 static SIMPLE_DEV_PM_OPS(caninos_eth_pm_ops,
                          caninos_eth_suspend, caninos_eth_resume);
 
@@ -2218,13 +2004,17 @@ static struct platform_driver __refdata eth_driver = {
 	},
 };
 
-static int __init eth_driver_init(void)
+static int __init caninos_module_init(void)
 {
-	INFO_MSG("Init_ETH_Driver");
 	return platform_driver_register(&eth_driver);
 }
-//module_init(eth_driver_init);
-MODULE_LICENSE("GPL");
 
-late_initcall(eth_driver_init);
+static void __exit caninos_module_fini(void)
+{
+	platform_driver_unregister(&eth_driver);
+}
 
+module_init(caninos_module_init);
+module_exit(caninos_module_fini);
+
+MODULE_LICENSE("GPL v2");
