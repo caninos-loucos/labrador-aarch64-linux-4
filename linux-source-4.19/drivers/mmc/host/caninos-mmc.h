@@ -1,42 +1,21 @@
 #ifndef _CANINOS_MMC_H_
 #define _CANINOS_MMC_H_
 
-enum {
-	PURE_CMD,
-	DATA_CMD,
-};
-
-#define MMC_CMD_COMPLETE		1
-
-#define CMD_OK						BIT(0)
-#define CMD_RSP_ERR				BIT(1)
-#define CMD_RSP_BUSY				BIT(2)
-#define CMD_RSP_CRC_ERR			BIT(3)
-#define CMD_TS_TIMEOUT			BIT(4)
-#define CMD_DATA_TIMEOUT			BIT(5)
-#define HW_TIMEOUT_ERR			BIT(6)
-#define DATA_WR_CRC_ERR			BIT(7)
-#define DATA_RD_CRC_ERR			BIT(8)
-#define DATA0_BUSY_ERR				BIT(9)
-
-#define HW_TIMEOUT					0xe4000000
-
-
 /* SDC registers */
-#define SD_EN_OFFSET         0x0000
-#define SD_CTL_OFFSET        0x0004
-#define SD_STATE_OFFSET      0x0008
-#define SD_CMD_OFFSET        0x000c
-#define SD_ARG_OFFSET        0x0010
-#define SD_RSPBUF0_OFFSET    0x0014
-#define SD_RSPBUF1_OFFSET    0x0018
-#define SD_RSPBUF2_OFFSET    0x001c
-#define SD_RSPBUF3_OFFSET    0x0020
-#define SD_RSPBUF4_OFFSET    0x0024
-#define SD_DAT_OFFSET        0x0028
-#define SD_BLK_SIZE_OFFSET   0x002c
-#define SD_BLK_NUM_OFFSET    0x0030
-#define SD_BUF_SIZE_OFFSET   0x0034
+#define SD_EN_OFFSET         (0x0000)
+#define SD_CTL_OFFSET        (0x0004)
+#define SD_STATE_OFFSET      (0x0008)
+#define SD_CMD_OFFSET        (0x000c)
+#define SD_ARG_OFFSET        (0x0010)
+#define SD_RSPBUF0_OFFSET    (0x0014)
+#define SD_RSPBUF1_OFFSET    (0x0018)
+#define SD_RSPBUF2_OFFSET    (0x001c)
+#define SD_RSPBUF3_OFFSET    (0x0020)
+#define SD_RSPBUF4_OFFSET    (0x0024)
+#define SD_DAT_OFFSET        (0x0028)
+#define SD_BLK_SIZE_OFFSET   (0x002c)
+#define SD_BLK_NUM_OFFSET    (0x0030)
+#define SD_BUF_SIZE_OFFSET   (0x0034)
 
 /* SDC register access helpers */
 #define HOST_EN(h)           ((h)->base + SD_EN_OFFSET)
@@ -108,32 +87,11 @@ enum {
 #define SD_STATE_RC16ER      (1 << 1)
 #define SD_STATE_CRC7ER	     (1 << 0)
 
-/* SDC0 delays */
-#define SDC0_WDELAY_LOW_CLK  (0xf)
-#define SDC0_WDELAY_MID_CLK  (0xa)
-#define SDC0_WDELAY_HIGH_CLK (0x8)
-#define SDC0_RDELAY_LOW_CLK  (0xf)
-#define SDC0_RDELAY_MID_CLK  (0xa)
-#define SDC0_RDELAY_HIGH_CLK (0x8)
-
-
-/* SDC1 delays */
-#define SDC1_WDELAY_LOW_CLK  (0xf)
-#define SDC1_WDELAY_MID_CLK  (0xa)
-#define SDC1_WDELAY_HIGH_CLK (0x8)
-#define SDC1_RDELAY_LOW_CLK  (0xf)
-#define SDC1_RDELAY_MID_CLK  (0xa)
-#define SDC1_RDELAY_HIGH_CLK (0x8)
-
-
-/* SDC2 delays */
-#define SDC2_WDELAY_LOW_CLK  (0xf)
-#define SDC2_WDELAY_MID_CLK  (0xa)
-#define SDC2_WDELAY_HIGH_CLK (0x8)
-#define SDC2_RDELAY_LOW_CLK  (0xf)
-#define SDC2_RDELAY_MID_CLK  (0xa)
-#define SDC2_RDELAY_HIGH_CLK (0x8)
-
+#define SDC_WDELAY_LOW_CLK   (0xf)
+#define SDC_WDELAY_MID_CLK   (0xa)
+#define SDC_WDELAY_HIGH_CLK  (0x6)
+#define SDC_RDELAY_LOW_CLK   (0xf)
+#define SDC_RDELAY_MID_CLK   (0xa)
+#define SDC_RDELAY_HIGH_CLK  (0x6)
 
 #endif
-

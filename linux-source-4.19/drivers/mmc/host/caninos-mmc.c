@@ -37,8 +37,13 @@
 #include <linux/gpio.h>
 #include <linux/mutex.h>
 #include <linux/iopoll.h>
+#include <linux/pm_runtime.h>
+#include "../core/core.h"
 
 #include "caninos-mmc.h"
+
+#define DRIVER_NAME "caninos-mmc"
+#define DRIVER_DESC "Caninos Labrador MMC Host Controller Driver"
 
 enum mmc_hw_model {
 	MMC_HW_MODEL_INV = 0,
@@ -53,6 +58,11 @@ struct con_delay
 	u8 delay_highclk;
 };
 
+struct caninos_gpio {
+	int gpio;
+	bool invert;
+};
+
 struct caninos_mmc_host
 {
 	struct device *dev;
@@ -61,12 +71,16 @@ struct caninos_mmc_host
 	struct mmc_host_ops ops;
 	void __iomem *base;
 	spinlock_t lock;
-	bool device_enabled;
-	int irq;
-	int power_gpio;
-	int enable_gpio;
-	int reset_gpio;
-	int id;
+	int irq, id;
+	
+	struct caninos_gpio *en_gpios;
+	struct caninos_gpio *pwr_gpios;
+	int en_gpios_count;
+	int pwr_gpios_count;
+	
+	struct pinctrl *pctl;
+	struct pinctrl_state *def;
+	
 	struct clk *clk;
 	struct dma_chan *dma;
 	struct dma_async_tx_descriptor *tx;
@@ -80,6 +94,8 @@ struct caninos_mmc_host
 	struct reset_control *rst;
 	
 	u8 curr_rdelay, curr_wdelay;
+	
+	bool enabled;
 };
 
 static inline void caninos_mmc_disable_all_irqs(struct mmc_host *host)
@@ -102,28 +118,21 @@ static inline bool caninos_mmc_is_low_voltage_en(struct mmc_host *host)
 	return !!(readl(HOST_EN(priv)) & SD_EN_S18EN);
 }
 
-static inline void caninos_mmc_controller_enable(struct mmc_host *host)
-{
-	struct caninos_mmc_host *priv = mmc_priv(host);
-	
-	/* enable the controller and put it in a known state */
-	if (priv->model == MMC_HW_MODEL_K7) {
-		writel(SD_ENABLE, HOST_EN(priv));
-	}
-	else {
-		writel(SD_ENABLE | SD_EN_RESE, HOST_EN(priv));
-	}
-	
-	writel(0x0, HOST_CTL(priv));
-	writel(0x0, HOST_STATE(priv));
-}
-
 static inline void caninos_mmc_voltage_change_delay(struct mmc_host *host)
 {
 	struct caninos_mmc_host *priv = mmc_priv(host);
 	/* k7 needs at least 12.8ms after voltage change (hardware bug) */
 	if (priv->model == MMC_HW_MODEL_K7) {
 		usleep_range(14000, 17500);
+	}
+}
+
+static void
+caninos_mmc_set_gpios(struct caninos_gpio *gpios, int count, bool val)
+{
+	int i;
+	for (i = 0; i < count; i++) {
+		gpio_set_value(gpios[i].gpio, gpios[i].invert ^ val);
 	}
 }
 
@@ -727,7 +736,9 @@ static void caninos_mmc_set_scc(struct mmc_host *host, bool enable)
 		val = readl(HOST_CTL(priv));
 		val |= SD_CTL_SCC;
 		writel(val, HOST_CTL(priv));
+		return;
 	}
+	
 	/* a transmission should be started before clearing the scc */
 	/* enable transfer end interrupt */
 	caninos_mmc_enable_disable_tei(host, true);
@@ -796,46 +807,85 @@ static int caninos_mmc_vswitch(struct mmc_host *mmc, struct mmc_ios *ios)
 	return 0;
 }
 
-static void caninos_mmc_set_ios(struct mmc_host *host, struct mmc_ios *ios)
+static inline void caninos_mmc_power_off(struct mmc_host *host)
+{
+	struct caninos_mmc_host *priv = mmc_priv(host);
+	
+	if (!priv->enabled) {
+		return;
+	}
+	caninos_mmc_set_gpios(priv->en_gpios, priv->en_gpios_count, false);
+	caninos_mmc_set_gpios(priv->pwr_gpios, priv->pwr_gpios_count, false);
+	priv->enabled = false;
+}
+
+static inline void caninos_mmc_power_up(struct mmc_host *host)
+{
+	struct caninos_mmc_host *priv = mmc_priv(host);
+	
+	if (priv->enabled) {
+		return;
+	}
+	
+	/* power cycle the device */
+	caninos_mmc_set_gpios(priv->pwr_gpios, priv->pwr_gpios_count, false);
+	caninos_mmc_set_gpios(priv->en_gpios, priv->en_gpios_count, false);
+	
+	if (priv->pwr_gpios_count) {
+		mmc_delay(500);
+	}
+	
+	caninos_mmc_set_gpios(priv->pwr_gpios, priv->pwr_gpios_count, true);
+	caninos_mmc_set_gpios(priv->en_gpios, priv->en_gpios_count, true);
+	
+	if (priv->en_gpios_count) {
+		mmc_delay(25);
+	}
+	priv->enabled = true;
+}
+
+static inline void caninos_mmc_controller_enable(struct mmc_host *host)
+{
+	struct caninos_mmc_host *priv = mmc_priv(host);
+	u32 val;
+	
+	/* enable the controller and put it in a known state */
+	val = SD_ENABLE;
+	
+	if (priv->model == MMC_HW_MODEL_K5) {
+		val |= SD_EN_RESE;
+	}
+	writel(val, HOST_EN(priv));
+	usleep_range(1000, 1500);
+	
+	/* configure delays */
+	caninos_mmc_reset_delays(host);
+}
+
+static inline void 
+caninos_mmc_set_width(struct mmc_host *host, u8 cs, u8 width, u8 timing)
 {
 	struct caninos_mmc_host *priv = mmc_priv(host);
 	u32 val, new_val;
-	int bus_width;
-	
-	if (ios->power_mode == MMC_POWER_UP)
-	{
-		caninos_mmc_set_raw_clk(host, host->f_init);
-		caninos_mmc_hard_reset(host);
-		caninos_mmc_controller_enable(host);
-		caninos_mmc_sdio_enable(host);
-		caninos_mmc_reset_delays(host);
-	}
 	
 	val = readl(HOST_EN(priv));
-	new_val = SD_EN_DDREN | 0x3;
-	new_val = val & ~(new_val);
+	new_val = val & ~(SD_EN_DDREN | 0x3); 
 	
-	bus_width = ios->bus_width;
-	
-	if (ios->chip_select == MMC_CS_HIGH) {
-		bus_width = MMC_BUS_WIDTH_4;
+	if (cs == MMC_CS_HIGH) {
+		width = MMC_BUS_WIDTH_4;
 	}
-	if ((ios->timing == MMC_TIMING_UHS_DDR50) || 
-	    (ios->timing == MMC_TIMING_MMC_DDR52)) {
+	if ((timing == MMC_TIMING_UHS_DDR50) || (timing == MMC_TIMING_MMC_DDR52)) {
 		new_val |= SD_EN_DDREN;
 	}
 	
-	switch (bus_width)
+	switch (width)
 	{
 	case MMC_BUS_WIDTH_8:
 		new_val |= 0x2;
 		break;
-		
 	case MMC_BUS_WIDTH_4:
 		new_val |= 0x1;
 		break;
-		
-	case MMC_BUS_WIDTH_1:
 	default:
 		break;
 	}
@@ -844,7 +894,24 @@ static void caninos_mmc_set_ios(struct mmc_host *host, struct mmc_ios *ios)
 		writel(new_val, HOST_EN(priv));
 		usleep_range(1000, 1500);
 	}
-	if (ios->clock) {
+}
+
+static void caninos_mmc_set_ios(struct mmc_host *host, struct mmc_ios *ios)
+{	
+	if (ios->power_mode == MMC_POWER_UP)
+	{
+		caninos_mmc_set_raw_clk(host, host->f_init);
+		caninos_mmc_hard_reset(host);
+		caninos_mmc_controller_enable(host);
+		caninos_mmc_power_up(host);
+		caninos_mmc_sdio_enable(host);
+		return;
+	}
+	
+	caninos_mmc_set_width(host, ios->chip_select, ios->bus_width, ios->timing);
+	
+	if (ios->clock)
+	{
 		if (caninos_mmc_set_raw_clk(host, ios->clock)) {
 			caninos_mmc_reset_delays(host);
 		}
@@ -854,35 +921,8 @@ static void caninos_mmc_set_ios(struct mmc_host *host, struct mmc_ios *ios)
 		caninos_mmc_set_scc(host, false);
 	}
 	
-	if (ios->power_mode == MMC_POWER_ON)
-	{
-		if (!priv->device_enabled)
-		{
-			/* enable the SD/SDIO/EMMC device (optional) */
-			if (gpio_is_valid(priv->enable_gpio)) {
-				gpio_set_value(priv->enable_gpio, 1);
-			}
-			if (gpio_is_valid(priv->reset_gpio)) {
-				usleep_range(10000, 12500);
-				gpio_set_value(priv->reset_gpio, 1);
-			}
-			priv->device_enabled = true;
-		}
-	}
-	
-	if (ios->power_mode == MMC_POWER_OFF)
-	{
-		if (priv->device_enabled)
-		{
-			/* disable the SD/SDIO/EMMC device (optional) */
-			if (gpio_is_valid(priv->reset_gpio)) {
-				gpio_set_value(priv->reset_gpio, 0);
-			}
-			if (gpio_is_valid(priv->enable_gpio)) {
-				gpio_set_value(priv->enable_gpio, 0);
-			}
-			priv->device_enabled = false;
-		}
+	if (ios->power_mode == MMC_POWER_OFF) {
+		caninos_mmc_power_off(host);
 	}
 }
 
@@ -908,59 +948,117 @@ static irqreturn_t caninos_mmc_irq_handler(int irq, void *devid)
 	return IRQ_HANDLED;
 }
 
+static struct caninos_gpio * 
+caninos_mmc_get_gpios(struct device *dev, const char *name, int *gpio_count)
+{
+	struct device_node *np = dev->of_node;
+	int i, ret, of_count, count;
+	struct caninos_gpio *gpios;
+	enum of_gpio_flags flags;
+	
+	if (!gpio_count) {
+		return ERR_PTR(-EINVAL);
+	}
+	
+	of_count = of_gpio_named_count(np, name);
+	
+	/* get the number of valid gpios */
+	for (count = 0, i = 0; i < of_count; i++) 
+	{
+		ret = of_get_named_gpio_flags(np, name, i, &flags);
+		
+		if (ret == -EPROBE_DEFER) {
+			return ERR_PTR(-EPROBE_DEFER);
+		}
+		if (!gpio_is_valid(ret)) {
+			continue;
+		}
+		count++;
+	}
+	
+	if (!count) {
+		*gpio_count = 0;
+		return NULL;
+	}
+	
+	gpios = devm_kmalloc_array(dev, count, sizeof(*gpios), GFP_KERNEL);
+	
+	if (!gpios) {
+		return ERR_PTR(-ENOMEM);
+	}
+	
+	for (count = 0, i = 0; i < of_count; i++)
+	{
+		ret = of_get_named_gpio_flags(np, name, i, &flags);
+		
+		if (!gpio_is_valid(ret)) {
+			continue;
+		}
+		
+		gpios[count].gpio = ret;
+		gpios[count].invert = !!(flags & OF_GPIO_ACTIVE_LOW);
+		count++;
+	}
+	
+	*gpio_count = count;
+	return gpios;
+}
+
 static int caninos_mmc_get_all_gpios(struct mmc_host *host)
 {
 	struct caninos_mmc_host *priv = mmc_priv(host);
 	struct device *dev = priv->dev;
-	int ret;
+	struct caninos_gpio *gpios;
+	int ret, i, gpio_count;
+	char buffer[32];
 	
-	priv->enable_gpio = of_get_named_gpio(dev->of_node, "enable-gpios", 0);
+	gpios = caninos_mmc_get_gpios(dev, "enable-gpios", &gpio_count);
 	
-	if (priv->enable_gpio == -EPROBE_DEFER) {
-		return -EPROBE_DEFER;
+	if (IS_ERR(gpios)) {
+		dev_err(dev, "unable to get enable-gpios\n");
+		return PTR_ERR(gpios);
 	}
 	
-	priv->power_gpio = of_get_named_gpio(dev->of_node, "power-gpios", 0);
-	
-	if (priv->power_gpio == -EPROBE_DEFER) {
-		return -EPROBE_DEFER;
-	}
-	
-	priv->reset_gpio = of_get_named_gpio(dev->of_node, "reset-gpios", 0);
-	
-	if (priv->reset_gpio == -EPROBE_DEFER) {
-		return -EPROBE_DEFER;
-	}
-	
-	if (gpio_is_valid(priv->enable_gpio))
+	for (i = 0; i < gpio_count; i++)
 	{
-		ret = devm_gpio_request(dev, priv->enable_gpio, "enable_gpio");
+		snprintf(buffer, sizeof(buffer), "sd%d-enable%d", priv->id, i);
+		
+		ret = devm_gpio_request(dev, gpios[i].gpio, buffer);
 		
 		if (ret < 0) {
-			dev_err(dev, "could not request enable gpio\n");
+			dev_err(dev, "unable to request enable gpio %d\n", gpios[i].gpio);
 			return ret;
 		}
+		
+		gpio_direction_output(gpios[i].gpio, gpios[i].invert);
 	}
 	
-	if (gpio_is_valid(priv->power_gpio))
-	{
-		ret = devm_gpio_request(dev, priv->power_gpio, "power_gpio");
-		
-		if (ret < 0) {
-			dev_err(dev, "could not request power gpio\n");
-			return ret;
-		}
+	priv->en_gpios = gpios;
+	priv->en_gpios_count = gpio_count;
+	
+	gpios = caninos_mmc_get_gpios(dev, "power-gpios", &gpio_count);
+	
+	if (IS_ERR(gpios)) {
+		dev_err(dev, "unable to get power-gpios\n");
+		return PTR_ERR(gpios);
 	}
 	
-	if (gpio_is_valid(priv->reset_gpio))
+	for (i = 0; i < gpio_count; i++)
 	{
-		ret = devm_gpio_request(dev, priv->reset_gpio, "reset_gpio");
+		snprintf(buffer, sizeof(buffer), "sd%d-power%d", priv->id, i);
+		
+		ret = devm_gpio_request(dev, gpios[i].gpio, buffer);
 		
 		if (ret < 0) {
-			dev_err(dev, "could not request reset gpio\n");
+			dev_err(dev, "unable to request power gpio %d\n", gpios[i].gpio);
 			return ret;
 		}
+		
+		gpio_direction_output(gpios[i].gpio, gpios[i].invert);
 	}
+	
+	priv->pwr_gpios = gpios;
+	priv->pwr_gpios_count = gpio_count;
 	return 0;
 }
 
@@ -994,14 +1092,12 @@ static int caninos_mmc_get_model_and_delays(struct mmc_host *host)
 	}
 	
 	priv->id = id;
-	
-	priv->wdelay.delay_lowclk  = 0xf;
-	priv->wdelay.delay_midclk  = 0xa;
-	priv->wdelay.delay_highclk = 0x6;
-	
-	priv->rdelay.delay_lowclk  = priv->wdelay.delay_lowclk;
-	priv->rdelay.delay_midclk  = priv->wdelay.delay_midclk;
-	priv->rdelay.delay_highclk = priv->wdelay.delay_highclk;
+	priv->wdelay.delay_lowclk  = SDC_WDELAY_LOW_CLK;
+	priv->wdelay.delay_midclk  = SDC_WDELAY_MID_CLK;
+	priv->wdelay.delay_highclk = SDC_WDELAY_HIGH_CLK;
+	priv->rdelay.delay_lowclk  = SDC_RDELAY_LOW_CLK;
+	priv->rdelay.delay_midclk  = SDC_RDELAY_MID_CLK;
+	priv->rdelay.delay_highclk = SDC_RDELAY_HIGH_CLK;
 	return 0;
 }
 
@@ -1010,18 +1106,6 @@ static int caninos_mmc_hardware_init(struct mmc_host *host)
 	struct caninos_mmc_host *priv = mmc_priv(host);
 	int ret;
 	
-	if (gpio_is_valid(priv->reset_gpio)) {
-		gpio_direction_output(priv->reset_gpio, 0);
-	}
-	if (gpio_is_valid(priv->enable_gpio)) {
-		gpio_direction_output(priv->enable_gpio, 0);
-	}
-	if (gpio_is_valid(priv->power_gpio)) {
-		gpio_direction_output(priv->power_gpio, 1);
-		usleep_range(10000, 12500);
-	}
-	
-	priv->device_enabled = false;
 	clk_prepare_enable(priv->clk);
 	reset_control_deassert(priv->rst);
 	caninos_mmc_disable_all_irqs(host);
@@ -1032,10 +1116,37 @@ static int caninos_mmc_hardware_init(struct mmc_host *host)
 	
 	if (ret) {
 		dev_err(priv->dev, "unable to request device irq: %d\n", priv->irq);
-		reset_control_assert(priv->rst);
 		clk_disable_unprepare(priv->clk);
 	}
 	return ret;
+}
+
+static int caninos_mmc_pinctrl_setup(struct mmc_host *host)
+{
+	struct caninos_mmc_host *priv = mmc_priv(host);
+	int ret;
+	
+	priv->pctl = devm_pinctrl_get(priv->dev);
+	
+	if (IS_ERR(priv->pctl)) {
+		dev_err(priv->dev, "failed to get pinctrl handler\n");
+		return PTR_ERR(priv->pctl);
+	}
+	
+	priv->def = pinctrl_lookup_state(priv->pctl, PINCTRL_STATE_DEFAULT);
+	
+	if (IS_ERR(priv->def)) {
+		dev_err(priv->dev, "could not get pinctrl default state\n");
+		return PTR_ERR(priv->def);
+	}
+	
+	ret = pinctrl_select_state(priv->pctl, priv->def);
+	
+	if (ret < 0) {
+		dev_err(priv->dev, "could not select default pinctrl state\n");
+		return ret;
+	}
+	return 0;
 }
 
 static int caninos_mmc_probe(struct platform_device *pdev)
@@ -1069,6 +1180,7 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 	priv = mmc_priv(mmc);
 	priv->mmc = mmc;
 	priv->dev = dev;
+	priv->enabled = false;
 	
 	spin_lock_init(&priv->lock);
 	init_completion(&priv->dma_complete);
@@ -1098,22 +1210,26 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 		return ret;
 	}
 	
+	ret = caninos_mmc_pinctrl_setup(mmc);
+	
+	if (ret < 0) {
+		mmc_free_host(mmc);
+		return ret;
+	}
+	
 	ret = caninos_mmc_get_all_gpios(mmc);
 	
 	if (ret < 0) {
-		if (ret == -EPROBE_DEFER) {
-			dev_info(dev, "gpio is not ready\n");
-		}
 		mmc_free_host(mmc);
 		return ret;
 	}
 	
 	priv->base = devm_ioremap(dev, res->start, resource_size(res));
 	
-	if (IS_ERR_OR_NULL(priv->base)) {
+	if (!priv->base) {
 		dev_err(dev, "could not map device registers\n");
 		mmc_free_host(mmc);
-		return IS_ERR(priv->base) ? PTR_ERR(priv->base) : -ENOMEM;
+		return -ENOMEM;
 	}
 	
 	priv->clk = devm_clk_get(dev, NULL);
@@ -1169,8 +1285,9 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 	mmc->ocr_avail |= MMC_VDD_33_34 | MMC_VDD_34_35 | MMC_VDD_35_36;
 	mmc->ocr_avail |= MMC_VDD_165_195;
 	
-	mmc->ocr_avail_mmc = mmc->ocr_avail;
-	mmc->ocr_avail_sd = mmc->ocr_avail;
+	mmc->ocr_avail_mmc  = mmc->ocr_avail;
+	mmc->ocr_avail_sd   = mmc->ocr_avail;
+	mmc->ocr_avail_sdio = mmc->ocr_avail;
 	
 	mmc->caps  = MMC_CAP_4_BIT_DATA;
 	mmc->caps |= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED;
@@ -1200,6 +1317,12 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 		return ret;
 	}
 	
+	pm_runtime_dont_use_autosuspend(dev);
+	pm_runtime_mark_last_busy(priv->dev);
+	pm_runtime_set_active(priv->dev);
+	pm_runtime_enable(priv->dev);
+	pm_runtime_get(priv->dev);
+	
 	ret = mmc_add_host(mmc);
 	
 	if (ret)
@@ -1208,8 +1331,9 @@ static int caninos_mmc_probe(struct platform_device *pdev)
 		dma_release_channel(priv->dma);
 		mmc_free_host(mmc);
 		devm_free_irq(priv->dev, priv->irq, priv);
-		reset_control_assert(priv->rst);
 		clk_disable_unprepare(priv->clk);
+		pm_runtime_put(priv->dev);
+		pm_runtime_disable(priv->dev);
 		return ret;
 	}
 	
@@ -1225,10 +1349,44 @@ static int caninos_mmc_remove(struct platform_device *pdev)
 	dma_release_channel(priv->dma);
 	mmc_free_host(host);
 	devm_free_irq(priv->dev, priv->irq, priv);
-	reset_control_assert(priv->rst);
 	clk_disable_unprepare(priv->clk);
+	pm_runtime_put(priv->dev);
+	pm_runtime_disable(priv->dev);
 	return 0;
 }
+
+static void caninos_mmc_shutdown(struct platform_device *pdev)
+{
+	struct caninos_mmc_host *priv = platform_get_drvdata(pdev);
+	struct mmc_host *host = priv ? priv->mmc : NULL;
+	
+	if (host) {
+		caninos_mmc_disable_all_irqs(host);
+		caninos_mmc_stop_transmission(host);
+		caninos_mmc_power_off(host);
+		clk_disable_unprepare(priv->clk);
+	}
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int caninos_mmc_suspend(struct device *dev)
+{
+	return -EBUSY;
+}
+
+static int caninos_mmc_resume(struct device *dev)
+{
+	return 0;
+}
+
+const struct dev_pm_ops caninos_mmc_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(caninos_mmc_suspend, caninos_mmc_resume),
+};
+
+#define CANINOS_MMC_PM (&caninos_mmc_pm_ops)
+#else
+#define CANINOS_MMC_PM NULL
+#endif
 
 static const struct of_device_id caninos_mmc_of_match[] = {
 	{ .compatible = "caninos,k7-mmc", .data = (void*)(MMC_HW_MODEL_K7), },
@@ -1240,25 +1398,18 @@ MODULE_DEVICE_TABLE(of, caninos_mmc_of_match);
 
 static struct platform_driver caninos_mmc_driver = {
 	.driver = {
-		.name = "caninos-mmc",
+		.name = DRIVER_NAME,
 		.of_match_table = caninos_mmc_of_match,
 		.owner = THIS_MODULE,
+		.pm = CANINOS_MMC_PM,
 	},
-	.probe  = caninos_mmc_probe,
+	.probe = caninos_mmc_probe,
 	.remove = caninos_mmc_remove,
+	.shutdown = caninos_mmc_shutdown,
 };
 
-static int __init caninos_driver_init(void) {
-	return platform_driver_register(&caninos_mmc_driver);
-}
-
-static void __exit caninos_driver_exit(void) {
-	platform_driver_unregister(&caninos_mmc_driver);
-}
-
-module_init(caninos_driver_init);
-module_exit(caninos_driver_exit);
+module_platform_driver(caninos_mmc_driver);
 
 MODULE_AUTHOR("Edgar Bernardi Righi <edgar.righi@lsitec.org.br>");
-MODULE_DESCRIPTION("Caninos Labrador MMC Host Controller Driver");
+MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL v2");

@@ -1355,6 +1355,13 @@ static int caninos_hdmi_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void caninos_hdmi_shutdown(struct platform_device *pdev)
+{
+	struct caninos_hdmi *hdmi = platform_get_drvdata(pdev);
+	if (hdmi && hdmi->ops.exit)
+		hdmi->ops.exit(hdmi);
+}
+
 static const struct of_device_id caninos_hdmi_match[] = {
 	{ .compatible = "caninos,k7-hdmi", .data = (void*)&caninos_hwdiff_k7 },
 	{ .compatible = "caninos,k5-hdmi", .data = (void*)&caninos_hwdiff_k5 },
@@ -1364,6 +1371,7 @@ static const struct of_device_id caninos_hdmi_match[] = {
 struct platform_driver caninos_hdmi_plat_driver = {
 	.probe = caninos_hdmi_probe,
 	.remove = caninos_hdmi_remove,
+	.shutdown = caninos_hdmi_shutdown,
 	.driver = {
 		.name = "caninos-hdmi",
 		.of_match_table = of_match_ptr(caninos_hdmi_match),

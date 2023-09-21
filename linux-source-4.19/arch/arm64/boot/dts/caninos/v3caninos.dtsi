@@ -254,6 +254,18 @@
 				function = "eth";
 				groups = "eth_rgmii_grp";
 			};
+			sdio0_state_def: sdio0_def {
+				function = "sdio0";
+				groups = "sdio0_grp";
+			};
+			sdio1_state_def: sdio1_def {
+				function = "sdio1";
+				groups = "sdio1_grp";
+			};
+			sdio2_state_def: sdio2_def {
+				function = "sdio2";
+				groups = "sdio2_grp";
+			};
 		};
 		
 		pwm: pwm@e01b0000 {
@@ -488,6 +500,9 @@
 			dmas = <&dma DMA_DRQ_SD0>;
 			dma-names = "mmc";
 			status = "okay";
+			
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdio0_state_def>;
 		};
 		
 		mmc1: mmc@e0214000 {
@@ -500,10 +515,13 @@
 			reset-names = "mmc";
 			dmas = <&dma DMA_DRQ_SD1>;
 			dma-names = "mmc";
-			power-gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>; //base v1.0a
-			enable-gpios = <&gpiob 30 GPIO_ACTIVE_HIGH>;
-			reset-gpios = <&gpioc 3 GPIO_ACTIVE_HIGH>;
+			power-gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>; /* base v1.0a */
+			enable-gpios = <&gpiob 30 GPIO_ACTIVE_HIGH>, 
+			               <&gpioc 3 GPIO_ACTIVE_HIGH>;
 			status = "okay";
+			
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdio1_state_def>;
 		};
 		
 		mmc2: mmc@e0218000 {
@@ -517,6 +535,9 @@
 			dmas = <&dma DMA_DRQ_SD2>;
 			dma-names = "mmc";
 			status = "okay";
+			
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdio2_state_def>;
 		};
 		
 		i2c0: i2c@e0170000 {

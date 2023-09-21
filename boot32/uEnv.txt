@@ -1,0 +1,2 @@
+uenvcmd=setenv ramdisk_addr_r -; setenv os_type linux;
+bootargs=scandelay root=/dev/mmcblk0p2 rw console=tty0 loglevel=0 rootwait

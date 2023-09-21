@@ -36,6 +36,18 @@ static const char * const eth_groups[] = {
 	"eth_rmii_grp"
 };
 
+static const char * const sdio0_groups[] = {
+	"sdio0_grp"
+};
+
+static const char * const sdio1_groups[] = {
+	"sdio1_grp"
+};
+
+static const char * const sdio2_groups[] = {
+	"sdio2_grp"
+};
+
 static const struct caninos_pmx_func caninos_functions[] = {
 	{
 		.name = "uart0",
@@ -56,6 +68,21 @@ static const struct caninos_pmx_func caninos_functions[] = {
 		.name = "eth",
 		.groups = eth_groups,
 		.num_groups = ARRAY_SIZE(eth_groups),
+	},
+	{
+		.name = "sdio0",
+		.groups = sdio0_groups,
+		.num_groups = ARRAY_SIZE(sdio0_groups),
+	},
+	{
+		.name = "sdio1",
+		.groups = sdio1_groups,
+		.num_groups = ARRAY_SIZE(sdio1_groups),
+	},
+	{
+		.name = "sdio2",
+		.groups = sdio2_groups,
+		.num_groups = ARRAY_SIZE(sdio2_groups),
 	},
 };
 
@@ -207,6 +234,18 @@ static const unsigned int eth_rmii_pins[] = {
 	GPIOA(19), GPIOA(20), GPIOA(18), GPIOA(22), GPIOA(23)
 };
 
+static const unsigned int sdio0_pins[] = {
+	GPIOC(10), GPIOC(11), GPIOC(12), GPIOC(13), GPIOC(18), GPIOC(19)
+};
+
+static const unsigned int sdio1_pins[] = {
+	GPIOC(14), GPIOC(15), GPIOC(16), GPIOC(17), GPIOC(20), GPIOC(21)
+};
+
+static const unsigned int sdio2_pins[] = {
+	GPIOD(12), GPIOD(13), GPIOD(15), GPIOD(16), GPIOA(12), GPIOA(13)
+};
+
 //      RMII
 // RMII_REF_CLK  --> GPIOA21
 // RMII_TXD1     --> GPIOA15
@@ -255,6 +294,21 @@ static const struct caninos_group caninos_groups[] = {
 		.pins = eth_rmii_pins,
 		.num_pins = ARRAY_SIZE(eth_rmii_pins),
 	},
+	{
+		.name = "sdio0_grp",
+		.pins = sdio0_pins,
+		.num_pins = ARRAY_SIZE(sdio0_pins),
+	},
+	{
+		.name = "sdio1_grp",
+		.pins = sdio1_pins,
+		.num_pins = ARRAY_SIZE(sdio1_pins),
+	},
+	{
+		.name = "sdio2_grp",
+		.pins = sdio2_pins,
+		.num_pins = ARRAY_SIZE(sdio2_pins),
+	},
 };
 
 static int caninos_pinctrl_hwinit(struct caninos_pinctrl *pctl)
@@ -262,15 +316,15 @@ static int caninos_pinctrl_hwinit(struct caninos_pinctrl *pctl)
 	writel(0x00000000, pctl->base + MFP_CTL0);
 	writel(0x2e400070, pctl->base + MFP_CTL1);
 	writel(0x10000600, pctl->base + MFP_CTL2);
-	writel(0x400000f8, pctl->base + MFP_CTL3);
-	writel(0x00000000, pctl->base + PAD_PULLCTL0);
+	writel(0x40000008, pctl->base + MFP_CTL3);
+	writel(0x60000000, pctl->base + PAD_PULLCTL0);
 	writel(0x0203f879, pctl->base + PAD_PULLCTL1);
 	writel(0x00000004, pctl->base + PAD_PULLCTL2);
 	writel(0x40401880, pctl->base + PAD_ST0);
 	writel(0x00000140, pctl->base + PAD_ST1);
 	writel(0x00000002, pctl->base + PAD_CTL);
 	writel(0x20aaaaaa, pctl->base + PAD_DRV0);
-	writel(0xaa8a0800, pctl->base + PAD_DRV1);
+	writel(0xaaaaa800, pctl->base + PAD_DRV1);
 	writel(0xa9482008, pctl->base + PAD_DRV2);
 	return 0;
 }

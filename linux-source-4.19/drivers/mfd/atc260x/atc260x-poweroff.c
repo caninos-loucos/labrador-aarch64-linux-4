@@ -221,19 +221,52 @@ static void atc260x_destroy_input_device(void)
 static int atc260x_poweroff_setup(void)
 {
 	// set ATC2603C_PMU_SYS_CTL0 value
+	//  0 - USB_WK_EN
+	//  0 - WALL_WK_EN
+	//  1 - ONOFF_LONG_WK_EN
+	//  1 - ONOFF_SHORT_WK_EN
+	//  0 - SGPIOIRQ_WK_EN
+	//  0 - RESTART_EN
+	//  0 - REM_CON_WK_EN
+	//  0 - ALARM_WK_EN
+	//  1 - HDSW_WK_EN
+	//  0 - RESET_WK_E
+	//  0 - IR_WK_EN
+	// 01 - VBUS_WK_TH (4.2V)
+	// 01 - WALL_WK_TH (4.2V)
+	//  1 - ONOFF_MUXKEY_EN
+	
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0x304B);
 	
 	// set ATC2603C_PMU_SYS_CTL1 value
+	// 1111
+	
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xF);
 	
 	// set ATC2603C_PMU_SYS_CTL2 value
+	//   0 - ONOFF_PRESS
+	//   1 - ONOFF_SHORT_PRESS (1 to clear)
+	//   1 - ONOFF_LONG_PRESS  (1 to clear)
+	//   0 - ONOFF_INT_EN
+	//  01 - ONOFF_PRESS_TIME
+	//   1 - ONOFF_PRESS_Reset_EN
+	//  00 - ONOFF_RESET_TIME_SEL
+	//   0 - S2_TIMER_EN
+	// 000 - S2TIMER
+	//   0 - ONOFF_PRESS_PD
+	//   0 - ONOFF_PRESS_INT_EN
+	//   0 - PMU_A_EN
+	
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x6680);
 	
 	// set ATC2603C_PMU_SYS_CTL3 value
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL3, 0x80);
 	
+	// set ATC2603C_PMU_SYS_CTL4 value
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL4, 0x80);
+	
 	// set ATC2603C_PMU_SYS_CTL5 value
-	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x00);
+	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL5, 0x180);
 	
 	return 0;
 }
@@ -244,12 +277,11 @@ static void atc260x_poweroff(void)
 	
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x6680);
 	
-	ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0xE);
+	ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL1, 0x80 | BIT(14));
 	
 	if (ret < 0) {
 		pr_err("system poweroff failed.\n");
 	}
-	
 	for(;;) { /* must never return */
 		cpu_relax();
 	}
@@ -260,13 +292,12 @@ static void atc260x_restart(enum reboot_mode reboot_mode, const char *cmd)
 	int ret;
 	
 	atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL2, 0x6680);
-
-	ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0x344B);
+	
+	ret = atc260x_reg_write(pmic, ATC2603C_PMU_SYS_CTL0, 0x304B | BIT(10));
 	
 	if (ret < 0) {
 		pr_err("system restart failed.\n");
 	}
-	
 	for(;;) { /* must never return */
 		cpu_relax();
 	}

@@ -25,6 +25,7 @@
 #include <linux/property.h>
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/ktime.h>
 #include <linux/clk.h>
 #include <linux/slab.h>
 
@@ -129,21 +130,36 @@ static void caninos_dma_pchan_resume(struct lab_dma *cd,
 	}
 }
 
-static int caninos_dma_pchan_busy(struct lab_dma *cd,
-                                  struct lab_dma_pchan *pchan)
+static int caninos_dma_pchan_busy_wait(struct lab_dma *cd,
+                                       struct lab_dma_pchan *pchan)
 {
+	ktime_t timeout;
 	u32 val;
 	
-	if(cd->devid == DEVID_K5_DMAC)
-	{
-		/* bus delay */
-		dma_readl(cd, DMA_IDLE_STAT);
-		dma_readl(cd, DMA_IDLE_STAT);
-		dma_readl(cd, DMA_IDLE_STAT);
-	}
+	/* 50us should be enough */ 
+	timeout = ktime_add_us(ktime_get(), 50);
 	
-	val = dma_readl(cd, DMA_IDLE_STAT);
-	return !(val & (1U << pchan->id));
+	for (;;) {
+		if(cd->devid == DEVID_K5_DMAC)
+		{
+			/* bus delay */
+			dma_readl(cd, DMA_IDLE_STAT);
+			dma_readl(cd, DMA_IDLE_STAT);
+			dma_readl(cd, DMA_IDLE_STAT);
+		}
+		
+		val = dma_readl(cd, DMA_IDLE_STAT);
+		
+		if (val & BIT(pchan->id)) {
+			return 0;
+		}
+		if (ktime_compare(ktime_get(), timeout) > 0) {
+			break;
+		}
+		
+		cpu_relax();
+	}
+	return -ETIMEDOUT;
 }
 
 static int caninos_dma_start_next_txd(struct lab_dma_vchan *vchan)
@@ -160,8 +176,8 @@ static int caninos_dma_start_next_txd(struct lab_dma_vchan *vchan)
 	vchan->txd = txd;
 	
 	/* wait for channel inactive */
-	while (caninos_dma_pchan_busy(cd, pchan)) {
-		cpu_relax();
+	if (caninos_dma_pchan_busy_wait(cd, pchan) < 0) {
+		caninos_dma_terminate_pchan(cd, pchan);
 	}
 	
 	lli = list_first_entry(&txd->lli_list, struct lab_dma_lli, node);
@@ -1306,6 +1322,6 @@ static void __exit caninos_dma_exit(void)
 }
 module_exit(caninos_dma_exit);
 
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_AUTHOR("Edgar Bernardi Righi <edgar.righi@lsitec.org.br>");
+MODULE_DESCRIPTION(DRIVER_DESC);
+MODULE_LICENSE("GPL v2");

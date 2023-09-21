@@ -368,6 +368,15 @@ static int caninos_vdc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void caninos_vdc_shutdown(struct platform_device *pdev)
+{
+	struct caninos_vdc *priv = platform_get_drvdata(pdev);
+	
+	if (priv) {
+		de_fini(priv);
+	}
+}
+
 static const struct of_device_id caninos_vdc_match[] = {
 	{ .compatible = "caninos,k7-vdc", .data = (void*)DE_HW_K7 },
 	{ .compatible = "caninos,k5-vdc", .data = (void*)DE_HW_K5 },
@@ -377,6 +386,7 @@ static const struct of_device_id caninos_vdc_match[] = {
 struct platform_driver caninos_vdc_plat_driver = {
 	.probe = caninos_vdc_probe,
 	.remove = caninos_vdc_remove,
+	.shutdown = caninos_vdc_shutdown,
 	.driver = {
 		.name = "caninos-vdc",
 		.of_match_table = of_match_ptr(caninos_vdc_match),

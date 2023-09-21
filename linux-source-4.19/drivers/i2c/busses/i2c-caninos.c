@@ -32,6 +32,7 @@
 #include <linux/platform_device.h>
 #include <linux/reset.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/ktime.h>
 
 #define CANINOS_I2C_KILO_HZ       (1000UL)
 #define CANINOS_I2C_MEGA_HZ       (1000000UL)
@@ -163,7 +164,7 @@ static inline void caninos_i2c_set_freq(struct caninos_i2c_dev *md)
 	writel(I2C_CLKDIV_DIV(div), md->base + I2C_CLKDIV);
 }
 
-static inline int caninos_i2c_wait_if_busy(struct caninos_i2c_dev *md)
+static inline int caninos_i2c_wait_bus_busy(struct caninos_i2c_dev *md)
 {
 	const unsigned long timeout_us = CANINOS_I2C_TIMEOUT_MS * 1000UL;
 	u32 val;
@@ -193,25 +194,21 @@ static inline void caninos_i2c_clear_status(struct caninos_i2c_dev *md)
 	caninos_i2c_reset_fifo(md);
 }
 
-static inline void caninos_i2c_reset(struct caninos_i2c_dev *md)
-{
-	writel(0U, md->base + I2C_CTL);
-	writel(I2C_CTL_EN, md->base + I2C_CTL);
-	caninos_i2c_reset_fifo(md);
-}
-
-static inline int caninos_i2c_hwinit(struct caninos_i2c_dev *md)
+static inline void caninos_i2c_hwinit(struct caninos_i2c_dev *md)
 {
 	writel(I2C_CTL_EN, md->base + I2C_CTL);
 	caninos_i2c_clear_status(md);
 	caninos_i2c_set_freq(md);
-	return 0;
+}
+
+static inline void caninos_i2c_hwfini(struct caninos_i2c_dev *md)
+{
+	writel(0x0, md->base + I2C_CTL);
 }
 
 static inline void caninos_i2c_force_stop(struct caninos_i2c_dev *md, u32 addr)
 {
-	/* reset the i2c controller to stop current cmd */
-	caninos_i2c_reset(md);
+	caninos_i2c_hwfini(md);
 	caninos_i2c_hwinit(md);
 	
 	/* send start command */
@@ -254,38 +251,6 @@ static inline void caninos_i2c_fifo_rw(struct caninos_i2c_dev *md)
 	}
 }
 
-static irqreturn_t i2c_irq_handler(int irq, void *data)
-{
-	struct caninos_i2c_dev *md = (struct caninos_i2c_dev *)(data);
-	u32 stat = readl(md->base + I2C_STAT);
-	u32 fifostat = readl(md->base + I2C_FIFOSTAT);
-	
-	if (fifostat & I2C_FIFOSTAT_RNB) {
-		md->state = STATE_TRANSFER_ERROR;
-	}
-	else if (stat & I2C_STAT_LAB) {
-		md->state = STATE_TRANSFER_ERROR;
-	}
-	else if (stat & I2C_STAT_BEB) {
-		md->state = STATE_TRANSFER_ERROR;
-	}
-	else {
-		caninos_i2c_fifo_rw(md);
-	}
-	
-	readl(md->base + I2C_STAT); /* do not remove */
-	writel(I2C_STAT_IRQP, md->base + I2C_STAT);
-	
-	if (md->state == STATE_TRANSFER_ERROR) {
-		caninos_i2c_reset(md);
-		complete_all(&md->cmd_complete);
-	}
-	else if (md->state == STATE_TRANSFER_OVER) {
-		complete_all(&md->cmd_complete);
-	}
-	return IRQ_HANDLED;
-}
-
 static inline bool caninos_i2c_msg_is_valid(struct i2c_msg *msgs, int num)
 {
 	bool valid = false;
@@ -313,12 +278,20 @@ static int caninos_i2c_do_transfer(struct caninos_i2c_dev *md,
 		return -EINVAL;
 	}
 	
+	caninos_i2c_hwinit(md);
+	ret = caninos_i2c_wait_bus_busy(md);
+	
+	if (ret < 0) {
+		caninos_i2c_hwfini(md);
+		return ret;
+	}
+	
 	addr = ((u32)(msgs[0].addr) & 0x7f) << 1;
 	
 	init_completion(&md->cmd_complete);
 	
 	/* enable I2C controller IRQ */
-	writel(I2C_CTL_IRQE | I2C_CTL_EN, md->base + I2C_CTL);
+	writel(I2C_CTL_IRQE | readl(md->base + I2C_CTL), md->base + I2C_CTL);
 	
 	fifo_cmd = I2C_CMD_EXEC | I2C_CMD_MSS | I2C_CMD_SE | I2C_CMD_DE;
 	fifo_cmd |= I2C_CMD_NS | I2C_CMD_SBE;
@@ -399,12 +372,144 @@ static int caninos_i2c_do_transfer(struct caninos_i2c_dev *md,
 	else {
 		ret = -ENXIO;
 	}
+	
 	if (ret < 0) {
 		caninos_i2c_force_stop(md, addr);
 	}
+	caninos_i2c_hwfini(md);
+	return ret;
+}
+
+static int caninos_i2c_do_transfer_atomic(struct caninos_i2c_dev *md,
+                                          struct i2c_msg *msgs, int num)
+{
+	u32 fifo_cmd, addr, stat, fifostat;
+	ktime_t timeout;
+	int i, ret;
 	
-	/* disable i2c controller */
-	writel(0U, md->base + I2C_CTL);
+	if (!caninos_i2c_msg_is_valid(msgs, num)) {
+		return -EINVAL;
+	}
+	
+	caninos_i2c_hwinit(md);
+	ret = caninos_i2c_wait_bus_busy(md);
+	
+	if (ret < 0) {
+		caninos_i2c_hwfini(md);
+		return ret;
+	}
+	
+	addr = ((u32)(msgs[0].addr) & 0x7f) << 1;
+	
+	fifo_cmd = I2C_CMD_EXEC | I2C_CMD_MSS | I2C_CMD_SE | I2C_CMD_DE;
+	fifo_cmd |= I2C_CMD_NS | I2C_CMD_SBE;
+	
+	if (num == 2)
+	{
+		/* set internal address and restart cmd for read operation */
+		fifo_cmd |= I2C_CMD_AS(msgs[0].len + 1);
+		fifo_cmd |= I2C_CMD_SAS(1) | I2C_CMD_RBE;
+		
+		/* write i2c device address */
+		writel(addr, md->base + I2C_TXDAT);
+		
+		/* write internal register address */
+		for (i = 0; i < msgs[0].len; i++) {
+			writel(msgs[0].buf[i], md->base + I2C_TXDAT);
+		}
+		
+		md->msg = &msgs[1];
+		md->idx = 0U;
+	}
+	else
+	{
+		/* only send device addess for 1 message */
+		fifo_cmd |= I2C_CMD_AS(1);
+		
+		md->msg = &msgs[0];
+		md->idx = 0U;
+	}
+	
+	/* set data count for the message */
+	writel(md->msg->len, md->base + I2C_DATCNT);
+	
+	if (md->msg->flags & I2C_M_RD)
+	{
+		/* read from device, with WR bit */
+		writel(addr | 1U, md->base + I2C_TXDAT);
+		md->state = STATE_READ_DATA;
+	}
+	else
+	{
+		/* write to device */
+		writel(addr, md->base + I2C_TXDAT);
+		
+		/* write data to FIFO */
+		for (i = 0; i < md->msg->len; i++)
+		{
+			if (readl(md->base + I2C_FIFOSTAT) & I2C_FIFOSTAT_TFF) {
+				break;
+			}
+			writel(md->msg->buf[i], md->base + I2C_TXDAT);
+		}
+		
+		md->idx = i;
+		md->state = STATE_WRITE_DATA;
+	}
+	
+	/* ignore the NACK if needed */
+	if (md->msg->flags & I2C_M_IGNORE_NAK) {
+		writel(I2C_FIFOCTL_NIB, md->base + I2C_FIFOCTL);
+	}
+	else {
+		writel(0U, md->base + I2C_FIFOCTL);
+	}
+	
+	/* write fifo command to start transfer */
+	writel(fifo_cmd, md->base + I2C_CMD);
+	
+	timeout = ktime_add_ms(ktime_get(), CANINOS_I2C_TIMEOUT_MS);
+	ret = 0;
+	
+	for (;;)
+	{
+		stat = readl(md->base + I2C_STAT);
+		fifostat = readl(md->base + I2C_FIFOSTAT);
+		
+		if (fifostat & I2C_FIFOSTAT_RNB) {
+			md->state = STATE_TRANSFER_ERROR;
+		}
+		else if (stat & I2C_STAT_LAB) {
+			md->state = STATE_TRANSFER_ERROR;
+		}
+		else if (stat & I2C_STAT_BEB) {
+			md->state = STATE_TRANSFER_ERROR;
+		}
+		else {
+			caninos_i2c_fifo_rw(md);
+		}
+		
+		readl(md->base + I2C_STAT); /* do not remove */
+		
+		if (md->state == STATE_TRANSFER_OVER) {
+			break;
+		}
+		if (md->state == STATE_TRANSFER_ERROR) {
+			ret = -ENXIO;
+			break;
+		}
+		if (ktime_compare(ktime_get(), timeout) > 0) {
+			ret = -EREMOTEIO;
+			break;
+		}
+		
+		cpu_relax();
+	}
+	
+	if (ret < 0) {
+		caninos_i2c_force_stop(md, addr);
+	}
+	caninos_i2c_hwfini(md);
 	return ret;
 }
 
@@ -415,28 +520,54 @@ static int caninos_i2c_xfer(struct i2c_adapter *adap,
 	int ret;
 	
 	if (md->extio_state) {
-		if (pinctrl_select_state(md->pctl, md->extio_state) < 0)
+		if (pinctrl_select_state(md->pctl, md->extio_state) < 0) {
 			return -EAGAIN;
-	}
-	
-	caninos_i2c_hwinit(md);
-	
-	ret = caninos_i2c_wait_if_busy(md);
-	
-	if (ret < 0) {
-		if (md->extio_state) {
-			pinctrl_select_state(md->pctl, md->def_state);
 		}
-		return ret;
 	}
 	
-	ret = caninos_i2c_do_transfer(md, msgs, num);
+	if (irqs_disabled()) {
+		ret = caninos_i2c_do_transfer_atomic(md, msgs, num);
+	}
+	else {
+		ret = caninos_i2c_do_transfer(md, msgs, num);
+	}
 	
 	if (md->extio_state) {
 		pinctrl_select_state(md->pctl, md->def_state);
 	}
 	
 	return (ret < 0) ? ret : num;
+}
+
+static irqreturn_t i2c_irq_handler(int irq, void *data)
+{
+	struct caninos_i2c_dev *md = (struct caninos_i2c_dev *)(data);
+	u32 stat = readl(md->base + I2C_STAT);
+	u32 fifostat = readl(md->base + I2C_FIFOSTAT);
+	
+	if (fifostat & I2C_FIFOSTAT_RNB) {
+		md->state = STATE_TRANSFER_ERROR;
+	}
+	else if (stat & I2C_STAT_LAB) {
+		md->state = STATE_TRANSFER_ERROR;
+	}
+	else if (stat & I2C_STAT_BEB) {
+		md->state = STATE_TRANSFER_ERROR;
+	}
+	else {
+		caninos_i2c_fifo_rw(md);
+	}
+	
+	readl(md->base + I2C_STAT); /* do not remove */
+	writel(I2C_STAT_IRQP, md->base + I2C_STAT);
+	
+	if (md->state == STATE_TRANSFER_ERROR) {
+		complete_all(&md->cmd_complete);
+	}
+	else if (md->state == STATE_TRANSFER_OVER) {
+		complete_all(&md->cmd_complete);
+	}
+	return IRQ_HANDLED;
 }
 
 static u32 caninos_i2c_func(struct i2c_adapter *adap) {
@@ -446,7 +577,6 @@ static u32 caninos_i2c_func(struct i2c_adapter *adap) {
 static const struct i2c_algorithm caninos_i2c_algorithm = {
 	.master_xfer = caninos_i2c_xfer,
 	.functionality = caninos_i2c_func,
-	/* TODO: use master_xfer_atomic for PMIC at shutdown */
 };
 
 static int caninos_i2c_pinctrl_setup(struct caninos_i2c_dev *md)

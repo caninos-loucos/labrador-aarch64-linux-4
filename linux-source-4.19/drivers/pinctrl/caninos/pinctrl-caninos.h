@@ -32,42 +32,29 @@
 #define BANK_LABEL_LEN (16U)
 #define GPIO_PER_BANK  (32U)
 
-#define GPIO_REGBASE(x) ((x) * 0xc)
-
 #define GPIOA(x) (  0U + (x))
 #define GPIOB(x) ( 32U + (x))
 #define GPIOC(x) ( 64U + (x))
 #define GPIOD(x) ( 96U + (x))
 #define GPIOE(x) (128U + (x))
 
-#define GPIO_AOUTEN  0x00
-#define GPIO_AINEN   0x04
-#define GPIO_ADAT    0x08
-#define GPIO_BOUTEN  0x0C
-#define GPIO_BINEN   0x10
-#define GPIO_BDAT    0x14
-#define GPIO_COUTEN  0x18
-#define GPIO_CINEN   0x1C
-#define GPIO_CDAT    0x20
-#define GPIO_DOUTEN  0x24
-#define GPIO_DINEN   0x28
-#define GPIO_DDAT    0x2C
-#define GPIO_EOUTEN  0x30
-#define GPIO_EINEN   0x34
-#define GPIO_EDAT    0x38
-#define MFP_CTL0     0x40
-#define MFP_CTL1     0x44
-#define MFP_CTL2     0x48
-#define MFP_CTL3     0x4C
-#define PAD_PULLCTL0 0x60
-#define PAD_PULLCTL1 0x64
-#define PAD_PULLCTL2 0x68
-#define PAD_ST0      0x6C
-#define PAD_ST1      0x70
-#define PAD_CTL      0x74
-#define PAD_DRV0     0x80
-#define PAD_DRV1     0x84
-#define PAD_DRV2     0x88
+#define GPIO_OUTEN(x) (((x) * 0xC) + 0x00)
+#define GPIO_INEN(x)  (((x) * 0xC) + 0x04)
+#define GPIO_DAT(x)   (((x) * 0xC) + 0x08)
+
+#define MFP_CTL0      (0x40)
+#define MFP_CTL1      (0x44)
+#define MFP_CTL2      (0x48)
+#define MFP_CTL3      (0x4C)
+#define PAD_PULLCTL0  (0x60)
+#define PAD_PULLCTL1  (0x64)
+#define PAD_PULLCTL2  (0x68)
+#define PAD_ST0       (0x6C)
+#define PAD_ST1       (0x70)
+#define PAD_CTL       (0x74)
+#define PAD_DRV0      (0x80)
+#define PAD_DRV1      (0x84)
+#define PAD_DRV2      (0x88)
 
 /* CTLR */
 #define GPIO_CTLR_PENDING        (0x1 << 0)
@@ -111,6 +98,10 @@ struct caninos_gpio_chip
 	struct caninos_pinctrl *pinctrl;
 	struct gpio_chip gpio_chip;
 	char label[BANK_LABEL_LEN];
+	volatile u32 *inen;
+	volatile u32 *outen;
+	volatile u32 *dat;
+	raw_spinlock_t lock;
 	int addr, npins;
 	u32 mask;
 };
